@@ -1,0 +1,8 @@
+# Polymarket Price Tracker V1 — backend dependencies (all open-source, no paid libs)
+fastapi>=0.115          # web framework: REST API + serves frontend dist/
+uvicorn[standard]>=0.30 # ASGI server (systemd runs this 24/7)
+apscheduler>=3.10       # in-process polling jobs, one per poll interval
+httpx>=0.27             # async HTTP client for Gamma + CLOB APIs
+pydantic>=2.7           # request/response models (ships with fastapi)
+pydantic-settings>=2.3  # typed settings loaded from .env
+python-dotenv>=1.0      # .env file loading

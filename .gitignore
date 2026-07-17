@@ -1,0 +1,22 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Secrets / local config
+.env
+
+# Data — never commit collected market data
+prices.db
+prices.db-wal
+prices.db-shm
+
+# Node
+frontend/node_modules/
+
+# NOTE: frontend/dist/ is intentionally NOT ignored —
+# the spec ships the pre-built bundle so install stays simple.
+
+# OS / editor
+.DS_Store
+Thumbs.db

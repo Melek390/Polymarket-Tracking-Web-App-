@@ -1,0 +1,14 @@
+[Unit]
+Description=Polymarket Price Tracker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tracker
+WorkingDirectory=/opt/polymarket-tracker
+ExecStart=/opt/polymarket-tracker/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
