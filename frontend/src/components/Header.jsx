@@ -1,5 +1,6 @@
 import { T, monoText, btn } from "../theme.js";
 
+// Top bar: app name, collector health dot, and a refresh button.
 export default function Header({ collectorRunning, refreshing, onRefresh }) {
   return (
     <header

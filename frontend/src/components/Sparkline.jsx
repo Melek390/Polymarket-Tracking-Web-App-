@@ -3,6 +3,7 @@ import { T } from "../theme.js";
 const W = 96;
 const H = 26;
 
+// Tiny inline price line for a market row; dimmed when the market is paused.
 export default function Sparkline({ points, dimmed }) {
   if (!points || points.length < 2) {
     return <svg width={W} height={H} />;

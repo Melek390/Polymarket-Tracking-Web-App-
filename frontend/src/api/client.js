@@ -34,6 +34,7 @@ function toMarket(m) {
   return {
     id: m.id,
     event: m.event_title,
+    eventSlug: m.event_slug,
     question: m.question,
     kind: m.kind,
     tracking: Boolean(m.tracking),

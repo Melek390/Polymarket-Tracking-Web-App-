@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { T, label, monoText, btn } from "../theme.js";
+import { fmtCents } from "../utils.js";
 
+// Checkbox list of screener/multi-lookup results, tracked by the same flow as events.
 export default function ScreenerPanel({
   results,
   onTrack,
@@ -138,7 +140,7 @@ export default function ScreenerPanel({
                     }}
                   >
                     {o.label}
-                    {o.price != null ? ` ${o.price.toFixed(3)}` : ""}
+                    {o.price != null ? ` ${fmtCents(o.price)}` : ""}
                   </span>
                 );
               })}

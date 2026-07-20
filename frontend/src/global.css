@@ -32,6 +32,10 @@ body {
   background: #f8f9fb;
 }
 
+.name-link:hover {
+  text-decoration: underline;
+}
+
 button:hover:not(:disabled) {
   filter: brightness(0.96);
 }

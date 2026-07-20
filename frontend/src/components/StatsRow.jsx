@@ -1,6 +1,7 @@
 import { T, card, label, monoText } from "../theme.js";
 import { timeAgo } from "../utils.js";
 
+// One dashboard stat: a label, a big value, and a faint hint line.
 function StatCard({ title, value, hint }) {
   return (
     <div style={{ ...card, flex: "1 1 200px", padding: "14px 18px" }}>
@@ -13,6 +14,7 @@ function StatCard({ title, value, hint }) {
   );
 }
 
+// The four summary cards across the top of the dashboard.
 export default function StatsRow({ stats }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>

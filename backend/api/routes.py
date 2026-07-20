@@ -146,13 +146,14 @@ def export_csv(market_id: int):
     def rows():
         yield "timestamp," + ",".join(f"{label}_price" for label in labels) + "\r\n"
         for ts, prices in db.iter_ticks(market_id):
-            cells = (f"{prices[l]:.3f}" if l in prices else "" for l in labels)
+            cells = (f"{prices[l]:.2f}" if l in prices else "" for l in labels)
             yield f"{ts}," + ",".join(cells) + "\r\n"
 
-    # filename from the market name: "spain-vs-argentina-will-spain-win.csv"
+    # filename: market name + the date it was added, so repeat fixtures stay unique
     name = re.sub(
         r"[^A-Za-z0-9]+", "-", f"{market['event_title']} {market['question']}"
     ).strip("-").lower()[:80] or f"market-{market_id}"
+    name += f"-{market['created_at'][:10]}"
 
     return StreamingResponse(
         rows(),

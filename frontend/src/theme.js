@@ -1,7 +1,7 @@
 export const T = {
   ink: "#1A1D23",
-  sub: "#6B7280",
-  faint: "#9CA3AF",
+  sub: "#3F4854", // darkened on client request — readability over subtlety
+  faint: "#646B76",
   border: "#E5E7EB",
   soft: "#F8F9FB",
   green: "#0E9F6E",

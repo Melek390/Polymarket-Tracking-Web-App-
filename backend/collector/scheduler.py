@@ -37,10 +37,10 @@ async def poll(interval: int):
         return
 
     ts = utc_now()
-    # The CLOB omits tokens without an active order book  iterate over the
-    # response, never the request.
+    # The CLOB omits tokens with no active order book, so we build rows from
+    # the response, never the request. Prices arrive as 0..1; we store cents.
     rows = [
-        (token_to_outcome[token], ts, price)
+        (token_to_outcome[token], ts, round(price * 100, 2))
         for token, price in prices.items()
         if token in token_to_outcome
     ]

@@ -38,7 +38,9 @@ def parse_query(query: str) -> dict | None:
         if m:
             filters["side"] = m.group(1).strip().lower()
             filters["op"] = m.group(2)
-            filters["value"] = float(m.group(3))
+            # accept both "over < 0.40" (fraction) and "over < 40" (cents)
+            value = float(m.group(3))
+            filters["value"] = value * 100 if value <= 1 else value
         else:
             filters["text"] = part.lower()
     return filters
@@ -69,7 +71,9 @@ async def screen(query: str, max_results: int = 50) -> list[dict] | None:
                 continue
             labels = _json_list(m.get("outcomes"))
             tokens = _json_list(m.get("clobTokenIds"))
-            prices = [float(p) for p in _json_list(m.get("outcomePrices"))]
+            prices = [
+                round(float(p) * 100, 2) for p in _json_list(m.get("outcomePrices"))
+            ]
             if not labels or len(labels) != len(tokens) or len(labels) != len(prices):
                 continue
             if f["op"] and not _price_matches(labels, prices, f["side"], f["op"], f["value"]):

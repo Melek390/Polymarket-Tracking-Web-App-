@@ -1,5 +1,6 @@
 import { T, monoText } from "../theme.js";
 
+// Colored pills for a market's outcomes, one color per outcome position.
 export default function OutcomeChips({ outcomes }) {
   return (
     <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>

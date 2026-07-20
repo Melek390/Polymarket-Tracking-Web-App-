@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { T, monoText, btn } from "../theme.js";
 
+// The search box that accepts an event URL/ID, several with ";", or a screener query.
 export default function AddEventBar({ onFind, busy }) {
   const [value, setValue] = useState("");
 

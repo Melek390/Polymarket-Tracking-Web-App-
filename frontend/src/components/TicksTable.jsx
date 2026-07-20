@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { T, card, label, monoText, btn } from "../theme.js";
-import { fmtTimestamp } from "../utils.js";
+import { fmtCents, fmtTimestamp } from "../utils.js";
 
 const CELL_PAD = "7px 14px";
 
@@ -12,6 +12,7 @@ const thBase = {
   padding: CELL_PAD,
 };
 
+// Chronological table of every poll, with up/down deltas and boundary dividers.
 export default function TicksTable({
   ticks,
   outcomes,
@@ -148,7 +149,7 @@ export default function TicksTable({
                       textAlign: "right",
                     }}
                   >
-                    {row[o] != null ? row[o].toFixed(3) : "—"}{" "}
+                    {row[o] != null ? fmtCents(row[o]) : "—"}{" "}
                     {row.deltas[o] === "up" && (
                       <span style={{ color: T.green, fontSize: 9 }}>▲</span>
                     )}

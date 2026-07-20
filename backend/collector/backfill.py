@@ -55,8 +55,9 @@ async def backfill_market(market_id: int):
                     break  # API is re-serving its earliest data — we have it all
                 end -= WINDOW
 
+            # history endpoint also speaks 0..1 fractions; store cents
             rows = [
-                (outcome["id"], _iso(ts), price)
+                (outcome["id"], _iso(ts), round(price * 100, 2))
                 for ts, price in sorted(points.items())
                 if ts < tracked_since
             ]

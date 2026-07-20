@@ -1,3 +1,4 @@
+"""Gamma API client — event discovery, used only when adding or screening markets."""
 
 import json
 

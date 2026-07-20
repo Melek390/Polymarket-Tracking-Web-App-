@@ -2,6 +2,7 @@ import { useState } from "react";
 import { T, label, monoText, btn } from "../theme.js";
 import OutcomeChips from "./OutcomeChips.jsx";
 
+// Panel listing one event's props with checkboxes so the user picks what to track.
 export default function EventPanel({ event, onTrack, onCancel, busy }) {
   const [selected, setSelected] = useState(new Set());
 

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { T, card, btn } from "../theme.js";
 
+// Reusable modal that asks the user to confirm before a destructive action.
 export default function ConfirmDialog({
   title,
   message,

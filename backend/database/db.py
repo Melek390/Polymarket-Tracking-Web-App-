@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS ticks (
     id         INTEGER PRIMARY KEY,
     outcome_id INTEGER NOT NULL REFERENCES outcomes(id),
     ts         TEXT NOT NULL,                 -- ISO-8601 UTC, set at poll time
-    price      REAL NOT NULL                  -- midpoint, 0..1
+    price      REAL NOT NULL                  -- midpoint in cents, 0..100
 );
 
 -- UNIQUE: the same outcome can never store two prices for one timestamp,
@@ -71,6 +71,12 @@ def init_db():
         if "closed" not in cols:
             conn.execute("ALTER TABLE markets ADD COLUMN closed INTEGER NOT NULL DEFAULT 0")
             conn.execute("ALTER TABLE markets ADD COLUMN closed_at TEXT")
+
+        # one-time migration: prices moved from 0..1 fractions to cents.
+        # user_version guards it so it can never run twice.
+        if conn.execute("PRAGMA user_version").fetchone()[0] < 1:
+            conn.execute("UPDATE ticks SET price = ROUND(price * 100, 2)")
+            conn.execute("PRAGMA user_version = 1")
 
 
 # --- writes ----------------------------------------------------------------

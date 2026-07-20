@@ -10,12 +10,36 @@ import {
 } from "./api/client.js";
 import { T } from "./theme.js";
 
+// Hash routing so every page has its own shareable URL:
+//   #/                     dashboard (optionally ?page=2&per=50&status=open)
+//   #/market/12            history page for market 12
+function parseHash() {
+  const hash = window.location.hash.slice(1) || "/";
+  const [path, query] = hash.split("?");
+  const params = new URLSearchParams(query || "");
+  const match = path.match(/^\/market\/(\d+)$/);
+  if (match) return { view: "market", id: Number(match[1]), params };
+  return { view: "dashboard", params };
+}
+
+// Change the URL hash; the hashchange listener re-renders the right view.
+function navigate(path) {
+  window.location.hash = path;
+}
+
+// Root component: owns shared data and switches between dashboard and history.
 export default function App() {
-  const [route, setRoute] = useState({ view: "dashboard" });
+  const [route, setRoute] = useState(parseHash);
   const [stats, setStats] = useState(null);
   const [markets, setMarkets] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const onHashChange = () => setRoute(parseHash());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   async function refresh() {
     setRefreshing(true);
@@ -67,15 +91,17 @@ export default function App() {
       {openMarket ? (
         <MarketHistory
           market={openMarket}
-          onBack={() => setRoute({ view: "dashboard" })}
+          onBack={() => navigate("/")}
           onToggle={handleToggle}
         />
       ) : (
         <Dashboard
           stats={stats}
           markets={markets}
+          params={route.params}
+          onNavigate={navigate}
           onToggle={handleToggle}
-          onOpenHistory={(id) => setRoute({ view: "market", id })}
+          onOpenHistory={(id) => navigate(`/market/${id}`)}
           onTracked={refresh}
           onDelete={handleDelete}
         />
