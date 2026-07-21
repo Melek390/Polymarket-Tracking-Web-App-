@@ -2,14 +2,28 @@
 // All mapping from backend field names to UI shapes happens here and
 // nowhere else, so backend changes never touch the components.
 
-async function request(path, options = {}) {
-  const r = await fetch(path, options);
+async function request(path, options = {}, retry = true) {
+  let r;
+  try {
+    r = await fetch(path, options);
+  } catch (e) {
+    // network hiccup (some proxies drop the first POST on a plain-HTTP link):
+    // retry once before giving up
+    if (retry) return request(path, options, false);
+    throw e;
+  }
   if (!r.ok) {
     let detail;
     try {
       detail = (await r.json()).detail;
     } catch {
       /* non-JSON error body */
+    }
+    // a 4xx with no message is not our API talking — it's something on the
+    // network (proxy/antivirus) rejecting the first request; retry once. Our
+    // writes are idempotent, so a repeat is harmless.
+    if (retry && !detail && r.status >= 400 && r.status < 500) {
+      return request(path, options, false);
     }
     throw new Error(detail || `HTTP ${r.status}`);
   }
