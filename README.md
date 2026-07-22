@@ -255,6 +255,72 @@ firewall to the addresses that should reach it.
   (PATCH /api/markets/{id} with {"poll_interval": 3}); there is no UI
   control for it yet.
 
+## Reliability: what happens when Polymarket breaks
+
+Polymarket's API goes down, throttles, and changes shape from time to time.
+The app is built to survive all three without losing data or needing a restart.
+Here is exactly where each safeguard lives.
+
+**Retries with backoff, on every price request**
+`backend/polymarket/clob.py` lines 16 to 32. Each call is attempted up to
+`MAX_RETRIES` times (5 by default). Between attempts it waits an exponentially
+growing delay plus a random fraction of a second, so repeated failures back off
+politely instead of hammering. An HTTP 429 (their "slow down" response) is
+treated as a retry, not a crash. If every attempt fails, it raises a single
+clear error naming the last thing that went wrong.
+
+**A failed poll never stops the collector**
+`backend/collector/scheduler.py` lines 33 to 37. The poll cycle catches that
+error, writes `poll(5s) skipped: <reason>` to the log, and returns. The next
+cycle runs normally seconds later. One bad market, or a full Polymarket outage,
+can never stall collection for everything else.
+
+**Backfill failures are isolated per outcome**
+`backend/collector/backfill.py` lines 43 and 70 to 74. Each outcome's history
+download is wrapped separately, so if one fails the others still complete and
+the failure is logged with the market and outcome name.
+
+**Network errors become readable messages, not stack traces**
+`backend/api/routes.py` lines 47 to 52, 59 to 65, and 72 to 77. Anything that
+fails while talking to Polymarket is turned into
+`502 Polymarket unreachable: <the actual reason>`. Missing events give
+`404 no event found for that URL or ID`, and bad input gives a `400` that says
+what was wrong. The UI prints these messages in a red banner, so the person
+using the app sees the real cause instead of a blank failure.
+
+**Defensive parsing, in case they change their format**
+`backend/polymarket/gamma.py` lines 29 to 36. Polymarket returns some fields as
+JSON encoded inside JSON. That decoding is wrapped so malformed or changed data
+is skipped rather than crashing the request. Markets whose outcomes and token
+ids do not line up are skipped instead of being half stored.
+
+**Data can never be corrupted by a retry**
+A unique index on (outcome, timestamp) plus `INSERT OR IGNORE` in
+`backend/database/db.py` means storing the same tick twice is impossible, so
+retries, restarts and overlapping backfills are all safe.
+
+**Seeing what happened**
+Everything above is written to the service log. To read it live:
+
+    journalctl -u polymarket-tracker -f
+
+Set `LOG_LEVEL=DEBUG` in `.env` for per-poll detail.
+
+## Polymarket rate limits
+
+The collector sends **one batched request per poll cycle no matter how many
+markets are tracked**, which keeps usage far under Polymarket's published
+limits. Tracking 500 markets costs the same number of requests as tracking one.
+
+| Endpoint used | Polymarket's limit | This app's usage |
+|---|---|---|
+| CLOB `/midpoints` (live polling) | 500 req / 10s | about 2 to 3 req / 10s |
+| CLOB `/prices-history` (backfill) | 1,000 req / 10s | a short sequential burst when a market is first added |
+| Gamma `/events` (lookup, screener) | 500 req / 10s | only when someone searches |
+
+That is under 1% of the allowance for the continuous polling, and the backoff
+described above handles the rest if they ever throttle anyway.
+
 ## API
 
 The frontend uses a small JSON API you can also call directly. Interactive
