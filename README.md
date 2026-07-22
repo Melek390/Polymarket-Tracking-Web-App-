@@ -308,6 +308,8 @@ Set `LOG_LEVEL=DEBUG` in `.env` for per-poll detail.
 
 ## Polymarket rate limits
 
+Official limits: https://docs.polymarket.com/api-reference/rate-limits
+
 The collector sends **one batched request per poll cycle no matter how many
 markets are tracked**, which keeps usage far under Polymarket's published
 limits. Tracking 500 markets costs the same number of requests as tracking one.
@@ -319,7 +321,9 @@ limits. Tracking 500 markets costs the same number of requests as tracking one.
 | Gamma `/events` (lookup, screener) | 500 req / 10s | only when someone searches |
 
 That is under 1% of the allowance for the continuous polling, and the backoff
-described above handles the rest if they ever throttle anyway.
+described above handles the rest if they ever throttle anyway. Polymarket also
+throttles (delays and queues) requests over the limit rather than rejecting
+them outright, so going over would slow the app down, not get it cut off.
 
 ## API
 
