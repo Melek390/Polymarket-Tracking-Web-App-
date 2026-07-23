@@ -30,13 +30,16 @@ export function marketStatus(m) {
 }
 
 // One group per EVENT (keyed by slug, never by title — two different games
-// can share the exact same title, e.g. repeat baseball fixtures).
+// can share the exact same title, e.g. repeat baseball fixtures). A match's
+// extra props live in a twin "-more-markets" event on Polymarket; fold those
+// into the same box as the match itself.
 export function groupByEvent(markets) {
   const groups = [];
   for (const m of markets) {
-    let g = groups.find((g) => g.slug === m.eventSlug);
+    const slug = m.eventSlug.replace(/-more-markets$/, "");
+    let g = groups.find((g) => g.slug === slug);
     if (!g) {
-      g = { slug: m.eventSlug, event: m.event, createdAt: m.createdAt, markets: [] };
+      g = { slug, event: m.event, createdAt: m.createdAt, markets: [] };
       groups.push(g);
     }
     g.markets.push(m);

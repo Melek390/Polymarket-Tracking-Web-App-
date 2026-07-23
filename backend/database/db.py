@@ -119,12 +119,16 @@ def add_market(
     outcomes: list[dict],
     poll_interval: int | None = None,
 ) -> int:
-    """Save a market and its outcomes with tracking on; already-known markets just return their id."""
+    """Save a market with tracking on; re-adding a known market resumes its polling."""
     with get_db() as conn:
         existing = conn.execute(
-            "SELECT id FROM markets WHERE condition_id = ?", (condition_id,)
+            "SELECT id, closed FROM markets WHERE condition_id = ?", (condition_id,)
         ).fetchone()
         if existing:
+            if not existing["closed"]:
+                conn.execute(
+                    "UPDATE markets SET tracking = 1 WHERE id = ?", (existing["id"],)
+                )
             return existing["id"]
 
         cur = conn.execute(

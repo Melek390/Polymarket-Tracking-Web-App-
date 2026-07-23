@@ -47,7 +47,9 @@ function formatBytes(bytes) {
 function toMarket(m) {
   return {
     id: m.id,
-    event: m.event_title,
+    // the "- More Markets" twin holds a match's extra props; show the
+    // match name, not the twin's technical title
+    event: m.event_title.replace(/ - More Markets$/i, ""),
     eventSlug: m.event_slug,
     question: m.question,
     kind: m.kind,
