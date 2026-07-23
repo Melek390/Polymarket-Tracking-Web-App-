@@ -1,11 +1,12 @@
-import { T, monoText, btn } from "../theme.js";
+import { T } from "../theme.js";
 
-// Top bar: app name, collector health dot, and a refresh button.
+// Top bar in the brand blue: app name, page nav, collector health, refresh.
 export default function Header({ collectorRunning, refreshing, onRefresh }) {
   return (
     <header
       style={{
-        borderBottom: `1px solid ${T.border}`,
+        background: T.series[0],
+        color: "#fff",
         padding: "14px 24px",
         display: "flex",
         alignItems: "center",
@@ -26,10 +27,17 @@ export default function Header({ collectorRunning, refreshing, onRefresh }) {
                 key={name}
                 href={href}
                 style={{
-                  ...(active ? btn.primary : btn.outline),
+                  fontFamily: T.ui,
+                  fontWeight: 600,
                   fontSize: 13,
                   padding: "6px 14px",
+                  borderRadius: 8,
                   textDecoration: "none",
+                  background: active ? "#fff" : "transparent",
+                  color: active ? T.series[0] : "#fff",
+                  border: active
+                    ? "1px solid #fff"
+                    : "1px solid rgba(255, 255, 255, 0.55)",
                 }}
               >
                 {name}
@@ -46,7 +54,7 @@ export default function Header({ collectorRunning, refreshing, onRefresh }) {
             alignItems: "center",
             gap: 7,
             fontSize: 13,
-            color: T.sub,
+            color: "rgba(255, 255, 255, 0.9)",
           }}
         >
           <span
@@ -56,6 +64,7 @@ export default function Header({ collectorRunning, refreshing, onRefresh }) {
               height: 8,
               borderRadius: "50%",
               background: collectorRunning ? T.green : T.red,
+              boxShadow: "0 0 0 1px rgba(255, 255, 255, 0.6)",
             }}
           />
           {collectorRunning ? "collector running" : "collector offline"}
@@ -65,10 +74,14 @@ export default function Header({ collectorRunning, refreshing, onRefresh }) {
           onClick={onRefresh}
           disabled={refreshing}
           style={{
-            ...btn.outline,
-            fontWeight: 400,
+            fontFamily: T.ui,
             fontSize: 13,
             padding: "7px 14px",
+            borderRadius: 8,
+            border: "1px solid rgba(255, 255, 255, 0.55)",
+            background: "transparent",
+            color: "#fff",
+            cursor: "pointer",
             display: "flex",
             alignItems: "center",
             gap: 7,
