@@ -1,11 +1,13 @@
 import { T } from "../theme.js";
 
-// Top bar in the brand blue: app name, page nav, collector health, refresh.
+const NAVY = "#191970"; // header keeps its own darker blue
+
+// Top bar: app name, page nav, collector health, refresh.
 export default function Header({ collectorRunning, refreshing, onRefresh }) {
   return (
     <header
       style={{
-        background: T.series[0],
+        background: NAVY,
         color: "#fff",
         padding: "14px 24px",
         display: "flex",
@@ -34,7 +36,7 @@ export default function Header({ collectorRunning, refreshing, onRefresh }) {
                   borderRadius: 8,
                   textDecoration: "none",
                   background: active ? "#fff" : "transparent",
-                  color: active ? T.series[0] : "#fff",
+                  color: active ? NAVY : "#fff",
                   border: active
                     ? "1px solid #fff"
                     : "1px solid rgba(255, 255, 255, 0.55)",
