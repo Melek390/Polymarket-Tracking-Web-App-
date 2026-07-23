@@ -108,6 +108,27 @@ export async function screenMarkets(query) {
   }));
 }
 
+// GET /api/screener/markets — cached matches for the screener page
+export async function fetchScreener(sport = "soccer") {
+  const data = await request(`/api/screener/markets?sport=${sport}`);
+  return {
+    rows: data.rows.map((r) => ({
+      slug: r.event_slug,
+      league: r.league,
+      home: r.home_team,
+      away: r.away_team,
+      kickoff: r.kickoff ? Date.parse(r.kickoff) : null,
+      volume: r.volume,
+      homePrice: r.home_price,
+      drawPrice: r.draw_price,
+      awayPrice: r.away_price,
+      conditionIds: r.condition_ids,
+    })),
+    leagues: data.leagues,
+    updatedAt: data.updated_at ? Date.parse(data.updated_at) : null,
+  };
+}
+
 // POST /api/events/track — backend persists and starts polling + backfill;
 // the caller re-fetches the market list afterwards.
 export async function trackSelected(slug, conditionIds) {

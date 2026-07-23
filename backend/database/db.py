@@ -45,6 +45,23 @@ CREATE TABLE IF NOT EXISTS ticks (
 -- UNIQUE: the same outcome can never store two prices for one timestamp,
 -- which makes live polling and history backfill collision-proof by design.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ticks_outcome_ts ON ticks(outcome_id, ts);
+
+-- Screener cache: one row per upcoming match, rebuilt by a background job
+-- so the screener page filters instantly instead of hitting Gamma live.
+CREATE TABLE IF NOT EXISTS screener_cache (
+    event_slug    TEXT PRIMARY KEY,
+    sport         TEXT NOT NULL,
+    league        TEXT NOT NULL,
+    home_team     TEXT NOT NULL,
+    away_team     TEXT NOT NULL,
+    kickoff       TEXT,                      -- ISO-8601 UTC, NULL if unknown
+    volume        REAL NOT NULL DEFAULT 0,   -- lifetime USD volume
+    home_price    REAL,                      -- cents, NULL when not quoted
+    draw_price    REAL,
+    away_price    REAL,
+    condition_ids TEXT NOT NULL,             -- JSON list, used by Track
+    updated_at    TEXT NOT NULL
+);
 """
 
 
@@ -180,6 +197,32 @@ def insert_ticks(rows: list[tuple]):
         conn.executemany(
             "INSERT OR IGNORE INTO ticks (outcome_id, ts, price) VALUES (?, ?, ?)", rows
         )
+
+
+def replace_screener_cache(sport: str, rows: list[dict]):
+    """Swap one sport's cached matches for a freshly fetched set, atomically."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM screener_cache WHERE sport = ?", (sport,))
+        conn.executemany(
+            "INSERT OR REPLACE INTO screener_cache "
+            "(event_slug, sport, league, home_team, away_team, kickoff, volume, "
+            " home_price, draw_price, away_price, condition_ids, updated_at) "
+            "VALUES (:event_slug, :sport, :league, :home_team, :away_team, "
+            " :kickoff, :volume, :home_price, :draw_price, :away_price, "
+            " :condition_ids, :updated_at)",
+            rows,
+        )
+
+
+def screener_rows(sport: str) -> list[dict]:
+    """All cached matches for one sport, soonest kickoff first."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM screener_cache WHERE sport = ? "
+            "ORDER BY kickoff IS NULL, kickoff",
+            (sport,),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 # --- reads -----------------------------------------------------------------

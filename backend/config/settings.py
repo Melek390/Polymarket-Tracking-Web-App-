@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     http_timeout: float = 30.0
     max_retries: int = 5
 
+    # Screener
+    screener_refresh_minutes: int = 5
+
     # Polymarket public APIs
     gamma_base_url: str = "https://gamma-api.polymarket.com"
     clob_base_url: str = "https://clob.polymarket.com"

@@ -1,6 +1,7 @@
 """REST API — thin handlers over db/gamma/scheduler, contract from spec 5.2."""
 
 import asyncio
+import json
 import re
 
 import httpx
@@ -64,6 +65,19 @@ async def screen_markets(body: ScreenerRequest):
         sports = ", ".join(sorted(set(market_screener.SPORT_TAGS)))
         raise HTTPException(400, f"unknown sport — start your search with one of: {sports}")
     return results
+
+
+@router.get("/screener/markets")
+def screener_markets(sport: str = "soccer"):
+    """Cached matches for the screener page, plus the league list."""
+    rows = db.screener_rows(sport)
+    for r in rows:
+        r["condition_ids"] = json.loads(r["condition_ids"])
+    return {
+        "rows": rows,
+        "leagues": sorted({r["league"] for r in rows}),
+        "updated_at": rows[0]["updated_at"] if rows else None,
+    }
 
 
 @router.post("/events/track")

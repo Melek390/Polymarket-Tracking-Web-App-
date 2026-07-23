@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Header from "./components/Header.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import MarketHistory from "./views/MarketHistory.jsx";
+import Screener from "./views/Screener.jsx";
 import {
   deleteMarket,
   fetchDashboard,
@@ -17,6 +18,7 @@ function parseHash() {
   const hash = window.location.hash.slice(1) || "/";
   const [path, query] = hash.split("?");
   const params = new URLSearchParams(query || "");
+  if (path === "/screener") return { view: "screener", params };
   const match = path.match(/^\/market\/(\d+)$/);
   if (match) return { view: "market", id: Number(match[1]), params };
   return { view: "dashboard", params };
@@ -88,7 +90,9 @@ export default function App() {
         </div>
       )}
 
-      {openMarket ? (
+      {route.view === "screener" ? (
+        <Screener />
+      ) : openMarket ? (
         <MarketHistory
           market={openMarket}
           onBack={() => navigate("/")}

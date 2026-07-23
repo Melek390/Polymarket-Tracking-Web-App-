@@ -6,8 +6,10 @@ from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from backend.config.settings import settings
 from backend.database import db
 from backend.polymarket import clob
+from backend.screener import cache
 
 log = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="UTC")
@@ -86,6 +88,14 @@ def start():
     """Init the database and kick off polling — called once at app startup."""
     db.init_db()
     sync_jobs()
+    # keep the screener cache fresh; first run right away so it is never empty
+    scheduler.add_job(
+        cache.refresh,
+        "interval",
+        minutes=settings.screener_refresh_minutes,
+        id="screener-cache",
+        next_run_time=datetime.now(timezone.utc),
+    )
     scheduler.start()
 
 

@@ -12,11 +12,31 @@ export default function Header({ collectorRunning, refreshing, onRefresh }) {
         justifyContent: "space-between",
       }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
         <span style={{ fontWeight: 700, fontSize: 16 }}>Market Tracker</span>
-        <span style={{ ...monoText, fontSize: 12, color: T.faint }}>
-          polymarket · price history · v1
-        </span>
+        <nav style={{ display: "flex", gap: 8 }}>
+          {[
+            ["Dashboard", "#/"],
+            ["Screener", "#/screener"],
+          ].map(([name, href]) => {
+            const onScreener = window.location.hash.startsWith("#/screener");
+            const active = href === "#/screener" ? onScreener : !onScreener;
+            return (
+              <a
+                key={name}
+                href={href}
+                style={{
+                  ...(active ? btn.primary : btn.outline),
+                  fontSize: 13,
+                  padding: "6px 14px",
+                  textDecoration: "none",
+                }}
+              >
+                {name}
+              </a>
+            );
+          })}
+        </nav>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>

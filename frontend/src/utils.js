@@ -45,6 +45,13 @@ export function groupByEvent(markets) {
   return groups;
 }
 
+// 2400000 -> "$2.4M", 845000 -> "$845K" for the screener volume column
+export function fmtVolume(usd) {
+  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
+  if (usd >= 1_000) return `$${Math.round(usd / 1_000)}K`;
+  return `$${usd}`;
+}
+
 // Prices are stored AND displayed in cents; this only trims noise:
 // 40.5 -> "40.5¢", 99.95 -> "99.95¢", 50 -> "50¢"
 export function fmtCents(cents) {
