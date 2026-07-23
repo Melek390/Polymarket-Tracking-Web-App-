@@ -1,5 +1,6 @@
 import { T, card, label, monoText } from "../theme.js";
-import { timeAgo } from "../utils.js";
+import { fmtBytes, timeAgo } from "../utils.js";
+import AnimatedNumber from "./AnimatedNumber.jsx";
 
 // One dashboard stat: a label, a big value, and a faint hint line.
 function StatCard({ title, value, hint }) {
@@ -20,13 +21,28 @@ export default function StatsRow({ stats }) {
     <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
       <StatCard
         title="Tracked markets"
-        value={stats ? `${stats.active} / ${stats.total}` : "—"}
+        value={
+          stats ? (
+            <>
+              <AnimatedNumber value={stats.active} /> /{" "}
+              <AnimatedNumber value={stats.total} />
+            </>
+          ) : (
+            "—"
+          )
+        }
         hint="active / total"
       />
       <StatCard
         title="Database size"
-        value={stats ? stats.dbSize : "—"}
-        hint="prices.db (SQLite)"
+        value={
+          stats ? (
+            <AnimatedNumber value={stats.dbSizeBytes} format={fmtBytes} />
+          ) : (
+            "—"
+          )
+        }
+        hint="stored data (SQLite)"
       />
       <StatCard
         title="Last successful update"
@@ -35,7 +51,7 @@ export default function StatsRow({ stats }) {
       />
       <StatCard
         title="Records today"
-        value={stats ? stats.recordsToday.toLocaleString("en-US") : "—"}
+        value={stats ? <AnimatedNumber value={stats.recordsToday} /> : "—"}
         hint="one row per outcome per poll"
       />
     </div>

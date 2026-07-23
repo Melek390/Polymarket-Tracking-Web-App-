@@ -37,12 +37,6 @@ const post = (path, body) =>
     body: JSON.stringify(body ?? {}),
   });
 
-function formatBytes(bytes) {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
-}
-
 // backend market row -> the shape all components were built against
 function toMarket(m) {
   return {
@@ -71,7 +65,7 @@ export async function fetchDashboard() {
   return {
     active: s.active,
     total: s.total,
-    dbSize: formatBytes(s.db_size_bytes),
+    dbSizeBytes: s.db_size_bytes,
     lastUpdate: s.last_update ? Date.parse(s.last_update) : null,
     recordsToday: s.records_today,
   };

@@ -48,6 +48,13 @@ export function groupByEvent(markets) {
   return groups;
 }
 
+// 620000000 -> "591.3 MB" for the database size card
+export function fmtBytes(bytes) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+}
+
 // 2400000 -> "$2.4M", 845000 -> "$845K" for the screener volume column
 export function fmtVolume(usd) {
   if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;

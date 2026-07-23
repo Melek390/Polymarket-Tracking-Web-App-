@@ -1,6 +1,5 @@
 """SQLite storage: schema, connection helper, and all queries."""
 
-import os
 import sqlite3
 from contextlib import contextmanager
 
@@ -217,6 +216,10 @@ def delete_market(market_id: int):
             "(SELECT 1 FROM markets WHERE event_id = ?)",
             (row["event_id"], row["event_id"]),
         )
+    # fold the purge out of the write-ahead log so a big delete does not
+    # leave hundreds of MB sitting in the -wal file
+    with get_db() as conn:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
 
 
 def insert_ticks(rows: list[tuple]):
@@ -429,11 +432,12 @@ def dashboard_stats() -> dict:
             "SELECT COUNT(*) AS n FROM ticks WHERE ts >= datetime('now', 'start of day')"
         ).fetchone()["n"]
 
-    size = 0
-    for suffix in ("", "-wal"):
-        path = settings.db_path + suffix
-        if os.path.exists(path):
-            size += os.path.getsize(path)
+        # live data size: pages in use, so the number drops as soon as
+        # something is deleted (the file itself only shrinks on VACUUM)
+        page_size = conn.execute("PRAGMA page_size").fetchone()[0]
+        page_count = conn.execute("PRAGMA page_count").fetchone()[0]
+        freelist = conn.execute("PRAGMA freelist_count").fetchone()[0]
+        size = (page_count - freelist) * page_size
 
     return {
         "active": counts["active"],
