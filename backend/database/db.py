@@ -46,6 +46,16 @@ CREATE TABLE IF NOT EXISTS ticks (
 -- which makes live polling and history backfill collision-proof by design.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ticks_outcome_ts ON ticks(outcome_id, ts);
 
+-- lets "latest tick" and "records today" use an index instead of scanning
+-- the whole table, which was taking seconds once the db passed a few hundred MB
+CREATE INDEX IF NOT EXISTS idx_ticks_ts ON ticks(ts);
+
+-- running per-outcome totals so record counts never re-count millions of rows
+CREATE TABLE IF NOT EXISTS tick_counts (
+    outcome_id INTEGER PRIMARY KEY,
+    n          INTEGER NOT NULL
+);
+
 -- Screener cache: one row per upcoming match, rebuilt by a background job
 -- so the screener page filters instantly instead of hitting Gamma live.
 CREATE TABLE IF NOT EXISTS screener_cache (
@@ -94,6 +104,15 @@ def init_db():
         if conn.execute("PRAGMA user_version").fetchone()[0] < 1:
             conn.execute("UPDATE ticks SET price = ROUND(price * 100, 2)")
             conn.execute("PRAGMA user_version = 1")
+
+        # one-time: seed the running totals from the existing ticks
+        if conn.execute("PRAGMA user_version").fetchone()[0] < 2:
+            conn.execute("DELETE FROM tick_counts")
+            conn.execute(
+                "INSERT INTO tick_counts (outcome_id, n) "
+                "SELECT outcome_id, COUNT(*) FROM ticks GROUP BY outcome_id"
+            )
+            conn.execute("PRAGMA user_version = 2")
 
 
 # --- writes ----------------------------------------------------------------
@@ -185,6 +204,11 @@ def delete_market(market_id: int):
             "(SELECT id FROM outcomes WHERE market_id = ?)",
             (market_id,),
         )
+        conn.execute(
+            "DELETE FROM tick_counts WHERE outcome_id IN "
+            "(SELECT id FROM outcomes WHERE market_id = ?)",
+            (market_id,),
+        )
         conn.execute("DELETE FROM outcomes WHERE market_id = ?", (market_id,))
         conn.execute("DELETE FROM markets WHERE id = ?", (market_id,))
         # drop the event too once its last market is gone
@@ -196,11 +220,24 @@ def delete_market(market_id: int):
 
 
 def insert_ticks(rows: list[tuple]):
-    """Store one poll cycle in a single transaction; duplicate timestamps are silently dropped."""
+    """Store one poll cycle and keep the per-outcome running totals in step."""
     with get_db() as conn:
-        conn.executemany(
-            "INSERT OR IGNORE INTO ticks (outcome_id, ts, price) VALUES (?, ?, ?)", rows
-        )
+        by_outcome: dict[int, list[tuple]] = {}
+        for row in rows:
+            by_outcome.setdefault(row[0], []).append(row)
+        for outcome_id, group in by_outcome.items():
+            cur = conn.executemany(
+                "INSERT OR IGNORE INTO ticks (outcome_id, ts, price) VALUES (?, ?, ?)",
+                group,
+            )
+            # rowcount counts what was really inserted, so ignored
+            # duplicates never inflate the totals
+            if cur.rowcount > 0:
+                conn.execute(
+                    "INSERT INTO tick_counts (outcome_id, n) VALUES (?, ?) "
+                    "ON CONFLICT(outcome_id) DO UPDATE SET n = n + excluded.n",
+                    (outcome_id, cur.rowcount),
+                )
 
 
 def replace_screener_cache(sport: str, rows: list[dict]):
@@ -283,13 +320,21 @@ def list_markets(spark_points: int = 20) -> list[dict]:
                     (m["id"],),
                 )
             ]
-            stats = conn.execute(
-                "SELECT COUNT(*) AS records, MAX(ts) AS last_update FROM ticks "
+            m["records"] = conn.execute(
+                "SELECT COALESCE(SUM(n), 0) AS n FROM tick_counts "
                 "WHERE outcome_id IN (SELECT id FROM outcomes WHERE market_id = ?)",
                 (m["id"],),
-            ).fetchone()
-            m["records"] = stats["records"]
-            m["last_update"] = stats["last_update"]
+            ).fetchone()["n"]
+            # per-outcome MAX is an index seek, so this stays fast at any size
+            last = None
+            for o in m["outcomes"]:
+                t = conn.execute(
+                    "SELECT MAX(ts) AS t FROM ticks WHERE outcome_id = ?",
+                    (o["id"],),
+                ).fetchone()["t"]
+                if t and (last is None or t > last):
+                    last = t
+            m["last_update"] = last
             if m["outcomes"]:
                 spark = conn.execute(
                     "SELECT price FROM ticks WHERE outcome_id = ? "
@@ -378,11 +423,11 @@ def dashboard_stats() -> dict:
         counts = conn.execute(
             "SELECT COUNT(*) AS total, COALESCE(SUM(tracking), 0) AS active FROM markets"
         ).fetchone()
-        ticks = conn.execute(
-            "SELECT MAX(ts) AS last_update, "
-            "COUNT(CASE WHEN ts >= datetime('now', 'start of day') THEN 1 END) AS records_today "
-            "FROM ticks"
-        ).fetchone()
+        # both use the ts index: an instant MAX and a scan of today's rows only
+        last_update = conn.execute("SELECT MAX(ts) AS t FROM ticks").fetchone()["t"]
+        records_today = conn.execute(
+            "SELECT COUNT(*) AS n FROM ticks WHERE ts >= datetime('now', 'start of day')"
+        ).fetchone()["n"]
 
     size = 0
     for suffix in ("", "-wal"):
@@ -394,6 +439,6 @@ def dashboard_stats() -> dict:
         "active": counts["active"],
         "total": counts["total"],
         "db_size_bytes": size,
-        "last_update": ticks["last_update"],
-        "records_today": ticks["records_today"],
+        "last_update": last_update,
+        "records_today": records_today,
     }
