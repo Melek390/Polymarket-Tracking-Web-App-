@@ -229,7 +229,6 @@ export default function MarketList({ groups, onToggle, onHistory, onDelete }) {
               <div key={g.slug} style={{ ...card, overflow: "hidden" }}>
                 <div
                   onClick={() => toggleGroup(g.slug)}
-                  className="mkt-row"
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -237,9 +236,11 @@ export default function MarketList({ groups, onToggle, onHistory, onDelete }) {
                     padding: "12px 16px",
                     cursor: "pointer",
                     userSelect: "none",
+                    background: T.series[0], // event bars in the brand blue
+                    color: "#fff",
                   }}
                 >
-                  {/* circular blue +/- toggle — the obvious expand/collapse control */}
+                  {/* circular +/- toggle — white on the blue bar for contrast */}
                   <span
                     title={open ? "Collapse props" : "Expand props"}
                     style={{
@@ -250,8 +251,8 @@ export default function MarketList({ groups, onToggle, onHistory, onDelete }) {
                       alignItems: "center",
                       justifyContent: "center",
                       borderRadius: "50%",
-                      background: T.series[0],
-                      color: "#fff",
+                      background: "#fff",
+                      color: T.series[0],
                       fontSize: 18,
                       fontWeight: 600,
                       lineHeight: 1,
@@ -267,7 +268,7 @@ export default function MarketList({ groups, onToggle, onHistory, onDelete }) {
                         fontSize: 10,
                         textTransform: "uppercase",
                         letterSpacing: 0.4,
-                        color: statusColor,
+                        color: "rgba(255, 255, 255, 0.85)",
                       }}
                     >
                       event · {g.markets.length} props
@@ -285,7 +286,13 @@ export default function MarketList({ groups, onToggle, onHistory, onDelete }) {
                     >
                       {g.event}
                     </div>
-                    <div style={{ ...monoText, fontSize: 11, color: T.faint }}>
+                    <div
+                      style={{
+                        ...monoText,
+                        fontSize: 11,
+                        color: "rgba(255, 255, 255, 0.85)",
+                      }}
+                    >
                       {active} active · {records.toLocaleString("en-US")} records
                       · added {fmtDate(g.createdAt)}
                     </div>
