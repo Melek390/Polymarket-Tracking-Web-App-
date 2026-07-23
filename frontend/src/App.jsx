@@ -62,8 +62,15 @@ export default function App() {
   }, []);
 
   async function handleDelete(id) {
-    await deleteMarket(id);
-    refresh();
+    // drop the row right away — the server erase of a big history can take
+    // seconds, and waiting for it made the page feel stuck
+    setMarkets((prev) => prev.filter((m) => m.id !== id));
+    try {
+      await deleteMarket(id);
+    } catch (e) {
+      setError(`Delete failed: ${e.message}`);
+    }
+    refresh(); // sync stats, and bring the row back if the delete failed
   }
 
   async function handleToggle(id, shouldTrack) {
