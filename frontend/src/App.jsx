@@ -65,8 +65,15 @@ export default function App() {
     }
   }
 
+  // initial load, then a quiet refresh every 15s while the tab is visible —
+  // backfills grow the database for a while after tracking, and the stats
+  // should follow without anyone pressing Refresh
   useEffect(() => {
     refresh();
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 15_000);
+    return () => clearInterval(id);
   }, []);
 
   async function handleDelete(id) {
