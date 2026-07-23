@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Header from "./components/Header.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import MarketHistory from "./views/MarketHistory.jsx";
@@ -43,17 +43,25 @@ export default function App() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
+  // deletes still being purged server-side, and a counter that lets a newer
+  // refresh invalidate a slower older one — both stop deleted rows from
+  // being resurrected when deletes and reloads overlap
+  const pendingDeletes = useRef(new Set());
+  const refreshSeq = useRef(0);
+
   async function refresh() {
+    const seq = ++refreshSeq.current;
     setRefreshing(true);
     setError(null);
     try {
       const [s, m] = await Promise.all([fetchDashboard(), fetchMarkets()]);
+      if (seq !== refreshSeq.current) return; // superseded by a newer refresh
       setStats(s);
-      setMarkets(m);
+      setMarkets(m.filter((x) => !pendingDeletes.current.has(x.id)));
     } catch (e) {
-      setError(String(e.message ?? e));
+      if (seq === refreshSeq.current) setError(String(e.message ?? e));
     } finally {
-      setRefreshing(false);
+      if (seq === refreshSeq.current) setRefreshing(false);
     }
   }
 
@@ -64,11 +72,14 @@ export default function App() {
   async function handleDelete(id) {
     // drop the row right away — the server erase of a big history can take
     // seconds, and waiting for it made the page feel stuck
+    pendingDeletes.current.add(id);
     setMarkets((prev) => prev.filter((m) => m.id !== id));
     try {
       await deleteMarket(id);
     } catch (e) {
       setError(`Delete failed: ${e.message}`);
+    } finally {
+      pendingDeletes.current.delete(id);
     }
     refresh(); // sync stats, and bring the row back if the delete failed
   }
