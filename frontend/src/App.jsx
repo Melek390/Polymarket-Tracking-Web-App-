@@ -91,7 +91,7 @@ export default function App() {
       )}
 
       {route.view === "screener" ? (
-        <Screener />
+        <Screener onTracked={refresh} />
       ) : openMarket ? (
         <MarketHistory
           market={openMarket}

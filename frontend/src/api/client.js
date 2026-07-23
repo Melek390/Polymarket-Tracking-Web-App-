@@ -122,7 +122,6 @@ export async function fetchScreener(sport = "soccer") {
       homePrice: r.home_price,
       drawPrice: r.draw_price,
       awayPrice: r.away_price,
-      conditionIds: r.condition_ids,
     })),
     leagues: data.leagues,
     updatedAt: data.updated_at ? Date.parse(data.updated_at) : null,

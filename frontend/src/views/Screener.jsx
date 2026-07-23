@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtCents, fmtTimestamp, fmtVolume } from "../utils.js";
-import { fetchScreener, trackSelected } from "../api/client.js";
+import { fetchScreener, lookupEvent, trackSelected } from "../api/client.js";
+import ScreenerPanel from "../components/ScreenerPanel.jsx";
 
 const SPORTS = ["Soccer"]; // more sports are a paid follow-on
 const DATE_RANGES = ["Any", "Today", "Tomorrow", "This week", "Custom"];
@@ -74,8 +75,8 @@ function between(value, min, max) {
   return (!min || value >= Number(min)) && (!max || value <= Number(max));
 }
 
-function matchesFilters(m, f, leagues) {
-  if (leagues.size && !leagues.has(m.league)) return false;
+function matchesFilters(m, f, league) {
+  if (league && m.league !== league) return false;
   if (f.minVolume && m.volume < Number(f.minVolume)) return false;
   if (!between(m.homePrice, f.homeMin, f.homeMax)) return false;
   if (!between(m.drawPrice, f.drawMin, f.drawMax)) return false;
@@ -83,16 +84,18 @@ function matchesFilters(m, f, leagues) {
   return inDateRange(m.kickoff, f);
 }
 
-export default function Screener() {
+export default function Screener({ onTracked }) {
   const [data, setData] = useState(null); // {rows, leagues, updatedAt}
   const [error, setError] = useState(null);
-  const [leagues, setLeagues] = useState(new Set());
+  const [league, setLeague] = useState(null); // one league, null = all
   const [draft, setDraft] = useState(EMPTY_FILTERS); // what the user is typing
   const [applied, setApplied] = useState(EMPTY_FILTERS); // what the table uses
   const [sort, setSort] = useState({ key: "volume", dir: "desc" });
   const [refreshSecs, setRefreshSecs] = useState(0);
   const [tracked, setTracked] = useState(new Set()); // slugs tracked just now
-  const [trackBusy, setTrackBusy] = useState(null);
+  const [trackBusy, setTrackBusy] = useState(null); // slug whose props are loading
+  const [picker, setPicker] = useState(null); // {row, results} chooser state
+  const [pickerBusy, setPickerBusy] = useState(false);
   const [presets, setPresets] = useState(() =>
     JSON.parse(localStorage.getItem("screenerPresets") || "[]"),
   );
@@ -117,24 +120,61 @@ export default function Screener() {
     return () => clearInterval(id);
   }, [refreshSecs]);
 
-  async function handleTrack(row) {
+  // Track opens a chooser with every prop of the match. The extra props
+  // (spreads, totals) live in a twin event whose slug is always the match
+  // slug plus "-more-markets"; if that twin does not exist we just show
+  // the winner and draw props.
+  async function openPicker(row) {
     setTrackBusy(row.slug);
     try {
-      await trackSelected(row.slug, row.conditionIds);
-      setTracked((prev) => new Set(prev).add(row.slug));
+      const settled = await Promise.allSettled([
+        lookupEvent(row.slug),
+        lookupEvent(`${row.slug}-more-markets`),
+      ]);
+      const results = [];
+      for (const s of settled) {
+        if (s.status !== "fulfilled") continue;
+        for (const m of s.value.markets) {
+          results.push({
+            eventSlug: s.value.slug,
+            eventTitle: s.value.title,
+            conditionId: m.conditionId,
+            question: m.question,
+            kind: m.kind,
+            outcomes: m.outcomes.map((name) => ({ label: name })),
+          });
+        }
+      }
+      if (results.length === 0) throw new Error("no props found");
+      setPicker({ row, results });
+      window.scrollTo(0, 0); // the chooser opens at the top of the page
     } catch (e) {
-      setError(`Tracking failed: ${e.message}`);
+      setError(`Could not load props: ${e.message}`);
     } finally {
       setTrackBusy(null);
     }
   }
 
-  function toggleLeague(name) {
-    setLeagues((prev) => {
-      const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
-      return next;
-    });
+  async function trackPicked(conditionIds) {
+    setPickerBusy(true);
+    try {
+      const bySlug = {};
+      for (const r of picker.results) {
+        if (conditionIds.includes(r.conditionId)) {
+          (bySlug[r.eventSlug] ??= []).push(r.conditionId);
+        }
+      }
+      for (const [slug, ids] of Object.entries(bySlug)) {
+        await trackSelected(slug, ids);
+      }
+      setTracked((prev) => new Set(prev).add(picker.row.slug));
+      onTracked?.(); // dashboard picks the new markets up right away
+      setPicker(null);
+    } catch (e) {
+      setError(`Tracking failed: ${e.message}`);
+    } finally {
+      setPickerBusy(false);
+    }
   }
 
   function sortBy(key) {
@@ -150,7 +190,7 @@ export default function Screener() {
     if (!name) return;
     const next = [
       ...presets.filter((p) => p.name !== name),
-      { name, filters: draft, leagues: [...leagues] },
+      { name, filters: draft, league },
     ];
     setPresets(next);
     localStorage.setItem("screenerPresets", JSON.stringify(next));
@@ -159,7 +199,8 @@ export default function Screener() {
   function loadPreset(p) {
     setDraft(p.filters);
     setApplied(p.filters);
-    setLeagues(new Set(p.leagues));
+    // p.leagues covers presets saved before leagues became single-select
+    setLeague(p.league ?? p.leagues?.[0] ?? null);
   }
 
   function removePreset(name) {
@@ -170,7 +211,7 @@ export default function Screener() {
 
   const rows = data?.rows ?? [];
   const visible = rows
-    .filter((m) => matchesFilters(m, applied, leagues))
+    .filter((m) => matchesFilters(m, applied, league))
     .sort((a, b) => {
       const dir = sort.dir === "asc" ? 1 : -1;
       if (sort.key === "match") return dir * a.home.localeCompare(b.home);
@@ -202,6 +243,17 @@ export default function Screener() {
 
       {error && <div style={{ fontSize: 13, color: T.red }}>⚠ {error}</div>}
 
+      {picker && (
+        <ScreenerPanel
+          results={picker.results}
+          onTrack={trackPicked}
+          onCancel={() => setPicker(null)}
+          busy={pickerBusy}
+          title={`${picker.row.home} vs ${picker.row.away} — choose the props to track`}
+          emptyText="No props found for this match."
+        />
+      )}
+
       {/* sport, then leagues discovered from the live data */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: T.sub }}>Sport:</span>
@@ -214,11 +266,15 @@ export default function Screener() {
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: T.sub }}>League:</span>
-        <button onClick={() => setLeagues(new Set())} style={chipBtn(leagues.size === 0)}>
+        <button onClick={() => setLeague(null)} style={chipBtn(league === null)}>
           All leagues
         </button>
         {(data?.leagues ?? []).map((l) => (
-          <button key={l} onClick={() => toggleLeague(l)} style={chipBtn(leagues.has(l))}>
+          <button
+            key={l}
+            onClick={() => setLeague(l === league ? null : l)}
+            style={chipBtn(league === l)}
+          >
             {l}
           </button>
         ))}
@@ -312,7 +368,7 @@ export default function Screener() {
             onClick={() => {
               setDraft(EMPTY_FILTERS);
               setApplied(EMPTY_FILTERS);
-              setLeagues(new Set());
+              setLeague(null);
             }}
             style={{ ...btn.ghost, fontSize: 13, padding: "9px 14px" }}
           >
@@ -445,9 +501,9 @@ export default function Screener() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => handleTrack(m)}
+                        onClick={() => openPicker(m)}
                         disabled={trackBusy === m.slug}
-                        title="Start collecting price history for this match"
+                        title="Choose which props of this match to track"
                         style={{ ...btn.green, fontSize: 12, padding: "6px 10px" }}
                       >
                         {trackBusy === m.slug ? "…" : "Track"}
@@ -482,8 +538,8 @@ export default function Screener() {
       </div>
 
       <div style={{ fontSize: 12, color: T.faint }}>
-        Click any column heading to sort. Tracking a match starts the collector
-        on its winner and draw markets and adds it to your dashboard.
+        Click any column heading to sort. Track opens the full list of the
+        match's props so you choose exactly which ones to collect.
       </div>
     </main>
   );
