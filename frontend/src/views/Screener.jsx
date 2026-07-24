@@ -53,6 +53,15 @@ const th = {
 
 const td = { ...monoText, fontSize: 13, padding: "9px 14px" };
 
+// Lowercase and strip accents, so typing "bolivar" finds "Club Bolívar"
+// and "gremio" finds "Grêmio FBPA".
+function plain(text) {
+  return text
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
 // Is a kickoff inside the selected date range?
 function inDateRange(kickoff, f) {
   if (f.dateRange === "Any") return true;
@@ -75,8 +84,12 @@ function between(value, min, max) {
   return (!min || value >= Number(min)) && (!max || value <= Number(max));
 }
 
-function matchesFilters(m, f, league) {
+function matchesFilters(m, f, league, search) {
   if (league && m.league !== league) return false;
+  if (search.trim()) {
+    const text = plain(`${m.home} ${m.away} ${m.league}`);
+    if (!text.includes(plain(search).trim())) return false;
+  }
   if (f.minVolume && m.volume < Number(f.minVolume)) return false;
   if (!between(m.homePrice, f.homeMin, f.homeMax)) return false;
   if (!between(m.drawPrice, f.drawMin, f.drawMax)) return false;
@@ -88,6 +101,7 @@ export default function Screener({ onTracked }) {
   const [data, setData] = useState(null); // {rows, leagues, updatedAt}
   const [error, setError] = useState(null);
   const [league, setLeague] = useState(null); // one league, null = all
+  const [search, setSearch] = useState(""); // team or league text, filters live
   const [draft, setDraft] = useState(EMPTY_FILTERS); // what the user is typing
   const [applied, setApplied] = useState(EMPTY_FILTERS); // what the table uses
   const [sort, setSort] = useState({ key: "volume", dir: "desc" });
@@ -211,7 +225,7 @@ export default function Screener({ onTracked }) {
 
   const rows = data?.rows ?? [];
   const visible = rows
-    .filter((m) => matchesFilters(m, applied, league))
+    .filter((m) => matchesFilters(m, applied, league, search))
     .sort((a, b) => {
       const dir = sort.dir === "asc" ? 1 : -1;
       if (sort.key === "match") return dir * a.home.localeCompare(b.home);
@@ -253,6 +267,33 @@ export default function Screener({ onTracked }) {
           emptyText="No props found for this match."
         />
       )}
+
+      {/* quick text search — filters as you type, handy for checking
+          whether one particular game is in the feed */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search a team or league…"
+          style={{
+            ...monoText,
+            flex: 1,
+            fontSize: 14,
+            padding: "11px 14px",
+            border: `1px solid ${T.border}`,
+            borderRadius: 8,
+            color: T.ink,
+          }}
+        />
+        {search && (
+          <button
+            onClick={() => setSearch("")}
+            style={{ ...btn.outline, fontSize: 13, padding: "10px 16px" }}
+          >
+            Clear
+          </button>
+        )}
+      </div>
 
       {/* sport, then leagues discovered from the live data */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -369,6 +410,7 @@ export default function Screener({ onTracked }) {
               setDraft(EMPTY_FILTERS);
               setApplied(EMPTY_FILTERS);
               setLeague(null);
+              setSearch("");
             }}
             style={{ ...btn.ghost, fontSize: 13, padding: "9px 14px" }}
           >
