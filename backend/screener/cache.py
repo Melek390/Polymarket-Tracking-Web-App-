@@ -40,14 +40,13 @@ def _iso_utc(raw: str | None) -> str | None:
         return None
 
 
-def _yes_price_cents(market: dict) -> float | None:
-    """The Yes outcome's price in cents, for the win/draw yes-no markets."""
-    labels = _json_list(market.get("outcomes"))
-    prices = _json_list(market.get("outcomePrices"))
-    for label, price in zip(labels, prices):
-        if label.lower() == "yes":
-            return round(float(price) * 100, 2)
-    return None
+def _ask_cents(market: dict) -> float | None:
+    """Best ask (buy price) in cents — the number Polymarket's Games view
+    shows, so the screener matches their UI. None when nothing is offered."""
+    ask = market.get("bestAsk")
+    if ask is None:
+        return None
+    return round(float(ask) * 100, 2)
 
 
 def extract_match(event: dict, sport: str, now_iso: str) -> dict | None:
@@ -70,11 +69,11 @@ def extract_match(event: dict, sport: str, now_iso: str) -> dict | None:
         q = (m.get("question") or "").lower()
         kickoff = kickoff or _iso_utc(m.get("gameStartTime"))
         if "draw" in q:
-            draw_price = _yes_price_cents(m)
+            draw_price = _ask_cents(m)
         elif q.startswith("will") and home.lower() in q:
-            home_price = _yes_price_cents(m)
+            home_price = _ask_cents(m)
         elif q.startswith("will") and away.lower() in q:
-            away_price = _yes_price_cents(m)
+            away_price = _ask_cents(m)
         else:
             continue
         if m.get("conditionId"):

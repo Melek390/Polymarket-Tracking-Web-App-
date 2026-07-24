@@ -53,6 +53,25 @@ const th = {
 
 const td = { ...monoText, fontSize: 13, padding: "9px 14px" };
 
+// soccer runs ~2 hours; give a match a 2.5h live window after kickoff
+const LIVE_WINDOW_MS = 2.5 * 60 * 60 * 1000;
+const STATUS_FILTERS = ["all", "soon", "live", "over"];
+const STATUS_META = {
+  soon: { label: "COMING SOON", color: "#2563EB" },
+  live: { label: "LIVE", color: "#D64545" },
+  over: { label: "OVER", color: "#646B76" },
+};
+
+// Where a match sits in time, from its kickoff. Purely client-side so it
+// stays accurate between the 5-minute cache refreshes.
+function matchStatus(kickoff) {
+  if (kickoff == null) return "soon";
+  const now = Date.now();
+  if (now < kickoff) return "soon";
+  if (now < kickoff + LIVE_WINDOW_MS) return "live";
+  return "over";
+}
+
 // Lowercase and strip accents, so typing "bolivar" finds "Club Bolívar"
 // and "gremio" finds "Grêmio FBPA".
 function plain(text) {
@@ -102,6 +121,7 @@ export default function Screener({ onTracked }) {
   const [error, setError] = useState(null);
   const [league, setLeague] = useState(null); // one league, null = all
   const [search, setSearch] = useState(""); // team or league text, filters live
+  const [status, setStatus] = useState("all"); // coming soon / live / over
   const [draft, setDraft] = useState(EMPTY_FILTERS); // what the user is typing
   const [applied, setApplied] = useState(EMPTY_FILTERS); // what the table uses
   const [sort, setSort] = useState({ key: "volume", dir: "desc" });
@@ -226,6 +246,7 @@ export default function Screener({ onTracked }) {
   const rows = data?.rows ?? [];
   const visible = rows
     .filter((m) => matchesFilters(m, applied, league, search))
+    .filter((m) => status === "all" || matchStatus(m.kickoff) === status)
     .sort((a, b) => {
       const dir = sort.dir === "asc" ? 1 : -1;
       if (sort.key === "match") return dir * a.home.localeCompare(b.home);
@@ -301,6 +322,15 @@ export default function Screener({ onTracked }) {
         {SPORTS.map((s) => (
           <button key={s} style={chipBtn(true)}>
             {s}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: T.sub }}>Status:</span>
+        {STATUS_FILTERS.map((s) => (
+          <button key={s} onClick={() => setStatus(s)} style={chipBtn(status === s)}>
+            {s === "all" ? "All" : STATUS_META[s].label}
           </button>
         ))}
       </div>
@@ -411,6 +441,7 @@ export default function Screener({ onTracked }) {
               setApplied(EMPTY_FILTERS);
               setLeague(null);
               setSearch("");
+              setStatus("all");
             }}
             style={{ ...btn.ghost, fontSize: 13, padding: "9px 14px" }}
           >
@@ -518,6 +549,28 @@ export default function Screener({ onTracked }) {
               {visible.map((m) => (
                 <tr key={m.slug} className="mkt-row" style={{ borderTop: `1px solid ${T.border}` }}>
                   <td style={{ ...td, fontFamily: T.ui, fontWeight: 500 }}>
+                    {(() => {
+                      const s = matchStatus(m.kickoff);
+                      const meta = STATUS_META[s];
+                      return (
+                        <span
+                          className={s === "live" ? "pulse" : ""}
+                          style={{
+                            ...monoText,
+                            fontSize: 9,
+                            fontWeight: 600,
+                            color: "#fff",
+                            background: meta.color,
+                            borderRadius: 4,
+                            padding: "1px 5px",
+                            marginRight: 8,
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          {meta.label}
+                        </span>
+                      );
+                    })()}
                     {m.home} vs {m.away}
                   </td>
                   <td style={{ ...td, fontFamily: T.ui, color: T.sub, fontSize: 13 }}>
@@ -580,8 +633,9 @@ export default function Screener({ onTracked }) {
       </div>
 
       <div style={{ fontSize: 12, color: T.faint }}>
-        Click any column heading to sort. Track opens the full list of the
-        match's props so you choose exactly which ones to collect.
+        Prices are the best ask (buy price), matching Polymarket. Click any
+        column heading to sort. Track opens the full list of the match's props
+        so you choose exactly which ones to collect.
       </div>
     </main>
   );
