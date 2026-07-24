@@ -109,7 +109,9 @@ def extract_match(event: dict, sport: str, now_iso: str) -> dict | None:
 
 async def refresh(sport: str = "soccer"):
     """Fetch the sport's events and rebuild its screener cache."""
-    events = await gamma.fetch_events_by_tag(SPORT_TAGS[sport], pages=10)
+    # 50 pages is far above the ~2k events Polymarket lists for a sport;
+    # the fetch stops as soon as the list runs out
+    events = await gamma.fetch_events_by_tag(SPORT_TAGS[sport], pages=50)
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = []
     for event in events:

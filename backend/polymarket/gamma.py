@@ -1,10 +1,13 @@
 """Gamma API client — event discovery, used only when adding or screening markets."""
 
 import json
+import logging
 
 import httpx
 
 from backend.config.settings import settings
+
+log = logging.getLogger(__name__)
 
 
 def parse_slug(url_or_slug: str) -> str:
@@ -38,7 +41,7 @@ def _json_list(value) -> list:
 
 
 async def fetch_events_by_tag(tag_id: int, pages: int = 3) -> list[dict]:
-    """Active events for one sport tag, up to a few pages of 100."""
+    """Active events for one sport tag, paging until the list runs out."""
     events = []
     async with httpx.AsyncClient(timeout=settings.http_timeout) as client:
         for offset in range(0, pages * 100, 100):
@@ -52,11 +55,20 @@ async def fetch_events_by_tag(tag_id: int, pages: int = 3) -> list[dict]:
                     "offset": offset,
                 },
             )
+            # Gamma refuses offsets past its ceiling (~2100) with a 422;
+            # that just means we have reached the end of the list
+            if r.status_code == 422:
+                return events
             r.raise_for_status()
             batch = r.json()
             events += batch
             if len(batch) < 100:
-                break
+                return events
+    # ran out of pages before Polymarket ran out of events: say so loudly,
+    # because silently truncating means matches go missing from the screener
+    log.warning(
+        "tag %s has more than %d events; raise the page limit", tag_id, len(events)
+    )
     return events
 
 
