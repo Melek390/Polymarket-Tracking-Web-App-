@@ -136,17 +136,20 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
     });
   }
 
+  const center = { ...td, textAlign: "center" };
   return (
     <div style={{ ...card, overflow: "hidden" }}>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ ...th, width: 28 }} />
+              <th style={{ ...th, width: 28, textAlign: "center" }}>+/−</th>
               <th style={th}>Game</th>
               <th style={th}>Inning</th>
+              <th style={th}>Batting</th>
               <th style={th}>Score</th>
-              <th style={th}>Market</th>
+              <th style={{ ...th, textAlign: "right", color: T.series[0] }}>Yes</th>
+              <th style={{ ...th, textAlign: "right", color: T.series[2] }}>No</th>
               <th style={{ ...th, textAlign: "center" }}>Outs</th>
               <th style={{ ...th, textAlign: "center" }}>Count</th>
               <th style={{ ...th, textAlign: "center" }}>Bases</th>
@@ -156,15 +159,28 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
           <tbody>
             {rows.map((r) => {
               const live = r.gamePk ? liveById[r.gamePk] : null;
+              const isLive = live?.status === "Live";
               const open = expanded.has(r.gamePk);
               // MLB decides who is home/away; fall back to Polymarket order
               const away = live?.away.abbr ?? r.away;
               const home = live?.home.abbr ?? r.home;
               const score = live && live.status !== "Preview"
                 ? `${live.away.runs ?? 0}-${live.home.runs ?? 0}` : "—";
+              const battingTeam = isLive
+                ? (live.batting === "away" ? live.away : live.home) : null;
+              // Yes = the home-side price, No = the away-side price (with the
+              // team name under each, since baseball has no literal Yes/No)
+              const priceCell = (team, price, color) => (
+                <td style={{ ...td, textAlign: "right" }}>
+                  <div style={{ fontWeight: 700, color }}>
+                    {price != null ? fmtCents(price) : "—"}
+                  </div>
+                  <div style={{ fontFamily: T.ui, fontSize: 11, color: T.sub }}>{team}</div>
+                </td>
+              );
               return [
                 <tr key={r.slug} style={{ borderTop: `1px solid ${T.border}` }}>
-                  <td style={{ ...td, textAlign: "center" }}>
+                  <td style={center}>
                     <button
                       onClick={() => toggle(r.gamePk)}
                       disabled={!r.gamePk}
@@ -177,25 +193,24 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
                   <td style={{ ...td, fontFamily: T.ui, fontWeight: 500, whiteSpace: "nowrap" }}>
                     {away} @ {home}
                   </td>
-                  <td style={{ ...td, whiteSpace: "nowrap", color: live?.status === "Live" ? T.red : T.sub }}>
+                  <td style={{ ...td, whiteSpace: "nowrap", color: isLive ? T.red : T.sub }}>
                     {inningText(live, r.kickoff)}
                   </td>
+                  <td style={{ ...td, fontFamily: T.ui, whiteSpace: "nowrap" }}>
+                    {battingTeam ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%",
+                          background: live.batting === "away" ? T.series[2] : T.series[0] }} />
+                        {battingTeam.abbr}
+                      </span>
+                    ) : "—"}
+                  </td>
                   <td style={td}>{score}</td>
-                  <td style={{ ...td, fontFamily: T.ui }}>
-                    <div style={{ fontWeight: 600 }}>
-                      {r.home} {r.homePrice != null ? fmtCents(r.homePrice) : "—"}
-                    </div>
-                    <div style={{ color: T.sub }}>
-                      {r.away} {r.awayPrice != null ? fmtCents(r.awayPrice) : "—"}
-                    </div>
-                  </td>
-                  <td style={{ ...td, textAlign: "center" }}>{live?.status === "Live" ? live.outs : "—"}</td>
-                  <td style={{ ...td, textAlign: "center" }}>
-                    {live?.status === "Live" ? `${live.balls}-${live.strikes}` : "—"}
-                  </td>
-                  <td style={{ ...td, textAlign: "center" }}>
-                    {live?.status === "Live" ? <Bases bases={live.bases} /> : "—"}
-                  </td>
+                  {priceCell(r.home, r.homePrice, T.series[0])}
+                  {priceCell(r.away, r.awayPrice, T.series[2])}
+                  <td style={center}>{isLive ? live.outs : "—"}</td>
+                  <td style={center}>{isLive ? `${live.balls}-${live.strikes}` : "—"}</td>
+                  <td style={center}>{isLive ? <Bases bases={live.bases} /> : "—"}</td>
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                     {tracked.has(r.slug) ? (
                       <button disabled style={{ ...btn.outline, fontSize: 12, padding: "5px 9px" }}>Tracked ✓</button>
@@ -212,7 +227,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
                 </tr>,
                 open && (
                   <tr key={`${r.slug}-x`}>
-                    <td colSpan={9} style={{ padding: 0 }}>
+                    <td colSpan={11} style={{ padding: 0 }}>
                       <ExpandPanel live={live} />
                     </td>
                   </tr>
