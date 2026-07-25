@@ -21,6 +21,7 @@ async def schedule(date: str) -> list[dict]:
                     "away": g["teams"]["away"]["team"]["name"],
                     "home": g["teams"]["home"]["team"]["name"],
                     "status": g["status"]["abstractGameState"],  # Preview|Live|Final
+                    "date": g.get("gameDate"),  # ISO UTC first-pitch time
                 }
             )
     return games

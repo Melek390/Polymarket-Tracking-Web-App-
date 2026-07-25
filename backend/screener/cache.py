@@ -206,34 +206,43 @@ def extract_match(event: dict, sport: str, now_iso: str) -> dict | None:
 
 
 async def _attach_game_pks(rows: list[dict]):
-    """Match each baseball row to its MLB gamePk by team names and date. A
-    late game's UTC date can be one ahead of its US game date, so we also try
-    the day before."""
-    schedules: dict[str, dict] = {}
+    """Match each baseball row to its MLB gamePk. Teams in a series play on
+    consecutive days, so matching by team pair alone can grab the wrong day's
+    game (e.g. yesterday's final). We look across a ±1 day window and pick the
+    game whose first-pitch time is closest to the row's kickoff — Polymarket's
+    kickoff is the real start time, so the nearest game is the right one."""
+    schedules: dict[str, list] = {}
 
-    async def by_pair(date: str) -> dict:
+    async def games_on(date: str) -> list:
         if date not in schedules:
             try:
-                games = await mlb.schedule(date)
-                schedules[date] = {
-                    frozenset({g["away"].lower(), g["home"].lower()}): g["game_pk"]
-                    for g in games
-                }
+                schedules[date] = await mlb.schedule(date)
             except Exception as e:
                 log.warning("MLB schedule %s failed: %s", date, e)
-                schedules[date] = {}
+                schedules[date] = []
         return schedules[date]
 
     for r in rows:
         if not r["kickoff"]:
             continue
-        d = datetime.fromisoformat(r["kickoff"].replace("Z", "+00:00"))
+        kt = datetime.fromisoformat(r["kickoff"].replace("Z", "+00:00"))
         pair = frozenset({r["home_team"].lower(), r["away_team"].lower()})
-        for cand in (d.date(), (d - timedelta(days=1)).date()):
-            pk = (await by_pair(cand.isoformat())).get(pair)
-            if pk:
-                r["game_pk"] = pk
-                break
+        best_pk, best_gap = None, None
+        for off in (-1, 0, 1):
+            day = (kt + timedelta(days=off)).date().isoformat()
+            for g in await games_on(day):
+                if frozenset({g["away"].lower(), g["home"].lower()}) != pair:
+                    continue
+                gd = g.get("date")
+                if not gd:
+                    continue
+                gap = abs(
+                    (datetime.fromisoformat(gd.replace("Z", "+00:00")) - kt).total_seconds()
+                )
+                if best_gap is None or gap < best_gap:
+                    best_pk, best_gap = g["game_pk"], gap
+        if best_pk is not None:
+            r["game_pk"] = best_pk
 
 
 async def refresh(sport: str):
