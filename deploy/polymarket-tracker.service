@@ -6,7 +6,9 @@ Wants=network-online.target
 [Service]
 User=tracker
 WorkingDirectory=/opt/polymarket-tracker
-ExecStart=/opt/polymarket-tracker/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
+# bind to localhost only — Caddy reverse-proxies HTTPS to it; the port is
+# not exposed to the internet directly
+ExecStart=/opt/polymarket-tracker/venv/bin/uvicorn backend.main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=5
 

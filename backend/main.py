@@ -5,6 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.routes import router
@@ -25,6 +26,16 @@ app = FastAPI(title="Polymarket Price Tracker", lifespan=lifespan)
 
 # JSON API under /api/... (see backend/api/routes.py)
 app.include_router(router)
+
+
+# The frontend uses real paths (not hashes), so a page opened directly at
+# /screener or /market/12 must return the app shell instead of a 404.
+@app.get("/screener")
+@app.get("/market/{market_id}")
+def spa_page(market_id: int = 0):
+    """Serve index.html for the app's own page routes."""
+    return FileResponse("frontend/dist/index.html")
+
 
 # The pre-built React bundle, served from the same port so a single
 # systemd service is the whole deployment. html=True maps / to index.html.

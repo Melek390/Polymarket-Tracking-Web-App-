@@ -4,7 +4,16 @@ import { fmtCents, fmtTimestamp, fmtVolume } from "../utils.js";
 import { fetchScreener, lookupEvent, trackSelected } from "../api/client.js";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
 
-const SPORTS = ["Soccer"]; // more sports are a paid follow-on
+// key = the sport param sent to the API; baseball is shown but disabled
+const SPORTS = [
+  { key: "soccer", label: "Soccer" },
+  { key: "basketball", label: "Basketball" },
+  { key: "baseball", label: "Baseball", disabled: true },
+  { key: "tennis", label: "Tennis" },
+  { key: "football", label: "Football" },
+  { key: "cricket", label: "Cricket" },
+  { key: "esports", label: "Esports" },
+];
 const DATE_RANGES = ["Any", "Today", "Tomorrow", "This week", "Custom"];
 const REFRESH_OPTIONS = [
   { label: "Off", seconds: 0 },
@@ -117,6 +126,7 @@ function matchesFilters(m, f, league, search) {
 }
 
 export default function Screener({ onTracked }) {
+  const [sport, setSport] = useState("soccer");
   const [data, setData] = useState(null); // {rows, leagues, updatedAt}
   const [error, setError] = useState(null);
   const [league, setLeague] = useState(null); // one league, null = all
@@ -136,23 +146,26 @@ export default function Screener({ onTracked }) {
 
   async function load() {
     try {
-      setData(await fetchScreener("soccer"));
+      setData(await fetchScreener(sport));
       setError(null);
     } catch (e) {
       setError(`Could not load markets: ${e.message}`);
     }
   }
 
+  // reload whenever the sport changes; clear the league since the list differs
   useEffect(() => {
+    setData(null);
+    setLeague(null);
     load();
-  }, []);
+  }, [sport]);
 
   // auto-refresh pulls fresh prices on the chosen interval
   useEffect(() => {
     if (!refreshSecs) return;
     const id = setInterval(load, refreshSecs * 1000);
     return () => clearInterval(id);
-  }, [refreshSecs]);
+  }, [refreshSecs, sport]);
 
   // Track opens a chooser with every prop of the match. The extra props
   // (spreads, totals) live in a twin event whose slug is always the match
@@ -244,6 +257,8 @@ export default function Screener({ onTracked }) {
   }
 
   const rows = data?.rows ?? [];
+  // soccer is the only 3-way sport; hide the Draw column for the rest
+  const hasDraw = rows.some((m) => m.drawPrice != null);
   const visible = rows
     .filter((m) => matchesFilters(m, applied, league, search))
     .filter((m) => status === "all" || matchStatus(m.kickoff) === status)
@@ -320,8 +335,14 @@ export default function Screener({ onTracked }) {
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: T.sub }}>Sport:</span>
         {SPORTS.map((s) => (
-          <button key={s} style={chipBtn(true)}>
-            {s}
+          <button
+            key={s.key}
+            onClick={() => !s.disabled && setSport(s.key)}
+            disabled={s.disabled}
+            title={s.disabled ? "Coming soon" : ""}
+            style={chipBtn(sport === s.key)}
+          >
+            {s.label}
           </button>
         ))}
       </div>
@@ -371,7 +392,7 @@ export default function Screener({ onTracked }) {
           </div>
           {[
             ["Home price (¢)", "homeMin", "homeMax"],
-            ["Draw price (¢)", "drawMin", "drawMax"],
+            ...(hasDraw ? [["Draw price (¢)", "drawMin", "drawMax"]] : []),
             ["Away price (¢)", "awayMin", "awayMax"],
           ].map(([title, minKey, maxKey]) => (
             <div key={minKey}>
@@ -530,12 +551,14 @@ export default function Screener({ onTracked }) {
                 >
                   Home{arrow("homePrice")}
                 </th>
-                <th
-                  style={{ ...th, textAlign: "right", color: T.series[1] }}
-                  onClick={() => sortBy("drawPrice")}
-                >
-                  Draw{arrow("drawPrice")}
-                </th>
+                {hasDraw && (
+                  <th
+                    style={{ ...th, textAlign: "right", color: T.series[1] }}
+                    onClick={() => sortBy("drawPrice")}
+                  >
+                    Draw{arrow("drawPrice")}
+                  </th>
+                )}
                 <th
                   style={{ ...th, textAlign: "right", color: T.series[2] }}
                   onClick={() => sortBy("awayPrice")}
@@ -582,7 +605,7 @@ export default function Screener({ onTracked }) {
                   <td style={{ ...td, textAlign: "right" }}>{fmtVolume(m.volume)}</td>
                   {[
                     ["homePrice", T.series[0]],
-                    ["drawPrice", T.series[1]],
+                    ...(hasDraw ? [["drawPrice", T.series[1]]] : []),
                     ["awayPrice", T.series[2]],
                   ].map(([key, color]) => (
                     <td key={key} style={{ ...td, textAlign: "right", color }}>

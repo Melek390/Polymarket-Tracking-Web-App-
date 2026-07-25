@@ -3,7 +3,7 @@ import { T } from "../theme.js";
 const NAVY = "#191970"; // header keeps its own darker blue
 
 // Top bar: app name, page nav, collector health, refresh.
-export default function Header({ collectorRunning, refreshing, onRefresh }) {
+export default function Header({ collectorRunning, refreshing, onRefresh, onNavigate }) {
   return (
     <header
       style={{
@@ -19,15 +19,19 @@ export default function Header({ collectorRunning, refreshing, onRefresh }) {
         <span style={{ fontWeight: 700, fontSize: 16 }}>Market Tracker</span>
         <nav style={{ display: "flex", gap: 8 }}>
           {[
-            ["Dashboard", "#/"],
-            ["Screener", "#/screener"],
+            ["Dashboard", "/"],
+            ["Screener", "/screener"],
           ].map(([name, href]) => {
-            const onScreener = window.location.hash.startsWith("#/screener");
-            const active = href === "#/screener" ? onScreener : !onScreener;
+            const onScreener = window.location.pathname.startsWith("/screener");
+            const active = href === "/screener" ? onScreener : !onScreener;
             return (
               <a
                 key={name}
                 href={href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onNavigate(href);
+                }}
                 style={{
                   fontFamily: T.ui,
                   fontWeight: 600,

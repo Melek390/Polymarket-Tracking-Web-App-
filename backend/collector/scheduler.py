@@ -90,7 +90,7 @@ def start():
     sync_jobs()
     # keep the screener cache fresh; first run right away so it is never empty
     scheduler.add_job(
-        cache.refresh,
+        cache.refresh_all,
         "interval",
         minutes=settings.screener_refresh_minutes,
         id="screener-cache",
