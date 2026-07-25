@@ -3,7 +3,7 @@ import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents } from "../utils.js";
 import { fetchMlbGame, fetchLivePrice } from "../api/client.js";
 
-const POLL_MS = 6000; // MLB feed lags ~6-8s; poll near that so it feels live
+const POLL_MS = 3000; // read our cache fast; backend polls MLB every 3s
 const th = { ...monoText, fontSize: 10, textTransform: "uppercase",
   letterSpacing: 0.4, color: T.sub, padding: "8px 10px", textAlign: "left" };
 const td = { ...monoText, fontSize: 12, padding: "8px 10px", verticalAlign: "top" };

@@ -186,7 +186,7 @@ export default function Screener({ sport, onSport, onTracked }) {
       if (Object.keys(next).length) setLivePrices((prev) => ({ ...prev, ...next }));
     }
     tick();
-    const id = setInterval(tick, 6000); // keep live rows tracking Polymarket
+    const id = setInterval(tick, 3000); // keep live rows tracking Polymarket
     return () => { stop = true; clearInterval(id); };
   }, [data, sport]);
 

@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     # Screener
     screener_refresh_minutes: int = 5
 
-    # MLB live game state poll (seconds); low request rate, tiny payloads
-    mlb_poll_seconds: int = 5
+    # MLB live game state poll (seconds); 3s catches every update (the MLB
+    # feed itself only refreshes every 6-8s) at a tiny, safe request rate
+    mlb_poll_seconds: int = 3
 
     # Polymarket public APIs
     gamma_base_url: str = "https://gamma-api.polymarket.com"
