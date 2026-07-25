@@ -20,9 +20,73 @@ async def schedule(date: str) -> list[dict]:
                     "game_pk": g["gamePk"],
                     "away": g["teams"]["away"]["team"]["name"],
                     "home": g["teams"]["home"]["team"]["name"],
+                    "status": g["status"]["abstractGameState"],  # Preview|Live|Final
                 }
             )
     return games
+
+
+_TEAM_ABBR: dict[str, str] = {}
+
+
+async def team_abbreviations() -> dict[str, str]:
+    """{full team name: abbreviation}, fetched once (the list never changes)."""
+    if not _TEAM_ABBR:
+        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+            r = await client.get(f"{BASE}/v1/teams", params={"sportId": 1})
+            r.raise_for_status()
+        for t in r.json().get("teams", []):
+            _TEAM_ABBR[t["name"]] = t.get("abbreviation", t["name"][:3].upper())
+    return _TEAM_ABBR
+
+
+async def linescore_state(game_pk: int, away_name: str, home_name: str, status: str) -> dict:
+    """Compact live state from the light 3 KB linescore endpoint (no season
+    stats). Same shape as live_game with era/ops left None."""
+    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+        r = await client.get(f"{BASE}/v1/game/{game_pk}/linescore")
+        r.raise_for_status()
+    ls = r.json()
+    abbr = await team_abbreviations()
+    offense = ls.get("offense", {})
+    defense = ls.get("defense", {})
+
+    def team(side, name):
+        t = ls["teams"][side]
+        return {
+            "name": name,
+            "abbr": abbr.get(name, name[:3].upper()),
+            "runs": t.get("runs"),
+            "hits": t.get("hits"),
+            "errors": t.get("errors"),
+        }
+
+    return {
+        "status": status,
+        "detail": ls.get("inningState") or status,
+        "inning": ls.get("currentInning"),
+        "inning_half": ls.get("inningHalf"),
+        "is_top": ls.get("isTopInning"),
+        "balls": ls.get("balls"),
+        "strikes": ls.get("strikes"),
+        "outs": ls.get("outs"),
+        "bases": {
+            "first": bool(offense.get("first")),
+            "second": bool(offense.get("second")),
+            "third": bool(offense.get("third")),
+        },
+        "away": team("away", away_name),
+        "home": team("home", home_name),
+        "batting": "away" if ls.get("isTopInning") else "home",
+        "batter": {"name": (offense.get("batter") or {}).get("fullName"), "ops": None},
+        "pitcher": {"name": (defense.get("pitcher") or {}).get("fullName"), "era": None},
+        "innings": [
+            {"num": i.get("num"),
+             "away": i.get("away", {}).get("runs"),
+             "home": i.get("home", {}).get("runs")}
+            for i in ls.get("innings", [])
+        ],
+    }
 
 
 async def find_game_pk(team_a: str, team_b: str, date: str) -> int | None:

@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     # Screener
     screener_refresh_minutes: int = 5
 
+    # MLB live game state poll (seconds); low request rate, tiny payloads
+    mlb_poll_seconds: int = 5
+
     # Polymarket public APIs
     gamma_base_url: str = "https://gamma-api.polymarket.com"
     clob_base_url: str = "https://clob.polymarket.com"

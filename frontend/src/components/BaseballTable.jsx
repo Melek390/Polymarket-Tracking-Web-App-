@@ -113,7 +113,10 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
           return r.kickoff && now - r.kickoff < 5 * 3600e3 && r.kickoff - now < 30 * 60e3;
         });
 
-      const games = await Promise.allSettled(active.map((r) => fetchMlbGame(r.gamePk)));
+      // expanded rows fetch the full feed (ERA/OPS); the rest read the light cache
+      const games = await Promise.allSettled(
+        active.map((r) => fetchMlbGame(r.gamePk, expanded.has(r.gamePk))),
+      );
       const prices = await Promise.allSettled(active.map((r) => fetchLivePrice(r.slug)));
       if (stop) return;
       const nextLive = {}, nextPrice = {};

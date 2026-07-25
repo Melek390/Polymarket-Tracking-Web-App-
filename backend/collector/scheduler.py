@@ -8,6 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from backend.config.settings import settings
 from backend.database import db
+from backend.mlb import live as mlb_live
 from backend.polymarket import clob
 from backend.screener import cache
 
@@ -95,6 +96,10 @@ def start():
         minutes=settings.screener_refresh_minutes,
         id="screener-cache",
         next_run_time=datetime.now(timezone.utc),
+    )
+    # poll live MLB games server-side so browsers read a shared cache
+    scheduler.add_job(
+        mlb_live.poll, "interval", seconds=settings.mlb_poll_seconds, id="mlb-live"
     )
     scheduler.start()
 

@@ -17,6 +17,7 @@ from backend.models.schemas import (
     TrackRequest,
 )
 from backend.mlb import client as mlb
+from backend.mlb import live as mlb_live
 from backend.polymarket import clob, gamma
 from backend.screener import screener as market_screener
 
@@ -98,8 +99,14 @@ async def screener_live_price(slug: str):
 
 
 @router.get("/mlb/game/{game_pk}")
-async def mlb_game(game_pk: int):
-    """Live MLB game state for a baseball row's expand panel and columns."""
+async def mlb_game(game_pk: int, full: bool = False):
+    """Live MLB game state. Serves the server-side cache (refreshed every few
+    seconds) so browsers never hit MLB directly; full=1 fetches the heavy feed
+    for the expand panel's season stats (ERA / OPS)."""
+    if not full:
+        state = mlb_live.cached(game_pk)
+        if state is not None:
+            return state
     try:
         return await mlb.live_game(game_pk)
     except httpx.HTTPError as e:
