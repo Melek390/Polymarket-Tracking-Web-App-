@@ -281,6 +281,9 @@ export default function Screener({ onTracked }) {
   if (league) leagueSet.add(league); // keep the current pick deselectable
   const leagueOptions = [...leagueSet].sort();
 
+  // esports competitions are "games" (LoL, Dota 2, …), not leagues
+  const leagueWord = sport === "esports" ? "Game" : "League";
+
   const arrow = (key) =>
     sort.key === key ? (sort.dir === "asc" ? " ↑" : " ↓") : "";
 
@@ -369,9 +372,9 @@ export default function Screener({ onTracked }) {
       </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: T.sub }}>League:</span>
+        <span style={{ fontSize: 12, color: T.sub }}>{leagueWord}:</span>
         <button onClick={() => setLeague(null)} style={chipBtn(league === null)}>
-          All leagues
+          All {leagueWord.toLowerCase()}s
         </button>
         {leagueOptions.map((l) => (
           <button
@@ -549,7 +552,7 @@ export default function Screener({ onTracked }) {
                   Match{arrow("match")}
                 </th>
                 <th style={{ ...th, textAlign: "left" }} onClick={() => sortBy("league")}>
-                  League{arrow("league")}
+                  {leagueWord}{arrow("league")}
                 </th>
                 <th style={{ ...th, textAlign: "left" }} onClick={() => sortBy("kickoff")}>
                   Kickoff (UTC){arrow("kickoff")}
