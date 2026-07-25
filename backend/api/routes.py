@@ -84,15 +84,17 @@ def screener_markets(sport: str = "soccer"):
 @router.get("/screener/live-price")
 async def screener_live_price(slug: str):
     """Live best-ask prices for one cached game, straight from the CLOB order
-    book — fresh enough to match Polymarket during a live game."""
+    book — fresh enough to match Polymarket during a live game. Two tokens
+    for a moneyline sport, three (home/draw/away) for soccer."""
     tokens = db.screener_token_ids(slug)
     if not tokens or len(tokens) < 2:
         raise HTTPException(404, "no live tokens for that game")
     try:
-        prices = await clob.fetch_buy_prices(tokens)
+        prices = await clob.fetch_buy_prices([t for t in tokens if t])
     except httpx.HTTPError as e:
         raise HTTPException(502, f"CLOB unreachable: {e}")
-    return {"home": prices.get(tokens[0]), "away": prices.get(tokens[1])}
+    keys = ["home", "away"] if len(tokens) == 2 else ["home", "draw", "away"]
+    return {k: (prices.get(t) if t else None) for k, t in zip(keys, tokens)}
 
 
 @router.get("/mlb/game/{game_pk}")

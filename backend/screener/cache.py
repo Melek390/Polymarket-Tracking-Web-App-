@@ -98,18 +98,30 @@ def parse_title(title: str) -> tuple[str | None, str, str] | None:
     return competition, home, away
 
 
+def _yes_token(market: dict) -> str | None:
+    """The CLOB token id of a market's Yes outcome, for live pricing."""
+    labels = _json_list(market.get("outcomes"))
+    toks = _json_list(market.get("clobTokenIds"))
+    for label, tok in zip(labels, toks):
+        if label.lower() == "yes":
+            return tok
+    return None
+
+
 def _soccer_prices(event: dict, home: str, away: str):
-    """Home/draw/away asks from the three win/draw yes-no markets."""
+    """Home/draw/away asks from the three win/draw yes-no markets, plus each
+    market's Yes token id (ordered home, draw, away) for live pricing."""
     prices = {"home": None, "draw": None, "away": None}
+    tokens = {"home": None, "draw": None, "away": None}
     for m in event.get("markets", []):
         q = (m.get("question") or "").lower()
         if "draw" in q:
-            prices["draw"] = _ask_cents(m)
+            prices["draw"], tokens["draw"] = _ask_cents(m), _yes_token(m)
         elif q.startswith("will") and home.lower() in q:
-            prices["home"] = _ask_cents(m)
+            prices["home"], tokens["home"] = _ask_cents(m), _yes_token(m)
         elif q.startswith("will") and away.lower() in q:
-            prices["away"] = _ask_cents(m)
-    return prices
+            prices["away"], tokens["away"] = _ask_cents(m), _yes_token(m)
+    return prices, [tokens["home"], tokens["draw"], tokens["away"]]
 
 
 _NON_MONEYLINE = ("spread", "o/u", "handicap", "total", "game ", "set ",
@@ -152,7 +164,7 @@ def extract_match(event: dict, sport: str, now_iso: str) -> dict | None:
     competition, home, away = parsed
 
     if sport in THREE_WAY:
-        prices, tokens = _soccer_prices(event, home, away), []
+        prices, tokens = _soccer_prices(event, home, away)
     else:
         prices, tokens = _two_way_prices(event)
     if prices["home"] is None and prices["away"] is None:

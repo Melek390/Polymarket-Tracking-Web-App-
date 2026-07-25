@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtCents, fmtTimestamp, fmtVolume } from "../utils.js";
-import { fetchScreener, lookupEvent, trackSelected } from "../api/client.js";
+import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected } from "../api/client.js";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
 import BaseballTable from "../components/BaseballTable.jsx";
 
@@ -140,6 +140,7 @@ export default function Screener({ sport, onSport, onTracked }) {
   const [trackBusy, setTrackBusy] = useState(null); // slug whose props are loading
   const [picker, setPicker] = useState(null); // {row, results} chooser state
   const [pickerBusy, setPickerBusy] = useState(false);
+  const [livePrices, setLivePrices] = useState({}); // slug -> fresh CLOB asks
   const [presets, setPresets] = useState(() =>
     JSON.parse(localStorage.getItem("screenerPresets") || "[]"),
   );
@@ -166,6 +167,28 @@ export default function Screener({ sport, onSport, onTracked }) {
     const id = setInterval(load, refreshSecs * 1000);
     return () => clearInterval(id);
   }, [refreshSecs, sport]);
+
+  // live games move too fast for the 5-min cache: pull their prices straight
+  // from the CLOB every 12s so they track Polymarket (baseball has its own)
+  useEffect(() => {
+    if (sport === "baseball") return;
+    let stop = false;
+    async function tick() {
+      const live = (data?.rows ?? []).filter(
+        (m) => m.kickoff && matchStatus(m.kickoff) === "live",
+      );
+      const res = await Promise.allSettled(live.map((m) => fetchLivePrice(m.slug)));
+      if (stop) return;
+      const next = {};
+      live.forEach((m, i) => {
+        if (res[i].status === "fulfilled") next[m.slug] = res[i].value;
+      });
+      if (Object.keys(next).length) setLivePrices((prev) => ({ ...prev, ...next }));
+    }
+    tick();
+    const id = setInterval(tick, 12000);
+    return () => { stop = true; clearInterval(id); };
+  }, [data, sport]);
 
   // Track opens a chooser with every prop of the match. The extra props
   // (spreads, totals) live in a twin event whose slug is always the match
@@ -633,15 +656,24 @@ export default function Screener({ sport, onSport, onTracked }) {
                     {m.kickoff ? fmtTimestamp(m.kickoff) : "—"}
                   </td>
                   <td style={{ ...td, textAlign: "right" }}>{fmtVolume(m.volume)}</td>
-                  {[
-                    ["homePrice", T.series[0]],
-                    ...(hasDraw ? [["drawPrice", T.series[1]]] : []),
-                    ["awayPrice", T.series[2]],
-                  ].map(([key, color]) => (
-                    <td key={key} style={{ ...td, textAlign: "right", color }}>
-                      {m[key] != null ? fmtCents(m[key]) : "—"}
-                    </td>
-                  ))}
+                  {(() => {
+                    // live rows use fresh CLOB prices; others use the cache
+                    const lp = livePrices[m.slug];
+                    const eff = {
+                      homePrice: lp?.home ?? m.homePrice,
+                      drawPrice: lp?.draw ?? m.drawPrice,
+                      awayPrice: lp?.away ?? m.awayPrice,
+                    };
+                    return [
+                      ["homePrice", T.series[0]],
+                      ...(hasDraw ? [["drawPrice", T.series[1]]] : []),
+                      ["awayPrice", T.series[2]],
+                    ].map(([key, color]) => (
+                      <td key={key} style={{ ...td, textAlign: "right", color }}>
+                        {eff[key] != null ? fmtCents(eff[key]) : "—"}
+                      </td>
+                    ));
+                  })()}
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                     {tracked.has(m.slug) ? (
                       <button disabled style={{ ...btn.outline, fontSize: 12, padding: "6px 10px" }}>
