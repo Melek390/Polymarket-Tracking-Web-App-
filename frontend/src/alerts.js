@@ -31,16 +31,17 @@ export function soundType(alert) {
 // --- sound (Web Audio, no files to ship) ----------------------------------
 
 let audio;
-function beep(freqs, dur = 0.15, gap = 0.13) {
+function beep(freqs, dur = 0.18, gap = 0.15) {
   audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+  if (audio.state === "suspended") audio.resume(); // needed after tab-switch/autoplay block
   freqs.forEach((f, i) => {
     const osc = audio.createOscillator();
     const gain = audio.createGain();
-    osc.type = "sine";
+    osc.type = "triangle"; // richer/louder than a plain sine at the same gain
     osc.frequency.value = f;
     const t = audio.currentTime + i * gap;
     gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.9, t + 0.02); // was 0.25 — too quiet to hear
     gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     osc.connect(gain);
     gain.connect(audio.destination);
