@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtCents, fmtTimestamp, fmtVolume } from "../utils.js";
 import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected } from "../api/client.js";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
 import BaseballTable from "../components/BaseballTable.jsx";
+import AlertDialog from "../components/AlertDialog.jsx";
+import { loadAlerts, persistAlerts, matches, playSound, soundType } from "../alerts.js";
 
 // key = the sport param sent to the API
 const SPORTS = [
@@ -141,6 +143,15 @@ export default function Screener({ sport, onSport, onTracked }) {
   const [picker, setPicker] = useState(null); // {row, results} chooser state
   const [pickerBusy, setPickerBusy] = useState(false);
   const [livePrices, setLivePrices] = useState({}); // slug -> fresh CLOB asks
+  const [alerts, setAlerts] = useState(loadAlerts);
+  const [hits, setHits] = useState(new Set());
+  const [alertRow, setAlertRow] = useState(null);
+  const [toast, setToast] = useState(null);
+  const alertsRef = useRef(alerts);
+  alertsRef.current = alerts;
+  const livePricesRef = useRef(livePrices);
+  livePricesRef.current = livePrices;
+  const matchRef = useRef({});
   const [presets, setPresets] = useState(() =>
     JSON.parse(localStorage.getItem("screenerPresets") || "[]"),
   );
@@ -184,11 +195,71 @@ export default function Screener({ sport, onSport, onTracked }) {
         if (res[i].status === "fulfilled") next[m.slug] = res[i].value;
       });
       if (Object.keys(next).length) setLivePrices((prev) => ({ ...prev, ...next }));
+      const merged = { ...livePricesRef.current, ...next };
+      evaluate(merged);
     }
     tick();
     const id = setInterval(tick, 3000); // keep live rows tracking Polymarket
     return () => { stop = true; clearInterval(id); };
-  }, [data, sport]);
+  }, [data, sport, alerts]);
+
+  // --- per-match alerts (price-only for these sports) ----------------------
+  function saveAlert(slug, alert) {
+    const nextA = { ...alertsRef.current, [slug]: alert };
+    setAlerts(nextA);
+    persistAlerts(nextA);
+    delete matchRef.current[slug]; // re-arm with the new criteria
+  }
+  function clearAlert(slug) {
+    const nextA = { ...alertsRef.current };
+    delete nextA[slug];
+    setAlerts(nextA);
+    persistAlerts(nextA);
+    delete matchRef.current[slug];
+    setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
+  }
+  function dismiss(slug) {
+    const st = matchRef.current[slug];
+    if (st) st.acked = true; // stop highlighting until it stops then matches again
+    setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
+  }
+  function evaluate(priceMap) {
+    const rows = data?.rows ?? [];
+    const nextHits = new Set();
+    let fired = null;
+    rows.forEach((m) => {
+      const alert = alertsRef.current[m.slug];
+      if (!alert) return;
+      const lp = priceMap[m.slug] || {};
+      const prices = {
+        home: lp.home ?? m.homePrice,
+        away: lp.away ?? m.awayPrice,
+        draw: lp.draw ?? m.drawPrice,
+      };
+      const m2 = matches(alert, { prices, live: null });
+      const st = matchRef.current[m.slug] || { matched: false, acked: false };
+      if (m2) {
+        if (!st.matched && !st.acked) {
+          playSound(soundType(alert));
+          fired = `${m.away} @ ${m.home}`;
+        }
+        st.matched = true;
+        if (!st.acked) nextHits.add(m.slug);
+      } else {
+        st.matched = false;
+        st.acked = false; // re-arm: a later match sounds again
+      }
+      matchRef.current[m.slug] = st;
+    });
+    setHits(nextHits);
+    if (fired) setToast(fired);
+  }
+
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(id);
+  }, [toast]);
 
   // Track opens a chooser with every prop of the match. The extra props
   // (spreads, totals) live in a twin event whose slug is always the match
@@ -623,8 +694,15 @@ export default function Screener({ sport, onSport, onTracked }) {
             </thead>
             <tbody>
               {visible.map((m) => (
-                <tr key={m.slug} className="mkt-row" style={{ borderTop: `1px solid ${T.border}` }}>
+                <tr key={m.slug} className="mkt-row"
+                  style={{ borderTop: `1px solid ${T.border}`,
+                    background: hits.has(m.slug) ? "#FEF3C7" : undefined }}>
                   <td style={{ ...td, fontFamily: T.ui, fontWeight: 500 }}>
+                    {hits.has(m.slug) && (
+                      <span title="Alert matching — click to dismiss"
+                        onClick={() => dismiss(m.slug)}
+                        style={{ cursor: "pointer", marginRight: 6 }}>🔔</span>
+                    )}
                     {(() => {
                       const s = matchStatus(m.kickoff);
                       const meta = STATUS_META[s];
@@ -675,6 +753,14 @@ export default function Screener({ sport, onSport, onTracked }) {
                     ));
                   })()}
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button
+                      onClick={() => setAlertRow({ ...m, sport, hasDraw })}
+                      title={alerts[m.slug] ? "Edit alert" : "Set an alert"}
+                      style={{ ...btn.outline, fontSize: 13, padding: "6px 8px", marginRight: 6,
+                        color: alerts[m.slug] ? T.series[0] : T.sub }}
+                    >
+                      {alerts[m.slug] ? "🔔" : "🔕"}
+                    </button>
                     {tracked.has(m.slug) ? (
                       <button disabled style={{ ...btn.outline, fontSize: 12, padding: "6px 10px" }}>
                         Tracked ✓
@@ -724,6 +810,27 @@ export default function Screener({ sport, onSport, onTracked }) {
           ? "Prices from Polymarket; live game data from the MLB Stats API (about 6-8s behind the market). The + button expands the live line score."
           : "Prices are the best ask (buy price), matching Polymarket. Click any column heading to sort. Track opens the full list of the match's props so you choose exactly which ones to collect."}
       </div>
+
+      {alertRow && (
+        <AlertDialog
+          row={alertRow}
+          existing={alerts[alertRow.slug]}
+          onSave={(a) => { saveAlert(alertRow.slug, a); setAlertRow(null); }}
+          onClear={() => { clearAlert(alertRow.slug); setAlertRow(null); }}
+          onClose={() => setAlertRow(null)}
+        />
+      )}
+
+      {toast && (
+        <div
+          onClick={() => setToast(null)}
+          style={{ position: "fixed", right: 20, bottom: 20, zIndex: 120,
+            background: T.ink, color: "#fff", padding: "12px 18px", borderRadius: 8,
+            fontSize: 14, cursor: "pointer", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}
+        >
+          🔔 {toast}
+        </div>
+      )}
     </main>
   );
 }

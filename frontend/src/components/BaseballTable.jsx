@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents } from "../utils.js";
 import { fetchMlbGame, fetchLivePrice } from "../api/client.js";
+import { loadAlerts, persistAlerts, matches, playSound, soundType } from "../alerts.js";
+import AlertDialog from "./AlertDialog.jsx";
 
 const POLL_MS = 3000; // read our cache fast; backend polls MLB every 3s
 const th = { ...monoText, fontSize: 10, textTransform: "uppercase",
@@ -96,8 +98,65 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
   const [liveById, setLiveById] = useState({});
   const [priceBySlug, setPriceBySlug] = useState({}); // live CLOB asks
   const [expanded, setExpanded] = useState(new Set());
+  const [alerts, setAlerts] = useState(loadAlerts);
+  const [hits, setHits] = useState(new Set()); // slugs currently alerting
+  const [dialogRow, setDialogRow] = useState(null);
+  const [toast, setToast] = useState(null);
   const liveRef = useRef({});
   liveRef.current = liveById;
+  const priceRef = useRef({});
+  priceRef.current = priceBySlug;
+  const alertsRef = useRef(alerts);
+  alertsRef.current = alerts;
+  const matchRef = useRef({}); // slug -> { matched, acked }
+
+  function saveAlert(slug, alert) {
+    const next = { ...alertsRef.current, [slug]: alert };
+    setAlerts(next);
+    persistAlerts(next);
+  }
+  function clearAlert(slug) {
+    const next = { ...alertsRef.current };
+    delete next[slug];
+    delete matchRef.current[slug];
+    setAlerts(next);
+    persistAlerts(next);
+    setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
+  }
+  function dismiss(slug) {
+    if (matchRef.current[slug]) matchRef.current[slug].acked = true;
+    setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
+  }
+
+  // Check every alert against the freshest live data. Sound plays once when a
+  // game starts matching; it re-arms only after the game stops matching.
+  function evaluate(liveMap, priceMap) {
+    const nextHits = new Set();
+    for (const r of rows) {
+      const alert = alertsRef.current[r.slug];
+      if (!alert) continue;
+      const live = liveMap[r.gamePk] ?? liveRef.current[r.gamePk] ?? null;
+      const lp = priceMap[r.slug] ?? priceRef.current[r.slug];
+      const prices = { home: lp?.home ?? r.homePrice, away: lp?.away ?? r.awayPrice, draw: null };
+      const m = matches(alert, { prices, live });
+      const st = matchRef.current[r.slug] || { matched: false, acked: false };
+      if (m && !st.matched && !st.acked) {
+        playSound(soundType(alert));
+        setToast(`${r.away} @ ${r.home} matches your alert`);
+      }
+      if (!m) st.acked = false;
+      st.matched = m;
+      matchRef.current[r.slug] = st;
+      if (m && !st.acked) nextHits.add(r.slug);
+    }
+    setHits(nextHits);
+  }
+
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(id);
+  }, [toast]);
 
   // poll the MLB feed + live prices for games in progress (or expanded);
   // future and finished games do not need constant refreshing
@@ -126,11 +185,12 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
       });
       setLiveById((prev) => ({ ...prev, ...nextLive }));
       setPriceBySlug((prev) => ({ ...prev, ...nextPrice }));
+      evaluate(nextLive, nextPrice);
     }
     tick();
     const id = setInterval(tick, POLL_MS);
     return () => { stop = true; clearInterval(id); };
-  }, [rows, expanded]);
+  }, [rows, expanded, alerts]);
 
   function toggle(pk) {
     setExpanded((prev) => {
@@ -186,8 +246,16 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
                   <div style={{ fontFamily: T.ui, fontSize: 11, color: T.sub }}>{team}</div>
                 </td>
               );
+              const alerting = hits.has(r.slug);
+              const hasAlert = !!alerts[r.slug];
               return [
-                <tr key={r.slug} style={{ borderTop: `1px solid ${T.border}` }}>
+                <tr
+                  key={r.slug}
+                  style={{
+                    borderTop: `1px solid ${T.border}`,
+                    background: alerting ? "#FEF3C7" : undefined, // yellow while matching
+                  }}
+                >
                   <td style={center}>
                     <button
                       onClick={() => toggle(r.gamePk)}
@@ -199,6 +267,15 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
                     </button>
                   </td>
                   <td style={{ ...td, fontFamily: T.ui, fontWeight: 500, whiteSpace: "nowrap" }}>
+                    {alerting && (
+                      <span
+                        title="Dismiss highlight"
+                        onClick={() => dismiss(r.slug)}
+                        style={{ cursor: "pointer", marginRight: 6 }}
+                      >
+                        🔔
+                      </span>
+                    )}
                     {away} @ {home}
                   </td>
                   <td style={{ ...td, whiteSpace: "nowrap", color: isLive ? T.red : T.sub }}>
@@ -220,6 +297,14 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
                   <td style={center}>{isLive ? `${live.balls}-${live.strikes}` : "—"}</td>
                   <td style={center}>{isLive ? <Bases bases={live.bases} /> : "—"}</td>
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button
+                      onClick={() => setDialogRow({ ...r, sport: "baseball", hasDraw: false })}
+                      title={hasAlert ? "Edit alert" : "Set an alert"}
+                      style={{ ...btn.outline, fontSize: 13, padding: "5px 8px", marginRight: 6,
+                        color: hasAlert ? T.series[0] : T.sub }}
+                    >
+                      {hasAlert ? "🔔" : "🔕"}
+                    </button>
                     {tracked.has(r.slug) ? (
                       <button disabled style={{ ...btn.outline, fontSize: 12, padding: "5px 9px" }}>Tracked ✓</button>
                     ) : (
@@ -248,6 +333,27 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
       {rows.length === 0 && (
         <div style={{ padding: "28px 16px", fontSize: 13, color: T.faint }}>
           No MLB games right now.
+        </div>
+      )}
+
+      {dialogRow && (
+        <AlertDialog
+          row={dialogRow}
+          existing={alerts[dialogRow.slug]}
+          onSave={(a) => { saveAlert(dialogRow.slug, a); setDialogRow(null); }}
+          onClear={() => { clearAlert(dialogRow.slug); setDialogRow(null); }}
+          onClose={() => setDialogRow(null)}
+        />
+      )}
+
+      {toast && (
+        <div
+          onClick={() => setToast(null)}
+          style={{ position: "fixed", right: 20, bottom: 20, zIndex: 120,
+            background: T.ink, color: "#fff", padding: "12px 18px", borderRadius: 8,
+            fontSize: 14, cursor: "pointer", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}
+        >
+          🔔 {toast}
         </div>
       )}
     </div>
