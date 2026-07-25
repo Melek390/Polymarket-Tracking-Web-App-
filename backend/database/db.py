@@ -1,5 +1,6 @@
 """SQLite storage: schema, connection helper, and all queries."""
 
+import json
 import sqlite3
 from contextlib import contextmanager
 
@@ -70,6 +71,7 @@ CREATE TABLE IF NOT EXISTS screener_cache (
     away_price    REAL,
     condition_ids TEXT NOT NULL,             -- JSON list, used by Track
     game_pk       INTEGER,                   -- MLB gamePk for baseball live data
+    token_ids     TEXT,                      -- JSON [home, away] CLOB tokens for live prices
     updated_at    TEXT NOT NULL
 );
 """
@@ -105,10 +107,12 @@ def init_db():
             conn.execute("UPDATE ticks SET price = ROUND(price * 100, 2)")
             conn.execute("PRAGMA user_version = 1")
 
-        # add the MLB gamePk column to older screener caches
+        # add newer columns to older screener caches
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(screener_cache)")]
         if cols and "game_pk" not in cols:
             conn.execute("ALTER TABLE screener_cache ADD COLUMN game_pk INTEGER")
+        if cols and "token_ids" not in cols:
+            conn.execute("ALTER TABLE screener_cache ADD COLUMN token_ids TEXT")
 
         # one-time: seed the running totals from the existing ticks
         if conn.execute("PRAGMA user_version").fetchone()[0] < 2:
@@ -256,12 +260,24 @@ def replace_screener_cache(sport: str, rows: list[dict]):
         conn.executemany(
             "INSERT OR REPLACE INTO screener_cache "
             "(event_slug, sport, league, home_team, away_team, kickoff, volume, "
-            " home_price, draw_price, away_price, condition_ids, game_pk, updated_at) "
+            " home_price, draw_price, away_price, condition_ids, game_pk, "
+            " token_ids, updated_at) "
             "VALUES (:event_slug, :sport, :league, :home_team, :away_team, "
             " :kickoff, :volume, :home_price, :draw_price, :away_price, "
-            " :condition_ids, :game_pk, :updated_at)",
+            " :condition_ids, :game_pk, :token_ids, :updated_at)",
             rows,
         )
+
+
+def screener_token_ids(slug: str) -> list | None:
+    """The [home, away] CLOB token ids for one cached row, for live pricing."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT token_ids FROM screener_cache WHERE event_slug = ?", (slug,)
+        ).fetchone()
+    if not row or not row["token_ids"]:
+        return None
+    return json.loads(row["token_ids"])
 
 
 def screener_rows(sport: str) -> list[dict]:

@@ -117,10 +117,12 @@ _NON_MONEYLINE = ("spread", "o/u", "handicap", "total", "game ", "set ",
 
 
 def _two_way_prices(event: dict):
-    """Home/away asks from the single moneyline market (no draw). Away is the
-    binary complement of the home bid, exactly as Polymarket derives it. The
-    moneyline is the first market whose two outcomes are the team names."""
+    """Home/away asks from the single moneyline market (no draw), plus its
+    [home, away] CLOB token ids. Away is the binary complement of the home
+    bid, exactly as Polymarket derives it. The moneyline is the first market
+    whose two outcomes are the team names."""
     prices = {"home": None, "draw": None, "away": None}
+    tokens = []
     for m in event.get("markets", []):
         q = (m.get("question") or "").lower()
         outs = _json_list(m.get("outcomes"))
@@ -133,8 +135,9 @@ def _two_way_prices(event: dict):
             prices["home"] = round(float(ask) * 100, 2)
         if bid is not None:
             prices["away"] = round((1 - float(bid)) * 100, 2)
+        tokens = _json_list(m.get("clobTokenIds"))
         break
-    return prices
+    return prices, tokens
 
 
 def extract_match(event: dict, sport: str, now_iso: str) -> dict | None:
@@ -148,11 +151,10 @@ def extract_match(event: dict, sport: str, now_iso: str) -> dict | None:
         return None
     competition, home, away = parsed
 
-    prices = (
-        _soccer_prices(event, home, away)
-        if sport in THREE_WAY
-        else _two_way_prices(event)
-    )
+    if sport in THREE_WAY:
+        prices, tokens = _soccer_prices(event, home, away), []
+    else:
+        prices, tokens = _two_way_prices(event)
     if prices["home"] is None and prices["away"] is None:
         return None  # no winner market we could read, nothing to show
 
@@ -186,6 +188,7 @@ def extract_match(event: dict, sport: str, now_iso: str) -> dict | None:
         "away_price": prices["away"],
         "condition_ids": json.dumps(condition_ids),
         "game_pk": None,  # filled in for baseball from the MLB schedule
+        "token_ids": json.dumps(tokens),  # [home, away] for live CLOB pricing
         "updated_at": now_iso,
     }
 

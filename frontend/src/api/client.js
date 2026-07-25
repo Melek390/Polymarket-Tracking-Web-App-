@@ -130,6 +130,11 @@ export async function fetchMlbGame(gamePk) {
   return request(`/api/mlb/game/${gamePk}`);
 }
 
+// GET /api/screener/live-price — fresh CLOB ask prices for a live game
+export async function fetchLivePrice(slug) {
+  return request(`/api/screener/live-price?slug=${encodeURIComponent(slug)}`);
+}
+
 // POST /api/events/track — backend persists and starts polling + backfill;
 // the caller re-fetches the market list afterwards.
 export async function trackSelected(slug, conditionIds) {

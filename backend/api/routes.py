@@ -17,7 +17,7 @@ from backend.models.schemas import (
     TrackRequest,
 )
 from backend.mlb import client as mlb
-from backend.polymarket import gamma
+from backend.polymarket import clob, gamma
 from backend.screener import screener as market_screener
 
 router = APIRouter(prefix="/api")
@@ -79,6 +79,20 @@ def screener_markets(sport: str = "soccer"):
         "leagues": sorted({r["league"] for r in rows}),
         "updated_at": rows[0]["updated_at"] if rows else None,
     }
+
+
+@router.get("/screener/live-price")
+async def screener_live_price(slug: str):
+    """Live best-ask prices for one cached game, straight from the CLOB order
+    book — fresh enough to match Polymarket during a live game."""
+    tokens = db.screener_token_ids(slug)
+    if not tokens or len(tokens) < 2:
+        raise HTTPException(404, "no live tokens for that game")
+    try:
+        prices = await clob.fetch_buy_prices(tokens)
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"CLOB unreachable: {e}")
+    return {"home": prices.get(tokens[0]), "away": prices.get(tokens[1])}
 
 
 @router.get("/mlb/game/{game_pk}")

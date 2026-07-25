@@ -32,6 +32,25 @@ async def fetch_midpoints(token_ids: list[str]) -> dict[str, float]:
     )
 
 
+async def fetch_buy_prices(token_ids: list[str]) -> dict[str, float | None]:
+    """Live best-ask (buy price) in cents per token — what Polymarket's buy
+    buttons show. Used for live games where the cached price is too stale."""
+    async def one(client, token):
+        try:
+            r = await client.get(
+                f"{settings.clob_base_url}/price",
+                params={"token_id": token, "side": "buy"},
+            )
+            r.raise_for_status()
+            return token, round(float(r.json()["price"]) * 100, 2)
+        except (httpx.HTTPError, KeyError, ValueError):
+            return token, None
+
+    async with httpx.AsyncClient(timeout=settings.http_timeout) as client:
+        results = await asyncio.gather(*(one(client, t) for t in token_ids))
+    return dict(results)
+
+
 async def fetch_price_history(
     token_id: str, start_ts: int, end_ts: int, fidelity: int = 1
 ) -> list[tuple[int, float]]:

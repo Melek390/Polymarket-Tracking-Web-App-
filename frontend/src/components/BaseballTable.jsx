@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents } from "../utils.js";
-import { fetchMlbGame } from "../api/client.js";
+import { fetchMlbGame, fetchLivePrice } from "../api/client.js";
 
 const POLL_MS = 12000; // MLB feed lags Polymarket ~6-8s; 12s is plenty
 const th = { ...monoText, fontSize: 10, textTransform: "uppercase",
@@ -94,34 +94,35 @@ function ExpandPanel({ live }) {
 
 export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
   const [liveById, setLiveById] = useState({});
+  const [priceBySlug, setPriceBySlug] = useState({}); // live CLOB asks
   const [expanded, setExpanded] = useState(new Set());
   const liveRef = useRef({});
   liveRef.current = liveById;
 
-  // poll the MLB feed for games that are in progress (or expanded); future
-  // and finished games do not need constant refreshing
+  // poll the MLB feed + live prices for games in progress (or expanded);
+  // future and finished games do not need constant refreshing
   useEffect(() => {
     let stop = false;
     async function tick() {
       const now = Date.now();
-      const pks = rows
+      const active = rows
         .filter((r) => r.gamePk)
         .filter((r) => {
           if (expanded.has(r.gamePk)) return true;
-          const st = liveRef.current[r.gamePk]?.status;
-          if (st === "Live") return true;
-          // kickoff within the last 5h (or just ahead) = worth checking
+          if (liveRef.current[r.gamePk]?.status === "Live") return true;
           return r.kickoff && now - r.kickoff < 5 * 3600e3 && r.kickoff - now < 30 * 60e3;
-        })
-        .map((r) => r.gamePk);
+        });
 
-      const results = await Promise.allSettled(pks.map(fetchMlbGame));
+      const games = await Promise.allSettled(active.map((r) => fetchMlbGame(r.gamePk)));
+      const prices = await Promise.allSettled(active.map((r) => fetchLivePrice(r.slug)));
       if (stop) return;
-      const next = {};
-      results.forEach((res, i) => {
-        if (res.status === "fulfilled") next[pks[i]] = res.value;
+      const nextLive = {}, nextPrice = {};
+      active.forEach((r, i) => {
+        if (games[i].status === "fulfilled") nextLive[r.gamePk] = games[i].value;
+        if (prices[i].status === "fulfilled") nextPrice[r.slug] = prices[i].value;
       });
-      setLiveById((prev) => ({ ...prev, ...next }));
+      setLiveById((prev) => ({ ...prev, ...nextLive }));
+      setPriceBySlug((prev) => ({ ...prev, ...nextPrice }));
     }
     tick();
     const id = setInterval(tick, POLL_MS);
@@ -168,6 +169,10 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
                 ? `${live.away.runs ?? 0}-${live.home.runs ?? 0}` : "—";
               const battingTeam = isLive
                 ? (live.batting === "away" ? live.away : live.home) : null;
+              // live CLOB ask overrides the 5-min cached price when available
+              const lp = priceBySlug[r.slug];
+              const homePrice = lp?.home ?? r.homePrice;
+              const awayPrice = lp?.away ?? r.awayPrice;
               // Yes = the home-side price, No = the away-side price (with the
               // team name under each, since baseball has no literal Yes/No)
               const priceCell = (team, price, color) => (
@@ -206,8 +211,8 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
                     ) : "—"}
                   </td>
                   <td style={td}>{score}</td>
-                  {priceCell(r.home, r.homePrice, T.series[0])}
-                  {priceCell(r.away, r.awayPrice, T.series[2])}
+                  {priceCell(r.home, homePrice, T.series[0])}
+                  {priceCell(r.away, awayPrice, T.series[2])}
                   <td style={center}>{isLive ? live.outs : "—"}</td>
                   <td style={center}>{isLive ? `${live.balls}-${live.strikes}` : "—"}</td>
                   <td style={center}>{isLive ? <Bases bases={live.bases} /> : "—"}</td>
