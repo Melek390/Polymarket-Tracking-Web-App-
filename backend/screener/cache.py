@@ -4,9 +4,10 @@ each match into one row with home / draw / away prices."""
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from backend.database import db
+from backend.mlb import client as mlb
 from backend.polymarket import gamma
 from backend.polymarket.gamma import _json_list
 
@@ -18,8 +19,9 @@ log = logging.getLogger(__name__)
 SPORT_TAGS = {
     "soccer": 100350,
     "basketball": 28,
+    "baseball": 100381,  # MLB — enriched with live game state
     "tennis": 864,
-    "football": 450,   # NFL
+    "football": 450,     # NFL
     "cricket": 517,
     "esports": 64,
 }
@@ -183,8 +185,40 @@ def extract_match(event: dict, sport: str, now_iso: str) -> dict | None:
         "draw_price": prices["draw"],
         "away_price": prices["away"],
         "condition_ids": json.dumps(condition_ids),
+        "game_pk": None,  # filled in for baseball from the MLB schedule
         "updated_at": now_iso,
     }
+
+
+async def _attach_game_pks(rows: list[dict]):
+    """Match each baseball row to its MLB gamePk by team names and date. A
+    late game's UTC date can be one ahead of its US game date, so we also try
+    the day before."""
+    schedules: dict[str, dict] = {}
+
+    async def by_pair(date: str) -> dict:
+        if date not in schedules:
+            try:
+                games = await mlb.schedule(date)
+                schedules[date] = {
+                    frozenset({g["away"].lower(), g["home"].lower()}): g["game_pk"]
+                    for g in games
+                }
+            except Exception as e:
+                log.warning("MLB schedule %s failed: %s", date, e)
+                schedules[date] = {}
+        return schedules[date]
+
+    for r in rows:
+        if not r["kickoff"]:
+            continue
+        d = datetime.fromisoformat(r["kickoff"].replace("Z", "+00:00"))
+        pair = frozenset({r["home_team"].lower(), r["away_team"].lower()})
+        for cand in (d.date(), (d - timedelta(days=1)).date()):
+            pk = (await by_pair(cand.isoformat())).get(pair)
+            if pk:
+                r["game_pk"] = pk
+                break
 
 
 async def refresh(sport: str):
@@ -194,6 +228,8 @@ async def refresh(sport: str):
     events = await gamma.fetch_events_by_tag(SPORT_TAGS[sport], pages=50)
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = [r for e in events if (r := extract_match(e, sport, now_iso))]
+    if sport == "baseball":
+        await _attach_game_pks(rows)
     db.replace_screener_cache(sport, rows)
     log.info("screener cache: %s -> %d matches from %d events",
              sport, len(rows), len(events))

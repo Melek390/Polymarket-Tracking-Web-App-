@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS screener_cache (
     draw_price    REAL,
     away_price    REAL,
     condition_ids TEXT NOT NULL,             -- JSON list, used by Track
+    game_pk       INTEGER,                   -- MLB gamePk for baseball live data
     updated_at    TEXT NOT NULL
 );
 """
@@ -103,6 +104,11 @@ def init_db():
         if conn.execute("PRAGMA user_version").fetchone()[0] < 1:
             conn.execute("UPDATE ticks SET price = ROUND(price * 100, 2)")
             conn.execute("PRAGMA user_version = 1")
+
+        # add the MLB gamePk column to older screener caches
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(screener_cache)")]
+        if cols and "game_pk" not in cols:
+            conn.execute("ALTER TABLE screener_cache ADD COLUMN game_pk INTEGER")
 
         # one-time: seed the running totals from the existing ticks
         if conn.execute("PRAGMA user_version").fetchone()[0] < 2:
@@ -250,10 +256,10 @@ def replace_screener_cache(sport: str, rows: list[dict]):
         conn.executemany(
             "INSERT OR REPLACE INTO screener_cache "
             "(event_slug, sport, league, home_team, away_team, kickoff, volume, "
-            " home_price, draw_price, away_price, condition_ids, updated_at) "
+            " home_price, draw_price, away_price, condition_ids, game_pk, updated_at) "
             "VALUES (:event_slug, :sport, :league, :home_team, :away_team, "
             " :kickoff, :volume, :home_price, :draw_price, :away_price, "
-            " :condition_ids, :updated_at)",
+            " :condition_ids, :game_pk, :updated_at)",
             rows,
         )
 

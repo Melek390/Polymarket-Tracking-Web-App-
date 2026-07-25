@@ -16,6 +16,7 @@ from backend.models.schemas import (
     ScreenerRequest,
     TrackRequest,
 )
+from backend.mlb import client as mlb
 from backend.polymarket import gamma
 from backend.screener import screener as market_screener
 
@@ -78,6 +79,15 @@ def screener_markets(sport: str = "soccer"):
         "leagues": sorted({r["league"] for r in rows}),
         "updated_at": rows[0]["updated_at"] if rows else None,
     }
+
+
+@router.get("/mlb/game/{game_pk}")
+async def mlb_game(game_pk: int):
+    """Live MLB game state for a baseball row's expand panel and columns."""
+    try:
+        return await mlb.live_game(game_pk)
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"MLB API unreachable: {e}")
 
 
 @router.post("/events/track")
