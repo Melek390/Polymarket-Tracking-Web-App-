@@ -125,8 +125,7 @@ function matchesFilters(m, f, league, search) {
   return inDateRange(m.kickoff, f);
 }
 
-export default function Screener({ onTracked }) {
-  const [sport, setSport] = useState("soccer");
+export default function Screener({ sport, onSport, onTracked }) {
   const [data, setData] = useState(null); // {rows, leagues, updatedAt}
   const [error, setError] = useState(null);
   const [league, setLeague] = useState(null); // one league, null = all
@@ -352,7 +351,7 @@ export default function Screener({ onTracked }) {
         {SPORTS.map((s) => (
           <button
             key={s.key}
-            onClick={() => !s.disabled && setSport(s.key)}
+            onClick={() => !s.disabled && onSport(s.key)}
             disabled={s.disabled}
             title={s.disabled ? "Coming soon" : ""}
             style={chipBtn(sport === s.key)}

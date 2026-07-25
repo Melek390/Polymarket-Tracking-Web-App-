@@ -13,12 +13,14 @@ import { T } from "./theme.js";
 
 // Real-path routing so every page has its own clean, shareable URL:
 //   /                      dashboard (optionally ?page=2&per=50&status=open)
-//   /screener              the market screener
+//   /screener              the market screener (soccer by default)
+//   /screener/football     the screener on a specific sport
 //   /market/12             history page for market 12
 function parseRoute() {
   const path = window.location.pathname;
   const params = new URLSearchParams(window.location.search);
-  if (path === "/screener") return { view: "screener", params };
+  const screener = path.match(/^\/screener(?:\/([a-z]+))?$/);
+  if (screener) return { view: "screener", sport: screener[1] || "soccer", params };
   const match = path.match(/^\/market\/(\d+)$/);
   if (match) return { view: "market", id: Number(match[1]), params };
   return { view: "dashboard", params };
@@ -118,7 +120,11 @@ export default function App() {
       )}
 
       {route.view === "screener" ? (
-        <Screener onTracked={refresh} />
+        <Screener
+          sport={route.sport}
+          onSport={(s) => navigate(`/screener/${s}`)}
+          onTracked={refresh}
+        />
       ) : openMarket ? (
         <MarketHistory
           market={openMarket}
