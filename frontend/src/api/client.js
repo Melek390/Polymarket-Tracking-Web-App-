@@ -118,10 +118,16 @@ export async function fetchScreener(sport = "soccer") {
       homePrice: r.home_price,
       drawPrice: r.draw_price,
       awayPrice: r.away_price,
+      gamePk: r.game_pk ?? null,
     })),
     leagues: data.leagues,
     updatedAt: data.updated_at ? Date.parse(data.updated_at) : null,
   };
+}
+
+// GET /api/mlb/game/{pk} — live baseball game state (inning, score, bases…)
+export async function fetchMlbGame(gamePk) {
+  return request(`/api/mlb/game/${gamePk}`);
 }
 
 // POST /api/events/track — backend persists and starts polling + backfill;

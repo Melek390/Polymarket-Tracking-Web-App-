@@ -3,12 +3,13 @@ import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtCents, fmtTimestamp, fmtVolume } from "../utils.js";
 import { fetchScreener, lookupEvent, trackSelected } from "../api/client.js";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
+import BaseballTable from "../components/BaseballTable.jsx";
 
-// key = the sport param sent to the API; baseball is shown but disabled
+// key = the sport param sent to the API
 const SPORTS = [
   { key: "soccer", label: "Soccer" },
   { key: "basketball", label: "Basketball" },
-  { key: "baseball", label: "Baseball", disabled: true },
+  { key: "baseball", label: "Baseball" },
   { key: "tennis", label: "Tennis" },
   { key: "football", label: "Football" },
   { key: "cricket", label: "Cricket" },
@@ -283,6 +284,12 @@ export default function Screener({ sport, onSport, onTracked }) {
   // esports competitions are "games" (LoL, Dota 2, …), not leagues
   const leagueWord = sport === "esports" ? "Game" : "League";
 
+  // baseball has its own live scoreboard table; search-filter it, live/soon first
+  const isBaseball = sport === "baseball";
+  const baseballRows = rows
+    .filter((m) => !search.trim() || plain(`${m.home} ${m.away}`).includes(plain(search).trim()))
+    .sort((a, b) => (a.kickoff ?? Infinity) - (b.kickoff ?? Infinity));
+
   const arrow = (key) =>
     sort.key === key ? (sort.dir === "asc" ? " ↑" : " ↓") : "";
 
@@ -361,6 +368,15 @@ export default function Screener({ sport, onSport, onTracked }) {
         ))}
       </div>
 
+      {isBaseball ? (
+        <BaseballTable
+          rows={baseballRows}
+          onTrack={openPicker}
+          tracked={tracked}
+          trackBusy={trackBusy}
+        />
+      ) : (
+      <>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: T.sub }}>Status:</span>
         {STATUS_FILTERS.map((s) => (
@@ -668,11 +684,13 @@ export default function Screener({ sport, onSport, onTracked }) {
           </div>
         )}
       </div>
+      </>
+      )}
 
       <div style={{ fontSize: 12, color: T.faint }}>
-        Prices are the best ask (buy price), matching Polymarket. Click any
-        column heading to sort. Track opens the full list of the match's props
-        so you choose exactly which ones to collect.
+        {isBaseball
+          ? "Prices from Polymarket; live game data from the MLB Stats API (about 6-8s behind the market). The + button expands the live line score."
+          : "Prices are the best ask (buy price), matching Polymarket. Click any column heading to sort. Track opens the full list of the match's props so you choose exactly which ones to collect."}
       </div>
     </main>
   );
