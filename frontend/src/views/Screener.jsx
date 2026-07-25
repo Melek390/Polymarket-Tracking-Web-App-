@@ -269,6 +269,18 @@ export default function Screener({ onTracked }) {
       return dir * ((a[sort.key] ?? -Infinity) - (b[sort.key] ?? -Infinity));
     });
 
+  // only offer league chips that still have a match under the other active
+  // filters (volume, price, date, status, search) — otherwise a chip could
+  // look present while showing nothing
+  const leagueSet = new Set(
+    rows
+      .filter((m) => matchesFilters(m, applied, null, search))
+      .filter((m) => status === "all" || matchStatus(m.kickoff) === status)
+      .map((m) => m.league),
+  );
+  if (league) leagueSet.add(league); // keep the current pick deselectable
+  const leagueOptions = [...leagueSet].sort();
+
   const arrow = (key) =>
     sort.key === key ? (sort.dir === "asc" ? " ↑" : " ↓") : "";
 
@@ -361,7 +373,7 @@ export default function Screener({ onTracked }) {
         <button onClick={() => setLeague(null)} style={chipBtn(league === null)}>
           All leagues
         </button>
-        {(data?.leagues ?? []).map((l) => (
+        {leagueOptions.map((l) => (
           <button
             key={l}
             onClick={() => setLeague(l === league ? null : l)}
