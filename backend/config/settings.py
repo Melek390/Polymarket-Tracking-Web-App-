@@ -18,8 +18,11 @@ class Settings(BaseSettings):
     http_timeout: float = 30.0
     max_retries: int = 5
 
-    # Screener
-    screener_refresh_minutes: int = 5
+    # Screener — how often the whole-sport match cache is rebuilt. This is a
+    # heavy job (soccer alone is ~2k Gamma events), so it runs infrequently;
+    # live rows get fresh CLOB prices on top of the cache anyway, so the cache
+    # itself only needs to be roughly current, not real-time.
+    screener_refresh_minutes: int = 15
 
     # MLB live game state poll (seconds); 3s catches every update (the MLB
     # feed itself only refreshes every 6-8s) at a tiny, safe request rate

@@ -251,9 +251,14 @@ async def refresh(sport: str):
 
 
 async def refresh_all():
-    """Rebuild the cache for every supported sport, one after another."""
+    """Rebuild the cache for every supported sport, one after another. A short
+    pause between sports yields the event loop so live-price / MLB polls and
+    API reads are not starved while this heavy job runs."""
+    import asyncio
+
     for sport in SPORT_TAGS:
         try:
             await refresh(sport)
         except Exception as e:
             log.warning("screener refresh failed for %s: %s", sport, e)
+        await asyncio.sleep(2)

@@ -82,20 +82,44 @@ def screener_markets(sport: str = "soccer"):
     }
 
 
+# Live-price responses are cached per slug for a few seconds so that many
+# open rows / browser tabs polling the same game collapse into ONE CLOB
+# fetch per game per window, instead of each poll fanning out to the CLOB.
+# This is what keeps the single worker from drowning when lots of games are
+# live at once. An in-flight lock per slug also prevents a thundering herd.
+_LIVE_PRICE_TTL = 5.0  # seconds
+_live_price_cache: dict[str, tuple[float, dict]] = {}
+_live_price_locks: dict[str, asyncio.Lock] = {}
+
+
 @router.get("/screener/live-price")
 async def screener_live_price(slug: str):
     """Live best-ask prices for one cached game, straight from the CLOB order
     book — fresh enough to match Polymarket during a live game. Two tokens
     for a moneyline sport, three (home/draw/away) for soccer."""
-    tokens = db.screener_token_ids(slug)
-    if not tokens or len(tokens) < 2:
-        raise HTTPException(404, "no live tokens for that game")
-    try:
-        prices = await clob.fetch_buy_prices([t for t in tokens if t])
-    except httpx.HTTPError as e:
-        raise HTTPException(502, f"CLOB unreachable: {e}")
-    keys = ["home", "away"] if len(tokens) == 2 else ["home", "draw", "away"]
-    return {k: (prices.get(t) if t else None) for k, t in zip(keys, tokens)}
+    now = asyncio.get_event_loop().time()
+    hit = _live_price_cache.get(slug)
+    if hit and now - hit[0] < _LIVE_PRICE_TTL:
+        return hit[1]
+
+    lock = _live_price_locks.setdefault(slug, asyncio.Lock())
+    async with lock:
+        # another request may have refreshed it while we waited for the lock
+        hit = _live_price_cache.get(slug)
+        if hit and asyncio.get_event_loop().time() - hit[0] < _LIVE_PRICE_TTL:
+            return hit[1]
+
+        tokens = db.screener_token_ids(slug)
+        if not tokens or len(tokens) < 2:
+            raise HTTPException(404, "no live tokens for that game")
+        try:
+            prices = await clob.fetch_buy_prices([t for t in tokens if t])
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"CLOB unreachable: {e}")
+        keys = ["home", "away"] if len(tokens) == 2 else ["home", "draw", "away"]
+        result = {k: (prices.get(t) if t else None) for k, t in zip(keys, tokens)}
+        _live_price_cache[slug] = (asyncio.get_event_loop().time(), result)
+        return result
 
 
 @router.get("/mlb/game/{game_pk}")
