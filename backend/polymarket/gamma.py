@@ -9,6 +9,17 @@ from backend.config.settings import settings
 
 log = logging.getLogger(__name__)
 
+# Shared client — a fresh AsyncClient per call rebuilds the SSL context (loads
+# the CA bundle from disk, blocking the loop). Reuse one.
+_client: httpx.AsyncClient | None = None
+
+
+def _http() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=settings.http_timeout)
+    return _client
+
 
 def parse_slug(url_or_slug: str) -> str:
     """Pull a clean slug out of whatever the user pasted — full URL, slug or id."""
@@ -43,27 +54,27 @@ def _json_list(value) -> list:
 async def fetch_events_by_tag(tag_id: int, pages: int = 3) -> list[dict]:
     """Active events for one sport tag, paging until the list runs out."""
     events = []
-    async with httpx.AsyncClient(timeout=settings.http_timeout) as client:
-        for offset in range(0, pages * 100, 100):
-            r = await client.get(
-                f"{settings.gamma_base_url}/events",
-                params={
-                    "tag_id": tag_id,
-                    "active": "true",
-                    "closed": "false",
-                    "limit": 100,
-                    "offset": offset,
-                },
-            )
-            # Gamma refuses offsets past its ceiling (~2100) with a 422;
-            # that just means we have reached the end of the list
-            if r.status_code == 422:
-                return events
-            r.raise_for_status()
-            batch = r.json()
-            events += batch
-            if len(batch) < 100:
-                return events
+    client = _http()
+    for offset in range(0, pages * 100, 100):
+        r = await client.get(
+            f"{settings.gamma_base_url}/events",
+            params={
+                "tag_id": tag_id,
+                "active": "true",
+                "closed": "false",
+                "limit": 100,
+                "offset": offset,
+            },
+        )
+        # Gamma refuses offsets past its ceiling (~2100) with a 422;
+        # that just means we have reached the end of the list
+        if r.status_code == 422:
+            return events
+        r.raise_for_status()
+        batch = r.json()
+        events += batch
+        if len(batch) < 100:
+            return events
     # ran out of pages before Polymarket ran out of events: say so loudly,
     # because silently truncating means matches go missing from the screener
     log.warning(
@@ -77,9 +88,8 @@ async def lookup_event(url_or_slug: str) -> dict | None:
     slug = parse_slug(url_or_slug)
     params = {"id": slug} if slug.isdigit() else {"slug": slug}
 
-    async with httpx.AsyncClient(timeout=settings.http_timeout) as client:
-        r = await client.get(f"{settings.gamma_base_url}/events", params=params)
-        r.raise_for_status()
+    r = await _http().get(f"{settings.gamma_base_url}/events", params=params)
+    r.raise_for_status()
 
     events = r.json()
     if not events:

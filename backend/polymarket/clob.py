@@ -7,6 +7,18 @@ import httpx
 
 from backend.config.settings import settings
 
+# Shared client — a new httpx.AsyncClient per call rebuilds the SSL context
+# (ssl.create_default_context() loads the whole CA bundle from disk, blocking
+# the event loop). Reuse one client for its SSL context + keep-alive pool.
+_client: httpx.AsyncClient | None = None
+
+
+def _http() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=settings.http_timeout)
+    return _client
+
 
 async def fetch_midpoints(token_ids: list[str]) -> dict[str, float]:
     """Fetch prices for all tokens in one batched call, backing off on errors; raises after max_retries."""
@@ -17,8 +29,7 @@ async def fetch_midpoints(token_ids: list[str]) -> dict[str, float]:
         if attempt:
             await asyncio.sleep(min(30, 2**attempt) + random.random())
         try:
-            async with httpx.AsyncClient(timeout=settings.http_timeout) as client:
-                r = await client.post(f"{settings.clob_base_url}/midpoints", json=body)
+            r = await _http().post(f"{settings.clob_base_url}/midpoints", json=body)
             if r.status_code == 429:
                 last_error = "HTTP 429"
                 continue
@@ -40,8 +51,7 @@ async def fetch_mid_prices(token_ids: list[str]) -> dict[str, float | None]:
         return {}
     body = [{"token_id": t} for t in token_ids]
     try:
-        async with httpx.AsyncClient(timeout=settings.http_timeout) as client:
-            r = await client.post(f"{settings.clob_base_url}/midpoints", json=body)
+        r = await _http().post(f"{settings.clob_base_url}/midpoints", json=body)
         r.raise_for_status()
         data = r.json()
     except (httpx.HTTPError, ValueError):
@@ -59,9 +69,9 @@ async def fetch_mid_prices(token_ids: list[str]) -> dict[str, float | None]:
 async def fetch_buy_prices(token_ids: list[str]) -> dict[str, float | None]:
     """Live best-ask (buy price) in cents per token — what Polymarket's buy
     buttons show. Used for live games where the cached price is too stale."""
-    async def one(client, token):
+    async def one(token):
         try:
-            r = await client.get(
+            r = await _http().get(
                 f"{settings.clob_base_url}/price",
                 params={"token_id": token, "side": "buy"},
             )
@@ -70,8 +80,7 @@ async def fetch_buy_prices(token_ids: list[str]) -> dict[str, float | None]:
         except (httpx.HTTPError, KeyError, ValueError):
             return token, None
 
-    async with httpx.AsyncClient(timeout=settings.http_timeout) as client:
-        results = await asyncio.gather(*(one(client, t) for t in token_ids))
+    results = await asyncio.gather(*(one(t) for t in token_ids))
     return dict(results)
 
 
@@ -85,8 +94,7 @@ async def fetch_price_history(
         "endTs": end_ts,
         "fidelity": fidelity,
     }
-    async with httpx.AsyncClient(timeout=settings.http_timeout) as client:
-        r = await client.get(f"{settings.clob_base_url}/prices-history", params=params)
+    r = await _http().get(f"{settings.clob_base_url}/prices-history", params=params)
     if r.status_code == 400:  # window predates the market — nothing there
         return []
     r.raise_for_status()

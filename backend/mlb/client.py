@@ -6,12 +6,25 @@ import httpx
 BASE = "https://statsapi.mlb.com/api"
 TIMEOUT = 8.0  # bound any slow statsapi call so it can't stall the worker
 
+# One shared client, reused across calls. Creating a new httpx.AsyncClient per
+# call rebuilds the SSL context every time — ssl.create_default_context() loads
+# and parses the whole system CA bundle from disk SYNCHRONOUSLY, blocking the
+# event loop. At ~3 MLB calls/s that jammed the worker (markets timed out).
+# Reusing one client keeps a single SSL context + pooled keep-alive connections.
+_client: httpx.AsyncClient | None = None
+
+
+def _http() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=TIMEOUT)
+    return _client
+
 
 async def schedule(date: str) -> list[dict]:
     """Every MLB game on a date (YYYY-MM-DD): gamePk, team names, status."""
-    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        r = await client.get(f"{BASE}/v1/schedule", params={"sportId": 1, "date": date})
-        r.raise_for_status()
+    r = await _http().get(f"{BASE}/v1/schedule", params={"sportId": 1, "date": date})
+    r.raise_for_status()
     games = []
     for day in r.json().get("dates", []):
         for g in day.get("games", []):
@@ -33,9 +46,8 @@ _TEAM_ABBR: dict[str, str] = {}
 async def team_abbreviations() -> dict[str, str]:
     """{full team name: abbreviation}, fetched once (the list never changes)."""
     if not _TEAM_ABBR:
-        async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-            r = await client.get(f"{BASE}/v1/teams", params={"sportId": 1})
-            r.raise_for_status()
+        r = await _http().get(f"{BASE}/v1/teams", params={"sportId": 1})
+        r.raise_for_status()
         for t in r.json().get("teams", []):
             _TEAM_ABBR[t["name"]] = t.get("abbreviation", t["name"][:3].upper())
     return _TEAM_ABBR
@@ -44,9 +56,8 @@ async def team_abbreviations() -> dict[str, str]:
 async def linescore_state(game_pk: int, away_name: str, home_name: str, status: str) -> dict:
     """Compact live state from the light 3 KB linescore endpoint (no season
     stats). Same shape as live_game with era/ops left None."""
-    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        r = await client.get(f"{BASE}/v1/game/{game_pk}/linescore")
-        r.raise_for_status()
+    r = await _http().get(f"{BASE}/v1/game/{game_pk}/linescore")
+    r.raise_for_status()
     ls = r.json()
     abbr = await team_abbreviations()
     offense = ls.get("offense", {})
@@ -111,9 +122,8 @@ async def live_game(game_pk: int) -> dict:
     """Compact live state for one game: inning, score, count, bases, batter,
     pitcher and the per-inning line score. All fields tolerate a pre-game or
     finished state (they simply come back as 0 / None)."""
-    async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-        r = await client.get(f"{BASE}/v1.1/game/{game_pk}/feed/live")
-        r.raise_for_status()
+    r = await _http().get(f"{BASE}/v1.1/game/{game_pk}/feed/live")
+    r.raise_for_status()
     feed = r.json()
 
     game = feed["gameData"]
