@@ -8,6 +8,19 @@ import AlertBar from "./AlertBar.jsx";
 import LivePrice from "./LivePrice.jsx";
 
 const POLL_MS = 2000; // fast live prices + state; backend caps each at ~2s
+
+// Polymarket lists MLB games away-team-first, so a row's home/away (and their
+// prices) can be the opposite of MLB's real home/away. MLB is authoritative
+// (home bats 2nd / bottom of inning); match its home team to a Polymarket side
+// by name so the HOME column shows the home team + its price.
+const _norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+function _teamMatch(a, b) {
+  a = _norm(a); b = _norm(b);
+  if (!a || !b) return 0;
+  if (a === b) return 3;
+  if (a.includes(b) || b.includes(a)) return 2;
+  return 0;
+}
 const th = { ...monoText, fontSize: 10, textTransform: "uppercase",
   letterSpacing: 0.4, color: T.sub, padding: "8px 10px", textAlign: "left" };
 const td = { ...monoText, fontSize: 12, padding: "8px 10px", verticalAlign: "top" };
@@ -233,8 +246,8 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
               <th style={th}>Inning</th>
               <th style={th}>Batting</th>
               <th style={th}>Score</th>
-              <th style={{ ...th, textAlign: "right", color: T.series[0] }}>Yes</th>
-              <th style={{ ...th, textAlign: "right", color: T.series[2] }}>No</th>
+              <th style={{ ...th, textAlign: "right", color: T.series[0] }}>Home</th>
+              <th style={{ ...th, textAlign: "right", color: T.series[2] }}>Away</th>
               <th style={{ ...th, textAlign: "center" }}>Outs</th>
               <th style={{ ...th, textAlign: "center" }}>Count</th>
               <th style={{ ...th, textAlign: "center" }}>Bases</th>
@@ -253,12 +266,20 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                 ? `${live.away.runs ?? 0}-${live.home.runs ?? 0}` : "—";
               const battingTeam = isLive
                 ? (live.batting === "away" ? live.away : live.home) : null;
-              // live CLOB ask overrides the 5-min cached price when available
+              // live CLOB mid overrides the cached price when available
               const lp = priceBySlug[r.slug];
-              const homePrice = lp?.home ?? r.homePrice;
-              const awayPrice = lp?.away ?? r.awayPrice;
-              // Yes = the home-side price, No = the away-side price (with the
-              // team name under each, since baseball has no literal Yes/No)
+              const rHomePrice = lp?.home ?? r.homePrice;
+              const rAwayPrice = lp?.away ?? r.awayPrice;
+              // Map MLB's real home/away onto the Polymarket price sides by
+              // name, so the Home column shows the home team + its price.
+              const rHomeIsHome = !live || !live.home || !live.away
+                ? false // no MLB data: Polymarket lists away first, so r.home = away
+                : _teamMatch(live.home.name, r.home) >= _teamMatch(live.home.name, r.away);
+              const homeTeam = rHomeIsHome ? r.home : r.away;
+              const homePrice = rHomeIsHome ? rHomePrice : rAwayPrice;
+              const awayTeam = rHomeIsHome ? r.away : r.home;
+              const awayPrice = rHomeIsHome ? rAwayPrice : rHomePrice;
+              // Home / Away columns: the team name under its win price
               const priceCell = (team, price, color) => (
                 <td style={{ ...td, textAlign: "right" }}>
                   <div><LivePrice cents={price} color={color} /></div>
@@ -309,8 +330,8 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                     ) : "—"}
                   </td>
                   <td style={td}>{score}</td>
-                  {priceCell(r.home, homePrice, T.series[0])}
-                  {priceCell(r.away, awayPrice, T.series[2])}
+                  {priceCell(homeTeam, homePrice, T.series[0])}
+                  {priceCell(awayTeam, awayPrice, T.series[2])}
                   <td style={center}>{isLive ? live.outs : "—"}</td>
                   <td style={center}>{isLive ? `${live.balls}-${live.strikes}` : "—"}</td>
                   <td style={center}>{isLive ? <Bases bases={live.bases} /> : "—"}</td>
