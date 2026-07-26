@@ -716,21 +716,21 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                   Volume{arrow("volume")}
                 </th>
                 <th
-                  style={{ ...th, textAlign: "right", color: T.series[0] }}
+                  style={{ ...th, textAlign: "right" }}
                   onClick={() => sortBy("homePrice")}
                 >
                   Home{arrow("homePrice")}
                 </th>
                 {hasDraw && (
                   <th
-                    style={{ ...th, textAlign: "right", color: T.series[1] }}
+                    style={{ ...th, textAlign: "right" }}
                     onClick={() => sortBy("drawPrice")}
                   >
                     Draw{arrow("drawPrice")}
                   </th>
                 )}
                 <th
-                  style={{ ...th, textAlign: "right", color: T.series[2] }}
+                  style={{ ...th, textAlign: "right" }}
                   onClick={() => sortBy("awayPrice")}
                 >
                   Away{arrow("awayPrice")}
@@ -794,13 +794,16 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                     const minV = vals.length ? Math.min(...vals) : null;
                     const colorFor = (v) =>
                       v == null || maxV === minV ? T.sub : v === maxV ? T.green : v === minV ? T.red : T.sub;
+                    // same layout as baseball: bold green/red price with the
+                    // team (or Draw) name under it
                     return [
-                      "homePrice",
-                      ...(hasDraw ? ["drawPrice"] : []),
-                      "awayPrice",
-                    ].map((key) => (
+                      ["homePrice", m.home],
+                      ...(hasDraw ? [["drawPrice", "Draw"]] : []),
+                      ["awayPrice", m.away],
+                    ].map(([key, label]) => (
                       <td key={key} style={{ ...td, textAlign: "right" }}>
-                        <LivePrice cents={eff[key]} color={colorFor(eff[key])} weight={400} />
+                        <div><LivePrice cents={eff[key]} color={colorFor(eff[key])} /></div>
+                        <div style={{ fontFamily: T.ui, fontSize: 11, color: T.sub }}>{label}</div>
                       </td>
                     ));
                   })()}
