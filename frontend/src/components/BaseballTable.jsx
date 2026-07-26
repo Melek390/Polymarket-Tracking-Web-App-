@@ -5,6 +5,7 @@ import { fetchMlbGame, fetchLivePrice } from "../api/client.js";
 import { loadAlerts, persistAlerts, matches, playSound, soundType } from "../alerts.js";
 import AlertDialog from "./AlertDialog.jsx";
 import AlertBar from "./AlertBar.jsx";
+import LivePrice from "./LivePrice.jsx";
 
 const POLL_MS = 2000; // fast live prices + state; backend caps each at ~2s
 const th = { ...monoText, fontSize: 10, textTransform: "uppercase",
@@ -258,9 +259,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
               // team name under each, since baseball has no literal Yes/No)
               const priceCell = (team, price, color) => (
                 <td style={{ ...td, textAlign: "right" }}>
-                  <div style={{ fontWeight: 700, color }}>
-                    {price != null ? fmtCents(price) : "—"}
-                  </div>
+                  <div><LivePrice cents={price} color={color} /></div>
                   <div style={{ fontFamily: T.ui, fontSize: 11, color: T.sub }}>{team}</div>
                 </td>
               );

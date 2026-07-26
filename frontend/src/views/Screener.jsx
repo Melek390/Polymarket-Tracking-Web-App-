@@ -6,6 +6,7 @@ import ScreenerPanel from "../components/ScreenerPanel.jsx";
 import BaseballTable from "../components/BaseballTable.jsx";
 import AlertDialog from "../components/AlertDialog.jsx";
 import AlertBar from "../components/AlertBar.jsx";
+import LivePrice from "../components/LivePrice.jsx";
 import { loadAlerts, persistAlerts, matches, playSound, soundType } from "../alerts.js";
 
 // key = the sport param sent to the API
@@ -758,8 +759,8 @@ export default function Screener({ sport, onSport, onTracked }) {
                       ...(hasDraw ? [["drawPrice", T.series[1]]] : []),
                       ["awayPrice", T.series[2]],
                     ].map(([key, color]) => (
-                      <td key={key} style={{ ...td, textAlign: "right", color }}>
-                        {eff[key] != null ? fmtCents(eff[key]) : "—"}
+                      <td key={key} style={{ ...td, textAlign: "right" }}>
+                        <LivePrice cents={eff[key]} color={color} weight={400} />
                       </td>
                     ));
                   })()}
