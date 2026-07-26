@@ -127,13 +127,14 @@ export async function fetchScreener(sport = "soccer") {
 
 // GET /api/mlb/game/{pk} — live baseball game state (inning, score, bases…).
 // full=true also brings season stats (ERA/OPS) for the expand panel.
+// The _ param busts any intermediate cache so live data is never stale.
 export async function fetchMlbGame(gamePk, full = false) {
-  return request(`/api/mlb/game/${gamePk}${full ? "?full=1" : ""}`);
+  return request(`/api/mlb/game/${gamePk}?_=${Date.now()}${full ? "&full=1" : ""}`);
 }
 
 // GET /api/screener/live-price — fresh CLOB ask prices for a live game
 export async function fetchLivePrice(slug) {
-  return request(`/api/screener/live-price?slug=${encodeURIComponent(slug)}`);
+  return request(`/api/screener/live-price?slug=${encodeURIComponent(slug)}&_=${Date.now()}`);
 }
 
 // POST /api/events/track — backend persists and starts polling + backfill;
