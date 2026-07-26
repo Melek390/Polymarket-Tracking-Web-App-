@@ -201,7 +201,7 @@ export default function Screener({ sport, onSport, onTracked }) {
       evaluate(merged);
     }
     tick();
-    const id = setInterval(tick, 3000); // keep live rows tracking Polymarket
+    const id = setInterval(tick, 2000); // keep live rows tracking Polymarket (same as baseball)
     return () => { stop = true; clearInterval(id); };
   }, [data, sport, alerts]);
 
