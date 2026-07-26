@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { T, card, monoText, btn } from "../theme.js";
-import { fmtCents } from "../utils.js";
+import { fmtCents, fmtClock, TZ_LABEL } from "../utils.js";
 import { fetchMlbGame, fetchLivePrice } from "../api/client.js";
 import { loadAlerts, persistAlerts, matches, playSound, soundType } from "../alerts.js";
 import AlertDialog from "./AlertDialog.jsx";
@@ -43,7 +43,7 @@ function Bases({ bases }) {
 // "▲ Top 6" / "▼ Bot 7" from the live inning, or the scheduled time.
 function inningText(live, kickoff) {
   if (!live || live.status === "Preview")
-    return kickoff ? new Date(kickoff).toISOString().slice(11, 16) + " UTC" : "—";
+    return kickoff ? `${fmtClock(kickoff)} ${TZ_LABEL}` : "—";
   if (live.status === "Final") return "Final";
   const arrow = live.is_top ? "▲" : "▼";
   const half = live.is_top ? "Top" : "Bot";
@@ -259,9 +259,10 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
               const live = r.gamePk ? liveById[r.gamePk] : null;
               const isLive = live?.status === "Live";
               const open = expanded.has(r.gamePk);
-              // MLB decides who is home/away; fall back to Polymarket order
-              const away = live?.away.abbr ?? r.away;
-              const home = live?.home.abbr ?? r.home;
+              // MLB decides who is home/away. When we have no live data yet,
+              // fall back to Polymarket's away-first order (r.home = away).
+              const away = live?.away.abbr ?? r.home;
+              const home = live?.home.abbr ?? r.away;
               const score = live && live.status !== "Preview"
                 ? `${live.away.runs ?? 0}-${live.home.runs ?? 0}` : "—";
               const battingTeam = isLive

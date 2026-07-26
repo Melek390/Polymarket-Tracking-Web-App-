@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { T, card, label, monoText, btn } from "../theme.js";
-import { fmtCents, fmtTimestamp } from "../utils.js";
+import { fmtCents, fmtTimestamp, TZ_LABEL } from "../utils.js";
 
 const CELL_PAD = "7px 14px";
 
@@ -89,7 +89,7 @@ export default function TicksTable({
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ ...thBase, textAlign: "left" }}>Timestamp (UTC)</th>
+              <th style={{ ...thBase, textAlign: "left" }}>Timestamp ({TZ_LABEL})</th>
               {outcomes.map((o, i) => (
                 <th
                   key={o}

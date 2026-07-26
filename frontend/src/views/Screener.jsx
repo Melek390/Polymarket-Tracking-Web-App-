@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { T, card, label, monoText, page, btn } from "../theme.js";
-import { fmtCents, fmtTimestamp, fmtVolume } from "../utils.js";
+import { fmtCents, fmtTimestamp, fmtVolume, TZ_LABEL } from "../utils.js";
 import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected } from "../api/client.js";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
 import BaseballTable from "../components/BaseballTable.jsx";
@@ -675,7 +675,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
         ))}
         {data?.updatedAt && (
           <span style={{ ...monoText, fontSize: 12, color: T.faint }}>
-            prices updated {fmtTimestamp(data.updatedAt).slice(11)} UTC
+            prices updated {fmtTimestamp(data.updatedAt).slice(11)} {TZ_LABEL}
           </span>
         )}
       </div>
@@ -693,7 +693,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                   {leagueWord}{arrow("league")}
                 </th>
                 <th style={{ ...th, textAlign: "left" }} onClick={() => sortBy("kickoff")}>
-                  Kickoff (UTC){arrow("kickoff")}
+                  Kickoff ({TZ_LABEL}){arrow("kickoff")}
                 </th>
                 <th style={{ ...th, textAlign: "right" }} onClick={() => sortBy("volume")}>
                   Volume{arrow("volume")}

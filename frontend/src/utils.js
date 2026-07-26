@@ -8,20 +8,32 @@ export function timeAgo(ts) {
   return `${Math.floor(s / 3600)}h ago`;
 }
 
-// All display times are UTC so the UI, the database and the CSV always agree.
+// All displayed times are shown in Ottawa (Eastern) time. Internally
+// everything is still UTC (the DB, the CSV, the API) — this only affects what
+// the user sees. "ET" is the label (EDT in summer, EST in winter).
+export const TZ = "America/Toronto"; // Ottawa
+export const TZ_LABEL = "ET";
+
 // Clock time only, e.g. "14:03:27".
 export function fmtTime(ts) {
-  return new Date(ts).toISOString().slice(11, 19);
+  return new Date(ts).toLocaleTimeString("en-GB", { timeZone: TZ, hour12: false });
 }
 
-// Date only, e.g. "2026-07-21".
+// Clock time without seconds, e.g. "14:03".
+export function fmtClock(ts) {
+  return new Date(ts).toLocaleTimeString("en-GB", {
+    timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
+// Date only, e.g. "2026-07-21" (en-CA gives the YYYY-MM-DD order).
 export function fmtDate(ts) {
-  return new Date(ts).toISOString().slice(0, 10);
+  return new Date(ts).toLocaleDateString("en-CA", { timeZone: TZ });
 }
 
 // Full date and time, e.g. "2026-07-21 14:03:27".
 export function fmtTimestamp(ts) {
-  return new Date(ts).toISOString().slice(0, 19).replace("T", " ");
+  return `${fmtDate(ts)} ${fmtTime(ts)}`;
 }
 
 // A market is open (tracking), paused (stopped), or closed (resolved).
