@@ -161,6 +161,10 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
   const alertsRef = useRef(alerts);
   alertsRef.current = alerts;
   const matchRef = useRef({}); // slug -> { matched, acked }
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
 
   // Alerts live in one flat map: keyed by SPORT for the global MLB alert, and
   // by the match slug for a per-game alert. A game fires if EITHER matches.
@@ -194,7 +198,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
     const globalAlert = alertsRef.current[SPORT];
     const nextHits = new Set();
     let fired = null;
-    for (const r of rows) {
+    for (const r of rowsRef.current) {
       const rowAlerts = [globalAlert, alertsRef.current[r.slug]].filter(Boolean);
       const st = matchRef.current[r.slug] || { matched: false, acked: false };
       if (rowAlerts.length === 0) {
@@ -228,28 +232,32 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
     return () => clearTimeout(id);
   }, [toast]);
 
-  // poll the MLB feed + live prices for games in progress (or expanded);
-  // future and finished games do not need constant refreshing
+  // Poll the MLB feed + live prices for games in progress (or expanded). A
+  // SINGLE stable interval reads the latest rows/expanded from refs, so a
+  // re-render never cancels an in-flight fetch (that was leaving rows stuck on
+  // their first snapshot — "Top 1" while the game was really in the 3rd).
   useEffect(() => {
-    let stop = false;
+    let mounted = true;
     async function tick() {
       const now = Date.now();
-      const active = rows
+      const curRows = rowsRef.current;
+      const curExpanded = expandedRef.current;
+      const active = curRows
         .filter((r) => r.gamePk)
         .filter((r) => {
           const st = liveRef.current[r.gamePk]?.status;
           if (st === "Final") return false; // finished — stop polling (keeps its final score cached)
           if (st === "Live") return true;
-          if (expanded.has(r.gamePk)) return true;
+          if (curExpanded.has(r.gamePk)) return true;
           return r.kickoff && now - r.kickoff < 5 * 3600e3 && r.kickoff - now < 30 * 60e3;
         });
 
       // expanded rows fetch the full feed (ERA/OPS); the rest read the light cache
       const games = await Promise.allSettled(
-        active.map((r) => fetchMlbGame(r.gamePk, expanded.has(r.gamePk))),
+        active.map((r) => fetchMlbGame(r.gamePk, curExpanded.has(r.gamePk))),
       );
       const prices = await Promise.allSettled(active.map((r) => fetchLivePrice(r.slug)));
-      if (stop) return;
+      if (!mounted) return;
       const nextLive = {}, nextPrice = {};
       active.forEach((r, i) => {
         if (games[i].status === "fulfilled") nextLive[r.gamePk] = games[i].value;
@@ -261,8 +269,8 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
     }
     tick();
     const id = setInterval(tick, POLL_MS);
-    return () => { stop = true; clearInterval(id); };
-  }, [rows, expanded, alerts]);
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
 
   function toggle(pk) {
     setExpanded((prev) => {

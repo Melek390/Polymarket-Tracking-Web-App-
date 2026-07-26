@@ -20,7 +20,10 @@ _state: dict[int, dict] = {}          # gamePk -> compact live state
 _state_at: dict[int, float] = {}      # gamePk -> monotonic time it was cached
 _sched: dict[int, dict] = {}          # gamePk -> {away, home, status} for the day
 _live = {"at": 0.0, "games": []}      # cached list of in-progress games
-LIVE_LIST_TTL = 30                    # re-check which games are live this often
+# Re-check the schedule this often. The game STATUS (Live/Final) comes from the
+# schedule — the linescore has no completion flag — so this also caps how long
+# a finished game keeps showing its last inning before flipping to "Final".
+LIVE_LIST_TTL = 10
 STATE_TTL = 4                         # a cached state is fresh enough for this long
 
 
@@ -74,8 +77,13 @@ async def light_state(game_pk: int) -> dict | None:
     if game_pk not in _sched:
         await _refresh_schedule()
     g = _sched.get(game_pk)
+    # Not on today's/yesterday's slate but we've priced it before: refetch using
+    # the names we already have rather than serving an indefinitely-stale entry.
+    if g is None and st is not None:
+        g = {"away": st["away"]["name"], "home": st["home"]["name"],
+             "status": st.get("status") or "Live"}
     if g is None:
-        return st  # unknown game (e.g. not on today's slate) — whatever we have
+        return st  # unknown game we've never seen — nothing to fetch
     try:
         st = await client.linescore_state(game_pk, g["away"], g["home"], g["status"])
     except Exception as e:
