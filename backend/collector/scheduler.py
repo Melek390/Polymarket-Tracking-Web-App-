@@ -11,6 +11,7 @@ from backend.database import db
 from backend.mlb import live as mlb_live
 from backend.polymarket import clob
 from backend.screener import cache
+from backend.screener import live_prices
 
 log = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="UTC")
@@ -100,6 +101,11 @@ def start():
     # poll live MLB games server-side so browsers read a shared cache
     scheduler.add_job(
         mlb_live.poll, "interval", seconds=settings.mlb_poll_seconds, id="mlb-live"
+    )
+    # poll live CLOB prices server-side for the games being viewed, so browsers
+    # read a shared cache instead of each poll hitting the CLOB
+    scheduler.add_job(
+        live_prices.poll, "interval", seconds=settings.live_price_poll_seconds, id="live-prices"
     )
     scheduler.start()
 

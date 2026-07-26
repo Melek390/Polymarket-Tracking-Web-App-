@@ -6,7 +6,7 @@ import { loadAlerts, persistAlerts, matches, playSound, soundType } from "../ale
 import AlertDialog from "./AlertDialog.jsx";
 import AlertBar from "./AlertBar.jsx";
 
-const POLL_MS = 3000; // read our cache fast; backend polls MLB every 3s
+const POLL_MS = 2000; // fast live prices + state; backend caps each at ~2s
 const th = { ...monoText, fontSize: 10, textTransform: "uppercase",
   letterSpacing: 0.4, color: T.sub, padding: "8px 10px", textAlign: "left" };
 const td = { ...monoText, fontSize: 12, padding: "8px 10px", verticalAlign: "top" };

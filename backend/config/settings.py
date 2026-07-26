@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     # feed itself only refreshes every 6-8s) at a tiny, safe request rate
     mlb_poll_seconds: int = 3
 
+    # Server-side live-price poll (seconds). Browsers read the resulting cache,
+    # so this — not the browser's refresh rate — sets how often we hit the CLOB
+    # for a live game (once per cycle per viewed game, any number of viewers).
+    live_price_poll_seconds: int = 2
+
     # Polymarket public APIs
     gamma_base_url: str = "https://gamma-api.polymarket.com"
     clob_base_url: str = "https://clob.polymarket.com"

@@ -280,6 +280,18 @@ def screener_token_ids(slug: str) -> list | None:
     return json.loads(row["token_ids"])
 
 
+def live_screener_tokens() -> list[dict]:
+    """(event_slug, token_ids) for every cached row that has CLOB tokens,
+    across all sports — the live-price poller filters these to the games
+    actually being viewed."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT event_slug, token_ids FROM screener_cache "
+            "WHERE token_ids IS NOT NULL"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def screener_rows(sport: str) -> list[dict]:
     """All cached matches for one sport, soonest kickoff first."""
     with get_db() as conn:
