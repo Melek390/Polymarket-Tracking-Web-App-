@@ -24,28 +24,33 @@ const field = {
 const rowStyle = { display: "flex", alignItems: "center", gap: 8, marginTop: 12 };
 const labelStyle = { fontSize: 13, color: T.sub, width: 130 };
 
-export default function AlertDialog({ sport, isMlb, hasDraw, existing, onSave, onClear, onClose }) {
+// `row` present = a per-game alert (specific team names, this match);
+// otherwise a global alert for all games of `sport` (generic roles).
+export default function AlertDialog({ sport, isMlb, hasDraw, row, existing, onSave, onClear, onClose }) {
   const [f, setF] = useState(existing ?? EMPTY);
   const set = (k, v) => setF({ ...f, [k]: v });
-  const sportLabel = isMlb ? "MLB" : sport.charAt(0).toUpperCase() + sport.slice(1);
+  const isMlbMode = row ? row.sport === "baseball" : isMlb;
+  const hasDrawMode = row ? !!row.hasDraw : hasDraw;
+  const theSport = row ? row.sport : sport;
+  const sportLabel = isMlbMode ? "MLB" : theSport.charAt(0).toUpperCase() + theSport.slice(1);
 
-  // The alert is global, so sides are generic roles (relative to each game),
-  // not specific team names. MLB adds "currently batting"; soccer adds "draw".
+  // Per-game uses the real team names; the global alert uses generic roles
+  // (relative to each game). MLB adds "currently batting"; soccer adds "draw".
   const sides = [
     { key: "any", label: "Any team" },
-    { key: "home", label: "Home team" },
-    { key: "away", label: "Away team" },
-    ...(hasDraw ? [{ key: "draw", label: "Draw" }] : []),
-    ...(isMlb ? [{ key: "batting", label: "Currently batting" }] : []),
+    { key: "home", label: row ? row.home : "Home team" },
+    { key: "away", label: row ? row.away : "Away team" },
+    ...(hasDrawMode ? [{ key: "draw", label: "Draw" }] : []),
+    ...(isMlbMode ? [{ key: "batting", label: "Currently batting" }] : []),
   ];
 
   function save() {
     const alert = {
       priceMax: num(f.priceMax),
       side: f.side,
-      inningFrom: isMlb ? num(f.inningFrom) : null,
-      inningTo: isMlb ? num(f.inningTo) : null,
-      runDiff: isMlb ? f.runDiff : "any",
+      inningFrom: isMlbMode ? num(f.inningFrom) : null,
+      inningTo: isMlbMode ? num(f.inningTo) : null,
+      runDiff: isMlbMode ? f.runDiff : "any",
     };
     if (alert.priceMax == null && alert.inningFrom == null &&
         alert.inningTo == null && alert.runDiff === "any") {
@@ -61,9 +66,13 @@ export default function AlertDialog({ sport, isMlb, hasDraw, existing, onSave, o
         display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
     >
       <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: "min(440px, 92vw)", padding: 22 }}>
-        <div style={{ fontSize: 16, fontWeight: 600 }}>Alert for all {sportLabel} games</div>
+        <div style={{ fontSize: 16, fontWeight: 600 }}>
+          {row ? "Alert for this game" : `Alert for all ${sportLabel} games`}
+        </div>
         <div style={{ fontSize: 13, color: T.sub, marginTop: 2 }}>
-          Applies to every {sportLabel} game — you're notified whenever any game matches.
+          {row
+            ? `${row.away} @ ${row.home}`
+            : `Applies to every ${sportLabel} game — you're notified whenever any game matches.`}
         </div>
 
         <div style={rowStyle}>
@@ -80,7 +89,7 @@ export default function AlertDialog({ sport, isMlb, hasDraw, existing, onSave, o
           </select>
         </div>
 
-        {isMlb && (
+        {isMlbMode && (
           <>
             <div style={rowStyle}>
               <span style={labelStyle}>Inning from / to</span>

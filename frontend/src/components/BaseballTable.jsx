@@ -21,6 +21,11 @@ function _teamMatch(a, b) {
   if (a.includes(b) || b.includes(a)) return 2;
   return 0;
 }
+
+// Favorite is green, underdog is red: colour a price by how it compares to the
+// other side's price.
+const priceColor = (a, b) =>
+  a == null || b == null ? T.sub : a > b ? T.green : a < b ? T.red : T.sub;
 const th = { ...monoText, fontSize: 10, textTransform: "uppercase",
   letterSpacing: 0.4, color: T.sub, padding: "8px 10px", textAlign: "left" };
 const td = { ...monoText, fontSize: 12, padding: "8px 10px", verticalAlign: "top" };
@@ -140,13 +145,14 @@ function ExpandPanel({ live }) {
   );
 }
 
-export default function BaseballTable({ rows, onTrack, tracked, trackBusy, trackedCount = () => 0 }) {
+export default function BaseballTable({ rows, onTrack, tracked, trackBusy, trackedCount = () => 0, status = "all" }) {
   const [liveById, setLiveById] = useState({});
   const [priceBySlug, setPriceBySlug] = useState({}); // live CLOB asks
   const [expanded, setExpanded] = useState(new Set());
   const [alerts, setAlerts] = useState(loadAlerts);
   const [hits, setHits] = useState(new Set()); // slugs currently alerting
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false); // global MLB alert dialog
+  const [dialogRow, setDialogRow] = useState(null); // per-game alert dialog
   const [toast, setToast] = useState(null);
   const liveRef = useRef({});
   liveRef.current = liveById;
@@ -156,53 +162,62 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
   alertsRef.current = alerts;
   const matchRef = useRef({}); // slug -> { matched, acked }
 
-  // One global alert for all MLB games (keyed by sport). Read fresh from
-  // storage on save so we never clobber another sport's alert.
+  // Alerts live in one flat map: keyed by SPORT for the global MLB alert, and
+  // by the match slug for a per-game alert. A game fires if EITHER matches.
+  // Read fresh from storage on save so the two never clobber each other.
   const SPORT = "baseball";
-  function saveAlert(alert) {
-    const next = { ...loadAlerts(), [SPORT]: alert };
+  function saveKey(key, alert) {
+    const next = { ...loadAlerts(), [key]: alert };
     setAlerts(next);
     persistAlerts(next);
+    delete matchRef.current[key]; // re-arm with the new criteria
   }
-  function clearAlert() {
+  function clearKey(key) {
     const next = { ...loadAlerts() };
-    delete next[SPORT];
+    delete next[key];
     setAlerts(next);
     persistAlerts(next);
     matchRef.current = {};
     setHits(new Set());
   }
+  const saveAlert = (a) => saveKey(SPORT, a); // global
+  const clearAlert = () => clearKey(SPORT);
   function dismiss(slug) {
     if (matchRef.current[slug]) matchRef.current[slug].acked = true;
     setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
   }
 
-  // Check the global MLB alert against every game's freshest live data. The
-  // sound plays (three times) when a game starts matching; each game re-arms
-  // only after it stops matching, so the sound isn't repeated continuously.
+  // Check the global MLB alert AND each game's own alert against the freshest
+  // live data. A game matches if EITHER fires. Sound plays (three times) when a
+  // game starts matching; each game re-arms only after it stops matching.
   function evaluate(liveMap, priceMap) {
-    const alert = alertsRef.current[SPORT];
-    if (!alert) {
-      if (hits.size) setHits(new Set());
-      return;
-    }
+    const globalAlert = alertsRef.current[SPORT];
     const nextHits = new Set();
     let fired = null;
     for (const r of rows) {
+      const rowAlerts = [globalAlert, alertsRef.current[r.slug]].filter(Boolean);
+      const st = matchRef.current[r.slug] || { matched: false, acked: false };
+      if (rowAlerts.length === 0) {
+        st.matched = false; st.acked = false; // nothing set — reset
+        matchRef.current[r.slug] = st;
+        continue;
+      }
       const live = liveMap[r.gamePk] ?? liveRef.current[r.gamePk] ?? null;
       const lp = priceMap[r.slug] ?? priceRef.current[r.slug];
       const prices = { home: lp?.home ?? r.homePrice, away: lp?.away ?? r.awayPrice, draw: null };
-      const m = matches(alert, { prices, live });
-      const st = matchRef.current[r.slug] || { matched: false, acked: false };
-      if (m && !st.matched && !st.acked) fired = `${r.away} @ ${r.home} matches your MLB alert`;
+      const hit = rowAlerts.find((a) => matches(a, { prices, live }));
+      const m = !!hit;
+      if (m && !st.matched && !st.acked) {
+        fired = { text: `${r.away} @ ${r.home} matches your alert`, type: soundType(hit) };
+      }
       if (!m) st.acked = false;
       st.matched = m;
       matchRef.current[r.slug] = st;
       if (m && !st.acked) nextHits.add(r.slug);
     }
     if (fired) {
-      playSound(soundType(alert));
-      setToast(fired);
+      playSound(fired.type);
+      setToast(fired.text);
     }
     setHits(nextHits);
   }
@@ -257,6 +272,18 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
     });
   }
 
+  // status for the filter chips: prefer MLB's own state, fall back to kickoff
+  const nowMs = Date.now();
+  function rowStatus(r) {
+    const st = liveById[r.gamePk]?.status;
+    if (st === "Live") return "live";
+    if (st === "Final") return "over";
+    if (st === "Preview") return "soon";
+    if (!r.kickoff) return "soon";
+    return r.kickoff > nowMs ? "soon" : "over";
+  }
+  const displayRows = status === "all" ? rows : rows.filter((r) => rowStatus(r) === status);
+
   const center = { ...td, textAlign: "center" };
   return (
     <div>
@@ -277,8 +304,8 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
               <th style={th}>Inning</th>
               <th style={th}>Batting</th>
               <th style={th}>Score</th>
-              <th style={{ ...th, textAlign: "right", color: T.series[0] }}>Home</th>
-              <th style={{ ...th, textAlign: "right", color: T.series[2] }}>Away</th>
+              <th style={{ ...th, textAlign: "right" }}>Home</th>
+              <th style={{ ...th, textAlign: "right" }}>Away</th>
               <th style={{ ...th, textAlign: "center" }}>Outs</th>
               <th style={{ ...th, textAlign: "center" }}>Count</th>
               <th style={{ ...th, textAlign: "center" }}>Bases</th>
@@ -286,7 +313,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {displayRows.map((r) => {
               const live = r.gamePk ? liveById[r.gamePk] : null;
               const isLive = live?.status === "Live";
               const open = expanded.has(r.gamePk);
@@ -364,8 +391,8 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                     ) : "—"}
                   </td>
                   <td style={td}>{score}</td>
-                  {priceCell(homeTeam, homePrice, T.series[0])}
-                  {priceCell(awayTeam, awayPrice, T.series[2])}
+                  {priceCell(homeTeam, homePrice, priceColor(homePrice, awayPrice))}
+                  {priceCell(awayTeam, awayPrice, priceColor(awayPrice, homePrice))}
                   <td style={center}>
                     {isLive ? (
                       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
@@ -377,6 +404,14 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                   <td style={center}>{isLive ? `${live.balls}-${live.strikes}` : "—"}</td>
                   <td style={center}>{isLive ? <Bases bases={live.bases} /> : "—"}</td>
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button
+                      onClick={() => setDialogRow(r)}
+                      title={alerts[r.slug] ? "Edit this game's alert" : "Alert for this game only"}
+                      style={{ ...btn.outline, fontSize: 13, padding: "5px 8px", marginRight: 6,
+                        color: alerts[r.slug] ? T.series[0] : T.sub }}
+                    >
+                      {alerts[r.slug] ? "🔔" : "🔕"}
+                    </button>
                     {(() => {
                       const n = trackedCount(r.slug);
                       return (
@@ -410,9 +445,9 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
           </tbody>
         </table>
       </div>
-      {rows.length === 0 && (
+      {displayRows.length === 0 && (
         <div style={{ padding: "28px 16px", fontSize: 13, color: T.faint }}>
-          No MLB games right now.
+          {rows.length === 0 ? "No MLB games right now." : "No games match this filter."}
         </div>
       )}
       </div>
@@ -426,6 +461,16 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
           onSave={(a) => { saveAlert(a); setDialogOpen(false); }}
           onClear={() => { clearAlert(); setDialogOpen(false); }}
           onClose={() => setDialogOpen(false)}
+        />
+      )}
+
+      {dialogRow && (
+        <AlertDialog
+          row={{ ...dialogRow, sport: "baseball", hasDraw: false }}
+          existing={alerts[dialogRow.slug]}
+          onSave={(a) => { saveKey(dialogRow.slug, a); setDialogRow(null); }}
+          onClear={() => { clearKey(dialogRow.slug); setDialogRow(null); }}
+          onClose={() => setDialogRow(null)}
         />
       )}
 

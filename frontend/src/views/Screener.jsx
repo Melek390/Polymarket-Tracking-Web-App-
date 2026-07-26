@@ -148,7 +148,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const [livePrices, setLivePrices] = useState({}); // slug -> fresh CLOB asks
   const [alerts, setAlerts] = useState(loadAlerts);
   const [hits, setHits] = useState(new Set());
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false); // global sport alert
+  const [alertRow, setAlertRow] = useState(null); // per-game alert
   const [toast, setToast] = useState(null);
   const alertsRef = useRef(alerts);
   alertsRef.current = alerts;
@@ -206,46 +207,51 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
     return () => { stop = true; clearInterval(id); };
   }, [data, sport, alerts]);
 
-  // --- one global alert per sport (price-only for these sports) ------------
-  function saveAlert(alert) {
-    const nextA = { ...loadAlerts(), [sport]: alert };
+  // --- alerts: one global alert per sport (keyed by sport) PLUS an optional
+  // per-game alert (keyed by slug). A game fires if EITHER matches. ----------
+  function saveKey(key, alert) {
+    const nextA = { ...loadAlerts(), [key]: alert };
     setAlerts(nextA);
     persistAlerts(nextA);
-    matchRef.current = {}; // re-arm with the new criteria
+    delete matchRef.current[key]; // re-arm with the new criteria
   }
-  function clearAlert() {
+  function clearKey(key) {
     const nextA = { ...loadAlerts() };
-    delete nextA[sport];
+    delete nextA[key];
     setAlerts(nextA);
     persistAlerts(nextA);
     matchRef.current = {};
     setHits(new Set());
   }
+  const saveAlert = (a) => saveKey(sport, a); // global (the AlertBar)
+  const clearAlert = () => clearKey(sport);
   function dismiss(slug) {
     const st = matchRef.current[slug];
     if (st) st.acked = true; // stop highlighting until it stops then matches again
     setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
   }
   function evaluate(priceMap) {
-    const alert = alertsRef.current[sport];
-    if (!alert) {
-      if (hits.size) setHits(new Set());
-      return;
-    }
+    const globalAlert = alertsRef.current[sport];
     const rows = data?.rows ?? [];
     const nextHits = new Set();
     let fired = null;
     rows.forEach((m) => {
+      const rowAlerts = [globalAlert, alertsRef.current[m.slug]].filter(Boolean);
+      const st = matchRef.current[m.slug] || { matched: false, acked: false };
+      if (rowAlerts.length === 0) {
+        st.matched = false; st.acked = false;
+        matchRef.current[m.slug] = st;
+        return;
+      }
       const lp = priceMap[m.slug] || {};
       const prices = {
         home: lp.home ?? m.homePrice,
         away: lp.away ?? m.awayPrice,
         draw: lp.draw ?? m.drawPrice,
       };
-      const m2 = matches(alert, { prices, live: null });
-      const st = matchRef.current[m.slug] || { matched: false, acked: false };
-      if (m2) {
-        if (!st.matched && !st.acked) fired = `${m.away} @ ${m.home}`;
+      const hit = rowAlerts.find((a) => matches(a, { prices, live: null }));
+      if (hit) {
+        if (!st.matched && !st.acked) fired = { text: `${m.away} @ ${m.home}`, type: soundType(hit) };
         st.matched = true;
         if (!st.acked) nextHits.add(m.slug);
       } else {
@@ -255,8 +261,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
       matchRef.current[m.slug] = st;
     });
     if (fired) {
-      playSound(soundType(alert));
-      setToast(`${fired} matches your ${sport} alert`);
+      playSound(fired.type);
+      setToast(`${fired.text} matches your ${sport} alert`);
     }
     setHits(nextHits);
   }
@@ -484,13 +490,24 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
       </div>
 
       {isBaseball ? (
+        <>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: T.sub }}>Status:</span>
+          {STATUS_FILTERS.map((s) => (
+            <button key={s} onClick={() => setStatus(s)} style={chipBtn(status === s)}>
+              {s === "all" ? "All" : STATUS_META[s].label}
+            </button>
+          ))}
+        </div>
         <BaseballTable
           rows={baseballRows}
+          status={status}
           onTrack={openPicker}
           tracked={tracked}
           trackBusy={trackBusy}
           trackedCount={trackedCount}
         />
+        </>
       ) : (
       <>
       <AlertBar
@@ -771,17 +788,31 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                       drawPrice: lp?.draw ?? m.drawPrice,
                       awayPrice: lp?.away ?? m.awayPrice,
                     };
+                    // favorite green, longest odds red (middle stays neutral)
+                    const vals = [eff.homePrice, hasDraw ? eff.drawPrice : null, eff.awayPrice].filter((v) => v != null);
+                    const maxV = vals.length ? Math.max(...vals) : null;
+                    const minV = vals.length ? Math.min(...vals) : null;
+                    const colorFor = (v) =>
+                      v == null || maxV === minV ? T.sub : v === maxV ? T.green : v === minV ? T.red : T.sub;
                     return [
-                      ["homePrice", T.series[0]],
-                      ...(hasDraw ? [["drawPrice", T.series[1]]] : []),
-                      ["awayPrice", T.series[2]],
-                    ].map(([key, color]) => (
+                      "homePrice",
+                      ...(hasDraw ? ["drawPrice"] : []),
+                      "awayPrice",
+                    ].map((key) => (
                       <td key={key} style={{ ...td, textAlign: "right" }}>
-                        <LivePrice cents={eff[key]} color={color} weight={400} />
+                        <LivePrice cents={eff[key]} color={colorFor(eff[key])} weight={400} />
                       </td>
                     ));
                   })()}
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button
+                      onClick={() => setAlertRow(m)}
+                      title={alerts[m.slug] ? "Edit this game's alert" : "Alert for this game only"}
+                      style={{ ...btn.outline, fontSize: 12, padding: "6px 8px", marginRight: 6,
+                        color: alerts[m.slug] ? T.series[0] : T.sub }}
+                    >
+                      {alerts[m.slug] ? "🔔" : "🔕"}
+                    </button>
                     {(() => {
                       const n = trackedCount(m.slug);
                       return (
@@ -846,6 +877,16 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
           onSave={(a) => { saveAlert(a); setDialogOpen(false); }}
           onClear={() => { clearAlert(); setDialogOpen(false); }}
           onClose={() => setDialogOpen(false)}
+        />
+      )}
+
+      {alertRow && !isBaseball && (
+        <AlertDialog
+          row={{ ...alertRow, sport, hasDraw }}
+          existing={alerts[alertRow.slug]}
+          onSave={(a) => { saveKey(alertRow.slug, a); setAlertRow(null); }}
+          onClear={() => { clearKey(alertRow.slug); setAlertRow(null); }}
+          onClose={() => setAlertRow(null)}
         />
       )}
 
