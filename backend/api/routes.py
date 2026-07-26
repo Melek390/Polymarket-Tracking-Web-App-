@@ -105,15 +105,15 @@ async def mlb_game(game_pk: int, full: bool = False):
     seconds) so browsers never hit MLB directly; full=1 fetches the heavy feed
     for the expand panel's season stats (ERA / OPS)."""
     if not full:
-        # Serve the shared cache, or a LIGHT linescore fetch on a miss — never
-        # the 634 KB feed. This is what stops a full slate of rows from
-        # flooding the single worker.
+        # Serve the shared cache, or a LIGHT linescore fetch on a miss — NEVER
+        # the 634 KB feed. Return whatever light_state gives (None -> null, i.e.
+        # "no live data", handled by the UI as the scheduled time). Falling
+        # through to the heavy feed here floods the single worker.
         try:
-            state = await mlb_live.light_state(game_pk)
+            return await mlb_live.light_state(game_pk)
         except httpx.HTTPError as e:
             raise HTTPException(502, f"MLB API unreachable: {e}")
-        if state is not None:
-            return state
+    # full=1 only (expand panel's season stats) uses the heavy feed
     try:
         return await mlb.live_game(game_pk)
     except httpx.HTTPError as e:
