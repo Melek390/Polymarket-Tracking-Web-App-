@@ -40,6 +40,26 @@ function Bases({ bases }) {
   );
 }
 
+// Three out indicators, filled by the number of outs — the MLB.com-style
+// visual cue (0/1/2 filled; 3 ends the inning).
+function OutDots({ outs, size = 11 }) {
+  const n = outs ?? 0;
+  return (
+    <span style={{ display: "inline-flex", gap: Math.round(size * 0.55) }}>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          style={{
+            width: size, height: size, borderRadius: "50%",
+            background: i < n ? T.ink : "transparent",
+            border: `1.5px solid ${i < n ? T.ink : T.faint}`,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
 // "▲ Top 6" / "▼ Bot 7" from the live inning, or the scheduled time.
 function inningText(live, kickoff) {
   if (!live || live.status === "Preview")
@@ -101,7 +121,8 @@ function ExpandPanel({ live }) {
           <div>
             <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase" }}>Count / Outs</div>
             <div style={{ fontWeight: 600 }}>{live.balls}-{live.strikes}, {live.outs} out</div>
-            <div style={{ marginTop: 3 }}><Bases bases={live.bases} /></div>
+            <div style={{ marginTop: 6 }}><OutDots outs={live.outs} size={16} /></div>
+            <div style={{ marginTop: 8 }}><Bases bases={live.bases} /></div>
           </div>
         </div>
       )}
@@ -333,7 +354,14 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                   <td style={td}>{score}</td>
                   {priceCell(homeTeam, homePrice, T.series[0])}
                   {priceCell(awayTeam, awayPrice, T.series[2])}
-                  <td style={center}>{isLive ? live.outs : "—"}</td>
+                  <td style={center}>
+                    {isLive ? (
+                      <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                        <span>{live.outs ?? 0} out</span>
+                        <OutDots outs={live.outs} size={11} />
+                      </span>
+                    ) : "—"}
+                  </td>
                   <td style={center}>{isLive ? `${live.balls}-${live.strikes}` : "—"}</td>
                   <td style={center}>{isLive ? <Bases bases={live.bases} /> : "—"}</td>
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
