@@ -81,7 +81,12 @@ def sync_jobs():
         )
         log.info("collector: started %ss polling job", interval)
 
+    # Only ever remove the collector's own per-interval poll jobs. The named
+    # background jobs (screener-cache, mlb-live, live-prices) are not in
+    # `wanted`, so without this guard a market closing would wipe them out.
     for job_id in current - wanted:
+        if not job_id.startswith("poll-"):
+            continue
         scheduler.remove_job(job_id)
         log.info("collector: removed %s", job_id)
 

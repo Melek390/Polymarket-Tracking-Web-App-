@@ -90,7 +90,7 @@ async def screener_live_price(slug: str):
     so a browser can poll as fast as it likes without each request hitting the
     CLOB. First view of a game does one on-demand fetch to fill the cache."""
     live_prices.request(slug)
-    hit = live_prices.cached(slug)
+    hit = live_prices.cached(slug, max_age=8)
     if hit is not None:
         return hit
     try:

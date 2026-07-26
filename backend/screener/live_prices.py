@@ -28,8 +28,15 @@ def request(slug: str) -> None:
     _wanted[slug] = time.monotonic()
 
 
-def cached(slug: str) -> dict | None:
-    return _prices.get(slug)
+def cached(slug: str, max_age: float | None = None) -> dict | None:
+    """Cached price for a game, or None if we have none — or if it is older
+    than max_age seconds (so the endpoint can fall back to a fresh fetch if
+    the poller ever stops keeping it warm)."""
+    if slug not in _prices:
+        return None
+    if max_age is not None and time.monotonic() - _at.get(slug, 0.0) > max_age:
+        return None
+    return _prices[slug]
 
 
 async def fetch_now(slug: str) -> dict:
