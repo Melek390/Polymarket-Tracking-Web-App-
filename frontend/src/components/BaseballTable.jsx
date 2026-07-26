@@ -96,7 +96,7 @@ function ExpandPanel({ live }) {
   );
 }
 
-export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
+export default function BaseballTable({ rows, onTrack, tracked, trackBusy, trackedCount = () => 0 }) {
   const [liveById, setLiveById] = useState({});
   const [priceBySlug, setPriceBySlug] = useState({}); // live CLOB asks
   const [expanded, setExpanded] = useState(new Set());
@@ -315,17 +315,25 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
                   <td style={center}>{isLive ? `${live.balls}-${live.strikes}` : "—"}</td>
                   <td style={center}>{isLive ? <Bases bases={live.bases} /> : "—"}</td>
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-                    {tracked.has(r.slug) ? (
-                      <button disabled style={{ ...btn.outline, fontSize: 12, padding: "5px 9px" }}>Tracked ✓</button>
-                    ) : (
-                      <button
-                        onClick={() => onTrack(r)}
-                        disabled={trackBusy === r.slug}
-                        style={{ ...btn.green, fontSize: 12, padding: "5px 9px" }}
-                      >
-                        {trackBusy === r.slug ? "…" : "Track"}
-                      </button>
-                    )}
+                    {(() => {
+                      const n = trackedCount(r.slug);
+                      return (
+                        <button
+                          onClick={() => onTrack(r)}
+                          disabled={trackBusy === r.slug}
+                          title={n
+                            ? `${n} prop${n > 1 ? "s" : ""} of this match already tracked — click to add or review`
+                            : "Choose which props of this match to track"}
+                          style={{
+                            ...(n ? btn.outline : btn.green),
+                            ...(n ? { color: T.green, borderColor: T.green } : {}),
+                            fontSize: 12, padding: "5px 9px",
+                          }}
+                        >
+                          {trackBusy === r.slug ? "…" : n ? `✓ Tracking (${n})` : "Track"}
+                        </button>
+                      );
+                    })()}
                   </td>
                 </tr>,
                 open && (

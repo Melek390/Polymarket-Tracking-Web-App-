@@ -2,9 +2,13 @@ import { useState } from "react";
 import { T, label, monoText, btn } from "../theme.js";
 import { fmtCents } from "../utils.js";
 
+const NO_IDS = new Set();
+
 // Checkbox list of screener/multi-lookup results, tracked by the same flow as events.
+// Props already in the tracker (trackedIds) are shown as "Tracking", not re-selectable.
 export default function ScreenerPanel({
   results,
+  trackedIds = NO_IDS,
   onTrack,
   onCancel,
   busy,
@@ -12,6 +16,8 @@ export default function ScreenerPanel({
   emptyText = "No live markets matched that search.",
 }) {
   const [selected, setSelected] = useState(new Set());
+  const selectable = results.filter((r) => !trackedIds.has(r.conditionId));
+  const trackedCount = results.length - selectable.length;
 
   function toggle(conditionId) {
     setSelected((prev) => {
@@ -38,7 +44,7 @@ export default function ScreenerPanel({
         }}
       >
         <div style={label}>{title}</div>
-        {results.length > 0 && (
+        {selectable.length > 0 && (
           <label
             style={{
               display: "flex",
@@ -51,23 +57,25 @@ export default function ScreenerPanel({
           >
             <input
               type="checkbox"
-              checked={selected.size === results.length}
+              checked={selected.size === selectable.length}
               onChange={() =>
                 setSelected(
-                  selected.size === results.length
+                  selected.size === selectable.length
                     ? new Set()
-                    : new Set(results.map((r) => r.conditionId)),
+                    : new Set(selectable.map((r) => r.conditionId)),
                 )
               }
             />
-            Select all ({results.length})
+            Select all new ({selectable.length})
           </label>
         )}
       </div>
       <div style={{ fontSize: 13, color: T.sub, margin: "6px 0 14px" }}>
         {results.length === 0
           ? emptyText
-          : `${results.length} markets matched — tick the ones to track.`}
+          : trackedCount > 0
+            ? `${trackedCount} of these ${results.length} prop${results.length > 1 ? "s" : ""} already tracking. Tick any new ones to add.`
+            : `${results.length} markets matched — tick the ones to track.`}
       </div>
 
       <div
@@ -79,25 +87,39 @@ export default function ScreenerPanel({
           overflowY: "auto",
         }}
       >
-        {results.map((r) => (
+        {results.map((r) => {
+          const isTracked = trackedIds.has(r.conditionId);
+          return (
           <label
             key={r.conditionId}
             style={{
               display: "flex",
               alignItems: "center",
               gap: 12,
-              background: "#fff",
-              border: `1px solid ${T.border}`,
+              background: isTracked ? "#F0FBF6" : "#fff",
+              border: `1px solid ${isTracked ? "#B7E4CD" : T.border}`,
               borderRadius: 8,
               padding: "10px 14px",
-              cursor: "pointer",
+              cursor: isTracked ? "default" : "pointer",
             }}
           >
-            <input
-              type="checkbox"
-              checked={selected.has(r.conditionId)}
-              onChange={() => toggle(r.conditionId)}
-            />
+            {isTracked ? (
+              <span
+                title="Already in your tracker"
+                style={{
+                  ...monoText, fontSize: 10, fontWeight: 600, whiteSpace: "nowrap",
+                  color: "#fff", background: T.green, borderRadius: 999, padding: "3px 8px",
+                }}
+              >
+                ✓ TRACKING
+              </span>
+            ) : (
+              <input
+                type="checkbox"
+                checked={selected.has(r.conditionId)}
+                onChange={() => toggle(r.conditionId)}
+              />
+            )}
             <span style={{ flex: 1, minWidth: 0 }}>
               <span
                 style={{
@@ -146,7 +168,8 @@ export default function ScreenerPanel({
               })}
             </span>
           </label>
-        ))}
+          );
+        })}
       </div>
 
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>

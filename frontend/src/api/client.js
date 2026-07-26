@@ -41,6 +41,7 @@ const post = (path, body) =>
 function toMarket(m) {
   return {
     id: m.id,
+    conditionId: m.condition_id, // to mark already-tracked props in the screener
     // the "- More Markets" twin holds a match's extra props; show the
     // match name, not the twin's technical title
     event: m.event_title.replace(/ - More Markets$/i, ""),

@@ -70,6 +70,7 @@ const td = { ...monoText, fontSize: 13, padding: "9px 14px" };
 // soccer runs ~2 hours; give a match a 2.5h live window after kickoff
 const LIVE_WINDOW_MS = 2.5 * 60 * 60 * 1000;
 const STATUS_FILTERS = ["all", "soon", "live", "over"];
+const EMPTY_SET = new Set();
 const STATUS_META = {
   soon: { label: "COMING SOON", color: "#2563EB" },
   live: { label: "LIVE", color: "#D64545" },
@@ -130,7 +131,7 @@ function matchesFilters(m, f, league, search) {
   return inDateRange(m.kickoff, f);
 }
 
-export default function Screener({ sport, onSport, onTracked }) {
+export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const [data, setData] = useState(null); // {rows, leagues, updatedAt}
   const [error, setError] = useState(null);
   const [league, setLeague] = useState(null); // one league, null = all
@@ -356,6 +357,20 @@ export default function Screener({ sport, onSport, onTracked }) {
   }
 
   const rows = data?.rows ?? [];
+
+  // Which of a match's props are ALREADY in the tracker, from the real backend
+  // state (not the ephemeral "just tracked" set) — so it stays correct after a
+  // refresh. Keyed by the match slug (a prop can live on the "-more-markets"
+  // twin, so strip that suffix). Resolved/closed markets don't count.
+  const trackedByEvent = {};
+  for (const m of markets) {
+    if (m.closed || !m.conditionId) continue;
+    const base = (m.eventSlug || "").replace(/-more-markets$/, "");
+    (trackedByEvent[base] ??= new Set()).add(m.conditionId);
+  }
+  const trackedIdsFor = (slug) => trackedByEvent[slug] ?? EMPTY_SET;
+  const trackedCount = (slug) => trackedIdsFor(slug).size;
+
   // soccer is the only 3-way sport; hide the Draw column for the rest
   const hasDraw = rows.some((m) => m.drawPrice != null);
   const visible = rows
@@ -416,6 +431,7 @@ export default function Screener({ sport, onSport, onTracked }) {
       {picker && (
         <ScreenerPanel
           results={picker.results}
+          trackedIds={trackedIdsFor(picker.row.slug)}
           onTrack={trackPicked}
           onCancel={() => setPicker(null)}
           busy={pickerBusy}
@@ -473,6 +489,7 @@ export default function Screener({ sport, onSport, onTracked }) {
           onTrack={openPicker}
           tracked={tracked}
           trackBusy={trackBusy}
+          trackedCount={trackedCount}
         />
       ) : (
       <>
@@ -765,20 +782,25 @@ export default function Screener({ sport, onSport, onTracked }) {
                     ));
                   })()}
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-                    {tracked.has(m.slug) ? (
-                      <button disabled style={{ ...btn.outline, fontSize: 12, padding: "6px 10px" }}>
-                        Tracked ✓
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => openPicker(m)}
-                        disabled={trackBusy === m.slug}
-                        title="Choose which props of this match to track"
-                        style={{ ...btn.green, fontSize: 12, padding: "6px 10px" }}
-                      >
-                        {trackBusy === m.slug ? "…" : "Track"}
-                      </button>
-                    )}{" "}
+                    {(() => {
+                      const n = trackedCount(m.slug);
+                      return (
+                        <button
+                          onClick={() => openPicker(m)}
+                          disabled={trackBusy === m.slug}
+                          title={n
+                            ? `${n} prop${n > 1 ? "s" : ""} of this match already tracked — click to add or review`
+                            : "Choose which props of this match to track"}
+                          style={{
+                            ...(n ? btn.outline : btn.green),
+                            ...(n ? { color: T.green, borderColor: T.green } : {}),
+                            fontSize: 12, padding: "6px 10px",
+                          }}
+                        >
+                          {trackBusy === m.slug ? "…" : n ? `✓ Tracking (${n})` : "Track"}
+                        </button>
+                      );
+                    })()}{" "}
                     <a
                       href={`https://polymarket.com/event/${m.slug}`}
                       target="_blank"

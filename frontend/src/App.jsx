@@ -124,6 +124,7 @@ export default function App() {
           sport={route.sport}
           onSport={(s) => navigate(`/screener/${s}`)}
           onTracked={refresh}
+          markets={markets}
         />
       ) : openMarket ? (
         <MarketHistory
