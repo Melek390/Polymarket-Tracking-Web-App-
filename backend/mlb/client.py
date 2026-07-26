@@ -76,6 +76,8 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
     return {
         "status": status,
         "detail": ls.get("inningState") or status,
+        # Top | Middle | Bottom | End. Middle/End are the between-half breaks.
+        "inning_state": ls.get("inningState"),
         "inning": ls.get("currentInning"),
         "inning_half": ls.get("inningHalf"),
         "is_top": ls.get("isTopInning"),
@@ -148,6 +150,8 @@ async def live_game(game_pk: int) -> dict:
     return {
         "status": game["status"]["abstractGameState"],  # Preview | Live | Final
         "detail": game["status"]["detailedState"],
+        # Top | Middle | Bottom | End. Middle/End are the between-half breaks.
+        "inning_state": ls.get("inningState"),
         "inning": ls.get("currentInning"),
         "inning_half": ls.get("inningHalf"),  # Top | Bottom
         "is_top": ls.get("isTopInning"),

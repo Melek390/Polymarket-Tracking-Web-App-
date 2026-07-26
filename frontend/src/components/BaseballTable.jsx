@@ -60,14 +60,24 @@ function OutDots({ outs, size = 11 }) {
   );
 }
 
-// "▲ Top 6" / "▼ Bot 7" from the live inning, or the scheduled time.
+// True during the between-halves pause (10-20s): the top just ended (home team
+// coming up) or the whole inning ended (visiting team up next inning).
+function isInningBreak(live) {
+  return live?.inning_state === "Middle" || live?.inning_state === "End";
+}
+
+// "▲ Top 6" / "▼ Bot 7" from the live inning, the between-innings break, or the
+// scheduled time.
 function inningText(live, kickoff) {
   if (!live || live.status === "Preview")
     return kickoff ? `${fmtClock(kickoff)} ${TZ_LABEL}` : "—";
   if (live.status === "Final") return "Final";
+  const n = live.inning ?? "";
+  if (live.inning_state === "Middle") return `End of Top ${n} · break`;
+  if (live.inning_state === "End") return `End of Bot ${n} · break`;
   const arrow = live.is_top ? "▲" : "▼";
   const half = live.is_top ? "Top" : "Bot";
-  return `${arrow} ${half} ${live.inning ?? ""}`;
+  return `${arrow} ${half} ${n}`;
 }
 
 // The MLB.com-style line score shown when a row is expanded.
@@ -339,8 +349,10 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                     )}
                     {away} @ {home}
                   </td>
-                  <td style={{ ...td, whiteSpace: "nowrap", color: isLive ? T.red : T.sub }}>
-                    {inningText(live, r.kickoff)}
+                  <td style={{ ...td, whiteSpace: "nowrap",
+                    color: isInningBreak(live) ? T.series[1] : isLive ? T.red : T.sub,
+                    fontWeight: isInningBreak(live) ? 700 : undefined }}>
+                    {isInningBreak(live) && "⏸ "}{inningText(live, r.kickoff)}
                   </td>
                   <td style={{ ...td, fontFamily: T.ui, whiteSpace: "nowrap" }}>
                     {battingTeam ? (
