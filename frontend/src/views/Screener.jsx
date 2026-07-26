@@ -5,6 +5,7 @@ import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected } from "../ap
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
 import BaseballTable from "../components/BaseballTable.jsx";
 import AlertDialog from "../components/AlertDialog.jsx";
+import AlertBar from "../components/AlertBar.jsx";
 import { loadAlerts, persistAlerts, matches, playSound, soundType } from "../alerts.js";
 
 // key = the sport param sent to the API
@@ -145,7 +146,7 @@ export default function Screener({ sport, onSport, onTracked }) {
   const [livePrices, setLivePrices] = useState({}); // slug -> fresh CLOB asks
   const [alerts, setAlerts] = useState(loadAlerts);
   const [hits, setHits] = useState(new Set());
-  const [alertRow, setAlertRow] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const alertsRef = useRef(alerts);
   alertsRef.current = alerts;
@@ -203,20 +204,20 @@ export default function Screener({ sport, onSport, onTracked }) {
     return () => { stop = true; clearInterval(id); };
   }, [data, sport, alerts]);
 
-  // --- per-match alerts (price-only for these sports) ----------------------
-  function saveAlert(slug, alert) {
-    const nextA = { ...alertsRef.current, [slug]: alert };
+  // --- one global alert per sport (price-only for these sports) ------------
+  function saveAlert(alert) {
+    const nextA = { ...loadAlerts(), [sport]: alert };
     setAlerts(nextA);
     persistAlerts(nextA);
-    delete matchRef.current[slug]; // re-arm with the new criteria
+    matchRef.current = {}; // re-arm with the new criteria
   }
-  function clearAlert(slug) {
-    const nextA = { ...alertsRef.current };
-    delete nextA[slug];
+  function clearAlert() {
+    const nextA = { ...loadAlerts() };
+    delete nextA[sport];
     setAlerts(nextA);
     persistAlerts(nextA);
-    delete matchRef.current[slug];
-    setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
+    matchRef.current = {};
+    setHits(new Set());
   }
   function dismiss(slug) {
     const st = matchRef.current[slug];
@@ -224,12 +225,15 @@ export default function Screener({ sport, onSport, onTracked }) {
     setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
   }
   function evaluate(priceMap) {
+    const alert = alertsRef.current[sport];
+    if (!alert) {
+      if (hits.size) setHits(new Set());
+      return;
+    }
     const rows = data?.rows ?? [];
     const nextHits = new Set();
     let fired = null;
     rows.forEach((m) => {
-      const alert = alertsRef.current[m.slug];
-      if (!alert) return;
       const lp = priceMap[m.slug] || {};
       const prices = {
         home: lp.home ?? m.homePrice,
@@ -239,10 +243,7 @@ export default function Screener({ sport, onSport, onTracked }) {
       const m2 = matches(alert, { prices, live: null });
       const st = matchRef.current[m.slug] || { matched: false, acked: false };
       if (m2) {
-        if (!st.matched && !st.acked) {
-          playSound(soundType(alert));
-          fired = `${m.away} @ ${m.home}`;
-        }
+        if (!st.matched && !st.acked) fired = `${m.away} @ ${m.home}`;
         st.matched = true;
         if (!st.acked) nextHits.add(m.slug);
       } else {
@@ -251,8 +252,11 @@ export default function Screener({ sport, onSport, onTracked }) {
       }
       matchRef.current[m.slug] = st;
     });
+    if (fired) {
+      playSound(soundType(alert));
+      setToast(`${fired} matches your ${sport} alert`);
+    }
     setHits(nextHits);
-    if (fired) setToast(fired);
   }
 
   useEffect(() => {
@@ -471,6 +475,13 @@ export default function Screener({ sport, onSport, onTracked }) {
         />
       ) : (
       <>
+      <AlertBar
+        sport={sport}
+        isMlb={false}
+        alert={alerts[sport]}
+        onEdit={() => setDialogOpen(true)}
+        onClear={clearAlert}
+      />
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: T.sub }}>Status:</span>
         {STATUS_FILTERS.map((s) => (
@@ -753,14 +764,6 @@ export default function Screener({ sport, onSport, onTracked }) {
                     ));
                   })()}
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-                    <button
-                      onClick={() => setAlertRow({ ...m, sport, hasDraw })}
-                      title={alerts[m.slug] ? "Edit alert" : "Set an alert"}
-                      style={{ ...btn.outline, fontSize: 13, padding: "6px 8px", marginRight: 6,
-                        color: alerts[m.slug] ? T.series[0] : T.sub }}
-                    >
-                      {alerts[m.slug] ? "🔔" : "🔕"}
-                    </button>
                     {tracked.has(m.slug) ? (
                       <button disabled style={{ ...btn.outline, fontSize: 12, padding: "6px 10px" }}>
                         Tracked ✓
@@ -811,13 +814,15 @@ export default function Screener({ sport, onSport, onTracked }) {
           : "Prices are the best ask (buy price), matching Polymarket. Click any column heading to sort. Track opens the full list of the match's props so you choose exactly which ones to collect."}
       </div>
 
-      {alertRow && (
+      {dialogOpen && !isBaseball && (
         <AlertDialog
-          row={alertRow}
-          existing={alerts[alertRow.slug]}
-          onSave={(a) => { saveAlert(alertRow.slug, a); setAlertRow(null); }}
-          onClear={() => { clearAlert(alertRow.slug); setAlertRow(null); }}
-          onClose={() => setAlertRow(null)}
+          sport={sport}
+          isMlb={false}
+          hasDraw={hasDraw}
+          existing={alerts[sport]}
+          onSave={(a) => { saveAlert(a); setDialogOpen(false); }}
+          onClear={() => { clearAlert(); setDialogOpen(false); }}
+          onClose={() => setDialogOpen(false)}
         />
       )}
 

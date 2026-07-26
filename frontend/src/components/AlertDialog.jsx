@@ -24,17 +24,18 @@ const field = {
 const rowStyle = { display: "flex", alignItems: "center", gap: 8, marginTop: 12 };
 const labelStyle = { fontSize: 13, color: T.sub, width: 130 };
 
-export default function AlertDialog({ row, existing, onSave, onClear, onClose }) {
+export default function AlertDialog({ sport, isMlb, hasDraw, existing, onSave, onClear, onClose }) {
   const [f, setF] = useState(existing ?? EMPTY);
-  const isMlb = row.sport === "baseball";
   const set = (k, v) => setF({ ...f, [k]: v });
+  const sportLabel = isMlb ? "MLB" : sport.charAt(0).toUpperCase() + sport.slice(1);
 
-  // team/side options: MLB adds "currently batting", soccer adds "draw"
+  // The alert is global, so sides are generic roles (relative to each game),
+  // not specific team names. MLB adds "currently batting"; soccer adds "draw".
   const sides = [
-    { key: "any", label: "Any" },
-    { key: "home", label: row.home },
-    { key: "away", label: row.away },
-    ...(row.hasDraw ? [{ key: "draw", label: "Draw" }] : []),
+    { key: "any", label: "Any team" },
+    { key: "home", label: "Home team" },
+    { key: "away", label: "Away team" },
+    ...(hasDraw ? [{ key: "draw", label: "Draw" }] : []),
     ...(isMlb ? [{ key: "batting", label: "Currently batting" }] : []),
   ];
 
@@ -60,9 +61,9 @@ export default function AlertDialog({ row, existing, onSave, onClear, onClose })
         display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
     >
       <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: "min(440px, 92vw)", padding: 22 }}>
-        <div style={{ fontSize: 16, fontWeight: 600 }}>Alert for this match</div>
+        <div style={{ fontSize: 16, fontWeight: 600 }}>Alert for all {sportLabel} games</div>
         <div style={{ fontSize: 13, color: T.sub, marginTop: 2 }}>
-          {row.away} @ {row.home}
+          Applies to every {sportLabel} game — you're notified whenever any game matches.
         </div>
 
         <div style={rowStyle}>

@@ -4,6 +4,7 @@ import { fmtCents } from "../utils.js";
 import { fetchMlbGame, fetchLivePrice } from "../api/client.js";
 import { loadAlerts, persistAlerts, matches, playSound, soundType } from "../alerts.js";
 import AlertDialog from "./AlertDialog.jsx";
+import AlertBar from "./AlertBar.jsx";
 
 const POLL_MS = 3000; // read our cache fast; backend polls MLB every 3s
 const th = { ...monoText, fontSize: 10, textTransform: "uppercase",
@@ -100,7 +101,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
   const [expanded, setExpanded] = useState(new Set());
   const [alerts, setAlerts] = useState(loadAlerts);
   const [hits, setHits] = useState(new Set()); // slugs currently alerting
-  const [dialogRow, setDialogRow] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const liveRef = useRef({});
   liveRef.current = liveById;
@@ -110,44 +111,53 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
   alertsRef.current = alerts;
   const matchRef = useRef({}); // slug -> { matched, acked }
 
-  function saveAlert(slug, alert) {
-    const next = { ...alertsRef.current, [slug]: alert };
+  // One global alert for all MLB games (keyed by sport). Read fresh from
+  // storage on save so we never clobber another sport's alert.
+  const SPORT = "baseball";
+  function saveAlert(alert) {
+    const next = { ...loadAlerts(), [SPORT]: alert };
     setAlerts(next);
     persistAlerts(next);
   }
-  function clearAlert(slug) {
-    const next = { ...alertsRef.current };
-    delete next[slug];
-    delete matchRef.current[slug];
+  function clearAlert() {
+    const next = { ...loadAlerts() };
+    delete next[SPORT];
     setAlerts(next);
     persistAlerts(next);
-    setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
+    matchRef.current = {};
+    setHits(new Set());
   }
   function dismiss(slug) {
     if (matchRef.current[slug]) matchRef.current[slug].acked = true;
     setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
   }
 
-  // Check every alert against the freshest live data. Sound plays once when a
-  // game starts matching; it re-arms only after the game stops matching.
+  // Check the global MLB alert against every game's freshest live data. The
+  // sound plays (three times) when a game starts matching; each game re-arms
+  // only after it stops matching, so the sound isn't repeated continuously.
   function evaluate(liveMap, priceMap) {
+    const alert = alertsRef.current[SPORT];
+    if (!alert) {
+      if (hits.size) setHits(new Set());
+      return;
+    }
     const nextHits = new Set();
+    let fired = null;
     for (const r of rows) {
-      const alert = alertsRef.current[r.slug];
-      if (!alert) continue;
       const live = liveMap[r.gamePk] ?? liveRef.current[r.gamePk] ?? null;
       const lp = priceMap[r.slug] ?? priceRef.current[r.slug];
       const prices = { home: lp?.home ?? r.homePrice, away: lp?.away ?? r.awayPrice, draw: null };
       const m = matches(alert, { prices, live });
       const st = matchRef.current[r.slug] || { matched: false, acked: false };
-      if (m && !st.matched && !st.acked) {
-        playSound(soundType(alert));
-        setToast(`${r.away} @ ${r.home} matches your alert`);
-      }
+      if (m && !st.matched && !st.acked) fired = `${r.away} @ ${r.home} matches your MLB alert`;
       if (!m) st.acked = false;
       st.matched = m;
       matchRef.current[r.slug] = st;
       if (m && !st.acked) nextHits.add(r.slug);
+    }
+    if (fired) {
+      playSound(soundType(alert));
+      setToast(fired);
     }
     setHits(nextHits);
   }
@@ -202,7 +212,15 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
 
   const center = { ...td, textAlign: "center" };
   return (
-    <div style={{ ...card, overflow: "hidden" }}>
+    <div>
+      <AlertBar
+        sport={SPORT}
+        isMlb
+        alert={alerts[SPORT]}
+        onEdit={() => setDialogOpen(true)}
+        onClear={clearAlert}
+      />
+      <div style={{ ...card, overflow: "hidden" }}>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -247,7 +265,6 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
                 </td>
               );
               const alerting = hits.has(r.slug);
-              const hasAlert = !!alerts[r.slug];
               return [
                 <tr
                   key={r.slug}
@@ -297,14 +314,6 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
                   <td style={center}>{isLive ? `${live.balls}-${live.strikes}` : "—"}</td>
                   <td style={center}>{isLive ? <Bases bases={live.bases} /> : "—"}</td>
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
-                    <button
-                      onClick={() => setDialogRow({ ...r, sport: "baseball", hasDraw: false })}
-                      title={hasAlert ? "Edit alert" : "Set an alert"}
-                      style={{ ...btn.outline, fontSize: 13, padding: "5px 8px", marginRight: 6,
-                        color: hasAlert ? T.series[0] : T.sub }}
-                    >
-                      {hasAlert ? "🔔" : "🔕"}
-                    </button>
                     {tracked.has(r.slug) ? (
                       <button disabled style={{ ...btn.outline, fontSize: 12, padding: "5px 9px" }}>Tracked ✓</button>
                     ) : (
@@ -335,14 +344,17 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
           No MLB games right now.
         </div>
       )}
+      </div>
 
-      {dialogRow && (
+      {dialogOpen && (
         <AlertDialog
-          row={dialogRow}
-          existing={alerts[dialogRow.slug]}
-          onSave={(a) => { saveAlert(dialogRow.slug, a); setDialogRow(null); }}
-          onClear={() => { clearAlert(dialogRow.slug); setDialogRow(null); }}
-          onClose={() => setDialogRow(null)}
+          sport={SPORT}
+          isMlb
+          hasDraw={false}
+          existing={alerts[SPORT]}
+          onSave={(a) => { saveAlert(a); setDialogOpen(false); }}
+          onClear={() => { clearAlert(); setDialogOpen(false); }}
+          onClose={() => setDialogOpen(false)}
         />
       )}
 

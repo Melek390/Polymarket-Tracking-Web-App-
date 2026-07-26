@@ -55,12 +55,35 @@ const TONES = {
   situation: () => beep([1568, 1245, 1568], 0.2, 0.16), // triad
 };
 
+// Play the alert tone three times so it's hard to miss.
 export function playSound(type) {
-  try {
-    TONES[type]?.();
-  } catch {
-    /* audio not allowed until the user interacts; ignore */
+  const play = TONES[type];
+  if (!play) return;
+  for (let i = 0; i < 3; i++) {
+    setTimeout(() => {
+      try {
+        play();
+      } catch {
+        /* audio not allowed until the user interacts; ignore */
+      }
+    }, i * 650);
   }
+}
+
+// Short human-readable summary of an alert, for the alert bar.
+export function alertSummary(alert, isMlb) {
+  if (!alert) return null;
+  const parts = [];
+  const side = { home: "home", away: "away", draw: "draw", batting: "batting team" }[alert.side];
+  if (alert.priceMax != null) parts.push(`${side ? side + " " : ""}price ≤ ${alert.priceMax}¢`);
+  if (isMlb) {
+    if (alert.inningFrom != null || alert.inningTo != null) {
+      parts.push(`inning ${alert.inningFrom ?? 1}–${alert.inningTo ?? "∞"}`);
+    }
+    const rd = { win1: "winning by 1", lose1: "losing by 1", tie: "tie game" }[alert.runDiff];
+    if (rd) parts.push(rd);
+  }
+  return parts.join(" · ") || "any game";
 }
 
 // --- evaluation ------------------------------------------------------------
