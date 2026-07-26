@@ -32,6 +32,30 @@ async def fetch_midpoints(token_ids: list[str]) -> dict[str, float]:
     )
 
 
+async def fetch_mid_prices(token_ids: list[str]) -> dict[str, float | None]:
+    """Midpoint price in CENTS per token — the probability Polymarket shows on
+    a market (mid of best bid/ask). One batched /midpoints call. Missing or
+    resolved tokens map to None; never raises (safe for the live poller)."""
+    if not token_ids:
+        return {}
+    body = [{"token_id": t} for t in token_ids]
+    try:
+        async with httpx.AsyncClient(timeout=settings.http_timeout) as client:
+            r = await client.post(f"{settings.clob_base_url}/midpoints", json=body)
+        r.raise_for_status()
+        data = r.json()
+    except (httpx.HTTPError, ValueError):
+        return {t: None for t in token_ids}
+    out = {}
+    for t in token_ids:
+        v = data.get(t)
+        try:
+            out[t] = round(float(v) * 100, 2) if v is not None else None
+        except (TypeError, ValueError):
+            out[t] = None
+    return out
+
+
 async def fetch_buy_prices(token_ids: list[str]) -> dict[str, float | None]:
     """Live best-ask (buy price) in cents per token — what Polymarket's buy
     buttons show. Used for live games where the cached price is too stale."""

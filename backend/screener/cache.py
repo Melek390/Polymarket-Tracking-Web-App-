@@ -55,13 +55,18 @@ def _iso_utc(raw: str | None) -> str | None:
         return None
 
 
-def _ask_cents(market: dict) -> float | None:
-    """Best ask (buy price) in cents — the number Polymarket's Games view
-    shows, so the screener matches their UI. None when nothing is offered."""
-    ask = market.get("bestAsk")
-    if ask is None:
+def _mid_cents(market: dict) -> float | None:
+    """Midpoint of best bid/ask in cents — the probability Polymarket shows on
+    a market page, so our number matches what the client compares against.
+    Falls back to whichever side exists; None when nothing is offered."""
+    vals = [
+        float(x)
+        for x in (market.get("bestBid"), market.get("bestAsk"))
+        if x is not None
+    ]
+    if not vals:
         return None
-    return round(float(ask) * 100, 2)
+    return round(sum(vals) / len(vals) * 100, 2)
 
 
 def _teams(text: str) -> tuple[str, str] | None:
@@ -116,11 +121,11 @@ def _soccer_prices(event: dict, home: str, away: str):
     for m in event.get("markets", []):
         q = (m.get("question") or "").lower()
         if "draw" in q:
-            prices["draw"], tokens["draw"] = _ask_cents(m), _yes_token(m)
+            prices["draw"], tokens["draw"] = _mid_cents(m), _yes_token(m)
         elif q.startswith("will") and home.lower() in q:
-            prices["home"], tokens["home"] = _ask_cents(m), _yes_token(m)
+            prices["home"], tokens["home"] = _mid_cents(m), _yes_token(m)
         elif q.startswith("will") and away.lower() in q:
-            prices["away"], tokens["away"] = _ask_cents(m), _yes_token(m)
+            prices["away"], tokens["away"] = _mid_cents(m), _yes_token(m)
     return prices, [tokens["home"], tokens["draw"], tokens["away"]]
 
 
@@ -129,10 +134,10 @@ _NON_MONEYLINE = ("spread", "o/u", "handicap", "total", "game ", "set ",
 
 
 def _two_way_prices(event: dict):
-    """Home/away asks from the single moneyline market (no draw), plus its
-    [home, away] CLOB token ids. Away is the binary complement of the home
-    bid, exactly as Polymarket derives it. The moneyline is the first market
-    whose two outcomes are the team names."""
+    """Home/away midpoints from the single moneyline market (no draw), plus its
+    [home, away] CLOB token ids. Home is the market's midpoint (the probability
+    Polymarket shows); away is its binary complement. The moneyline is the
+    first market whose two outcomes are the team names."""
     prices = {"home": None, "draw": None, "away": None}
     tokens = []
     for m in event.get("markets", []):
@@ -142,11 +147,10 @@ def _two_way_prices(event: dict):
             continue
         if any(word in q for word in _NON_MONEYLINE):
             continue
-        ask, bid = m.get("bestAsk"), m.get("bestBid")
-        if ask is not None:
-            prices["home"] = round(float(ask) * 100, 2)
-        if bid is not None:
-            prices["away"] = round((1 - float(bid)) * 100, 2)
+        mid = _mid_cents(m)
+        if mid is not None:
+            prices["home"] = mid
+            prices["away"] = round(100 - mid, 2)
         tokens = _json_list(m.get("clobTokenIds"))
         break
     return prices, tokens

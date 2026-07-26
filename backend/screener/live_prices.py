@@ -45,7 +45,7 @@ async def fetch_now(slug: str) -> dict:
     tokens = db.screener_token_ids(slug)
     if not tokens or len([t for t in tokens if t]) < 2:
         return {}
-    prices = await clob.fetch_buy_prices([t for t in tokens if t])
+    prices = await clob.fetch_mid_prices([t for t in tokens if t])
     result = {k: (prices.get(t) if t else None) for k, t in zip(_shape(tokens), tokens)}
     _prices[slug] = result
     _at[slug] = time.monotonic()
@@ -69,7 +69,7 @@ async def poll() -> None:
     if not tokens:
         return
     try:
-        prices = await clob.fetch_buy_prices(tokens)
+        prices = await clob.fetch_mid_prices(tokens)
     except Exception as e:
         log.warning("live-price poll failed: %s", e)
         return
