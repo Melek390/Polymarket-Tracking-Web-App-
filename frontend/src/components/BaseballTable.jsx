@@ -178,8 +178,10 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy }) {
       const active = rows
         .filter((r) => r.gamePk)
         .filter((r) => {
+          const st = liveRef.current[r.gamePk]?.status;
+          if (st === "Final") return false; // finished — stop polling (keeps its final score cached)
+          if (st === "Live") return true;
           if (expanded.has(r.gamePk)) return true;
-          if (liveRef.current[r.gamePk]?.status === "Live") return true;
           return r.kickoff && now - r.kickoff < 5 * 3600e3 && r.kickoff - now < 30 * 60e3;
         });
 

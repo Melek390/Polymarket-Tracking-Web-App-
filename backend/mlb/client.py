@@ -4,7 +4,7 @@ Polymarket's own MLB scores are unreliable, so game state comes from here."""
 import httpx
 
 BASE = "https://statsapi.mlb.com/api"
-TIMEOUT = 15.0
+TIMEOUT = 8.0  # bound any slow statsapi call so it can't stall the worker
 
 
 async def schedule(date: str) -> list[dict]:
