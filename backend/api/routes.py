@@ -18,6 +18,7 @@ from backend.models.schemas import (
 )
 from backend.mlb import client as mlb
 from backend.mlb import live as mlb_live
+from backend.mlb import analyze as mlb_analyze_mod
 from backend.polymarket import clob, gamma
 from backend.screener import screener as market_screener
 from backend.screener import live_prices
@@ -116,6 +117,17 @@ async def mlb_game(game_pk: int, full: bool = False):
     # full=1 only (expand panel's season stats) uses the heavy feed
     try:
         return await mlb.live_game(game_pk)
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"MLB API unreachable: {e}")
+
+
+@router.get("/mlb/analyze/{game_pk}")
+async def mlb_analyze(game_pk: int):
+    """A ready-to-paste text snapshot of a game (score, situation, lineup,
+    records, weather) for the Analyze button. Built on demand from the full
+    feed, so it's not on any polling path."""
+    try:
+        return {"text": await mlb_analyze_mod.analyze_text(game_pk)}
     except httpx.HTTPError as e:
         raise HTTPException(502, f"MLB API unreachable: {e}")
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents, fmtClock, TZ_LABEL } from "../utils.js";
-import { fetchMlbGame, fetchLivePrice } from "../api/client.js";
+import { fetchMlbGame, fetchLivePrice, fetchMlbAnalyze } from "../api/client.js";
 import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
 import AlertDialog from "./AlertDialog.jsx";
 import AlertBar from "./AlertBar.jsx";
@@ -148,7 +148,7 @@ function Scoreboard({ live }) {
 }
 
 // The MLB.com-style line score shown when a row is expanded.
-function ExpandPanel({ live }) {
+function ExpandPanel({ live, onAnalyze }) {
   if (!live) return <div style={{ ...td, color: T.faint }}>Loading live data…</div>;
   const nums = live.innings.map((i) => i.num);
   const cell = { ...monoText, fontSize: 12, padding: "3px 7px", textAlign: "center", minWidth: 18 };
@@ -166,7 +166,18 @@ function ExpandPanel({ live }) {
   );
   return (
     <div style={{ padding: "12px 16px", background: T.soft, borderTop: `1px solid ${T.border}` }}>
-      {live.status !== "Preview" && <Scoreboard live={live} />}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+        {live.status !== "Preview" ? <Scoreboard live={live} /> : <div />}
+        {onAnalyze && (
+          <button
+            onClick={onAnalyze}
+            title="Copy a paste-ready breakdown of this game (MLB + Polymarket)"
+            style={{ ...btn.green, fontSize: 12, padding: "8px 14px", whiteSpace: "nowrap" }}
+          >
+            📋 Analyze
+          </button>
+        )}
+      </div>
       <div style={{ display: "flex", gap: 40, flexWrap: "wrap" }}>
       <div style={{ minWidth: 260 }}>
         <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
@@ -222,6 +233,27 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
   const [dialogOpen, setDialogOpen] = useState(false); // global MLB alert dialog
   const [dialogRow, setDialogRow] = useState(null); // per-game alert dialog
   const [toast, setToast] = useState(null);
+  const [analyze, setAnalyze] = useState(null); // {text, copied, busy}
+  const analyzeTimer = useRef(null);
+
+  // Build the paste-ready snapshot (MLB + Polymarket), copy it to the clipboard,
+  // show it in a modal, and auto-clear after 10s so a later click regenerates it.
+  async function runAnalyze(gamePk, pmLine) {
+    if (!gamePk) return;
+    clearTimeout(analyzeTimer.current);
+    setAnalyze({ busy: true });
+    try {
+      const res = await fetchMlbAnalyze(gamePk);
+      const text = pmLine ? `${pmLine}\n\n${res.text}` : res.text;
+      let copied = false;
+      try { await navigator.clipboard.writeText(text); copied = true; } catch {}
+      setAnalyze({ text, copied });
+      analyzeTimer.current = setTimeout(() => setAnalyze(null), 10000);
+    } catch (e) {
+      setAnalyze({ text: `Could not build the analysis: ${e.message}`, copied: false });
+      analyzeTimer.current = setTimeout(() => setAnalyze(null), 10000);
+    }
+  }
   const liveRef = useRef({});
   liveRef.current = liveById;
   const priceRef = useRef({});
@@ -523,7 +555,17 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                 open && (
                   <tr key={`${r.slug}-x`}>
                     <td colSpan={11} style={{ padding: 0 }}>
-                      <ExpandPanel live={live} />
+                      <ExpandPanel
+                        live={live}
+                        onAnalyze={() =>
+                          runAnalyze(
+                            r.gamePk,
+                            homePrice != null && awayPrice != null
+                              ? `Polymarket (win %): ${awayTeam} ${fmtCents(awayPrice)} | ${homeTeam} ${fmtCents(homePrice)}`
+                              : "",
+                          )
+                        }
+                      />
                     </td>
                   </tr>
                 ),
@@ -569,6 +611,50 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
             fontSize: 14, cursor: "pointer", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}
         >
           🔔 {toast}
+        </div>
+      )}
+
+      {analyze && (
+        <div
+          onClick={() => { clearTimeout(analyzeTimer.current); setAnalyze(null); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(26,29,35,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 130 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: "min(560px, 94vw)", padding: 20 }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>Game analysis</div>
+              <div style={{ fontSize: 12, color: analyze.copied ? T.green : T.sub }}>
+                {analyze.busy ? "Building…" : analyze.copied ? "✓ Copied to clipboard" : "Select & copy below"}
+              </div>
+            </div>
+            {analyze.busy ? (
+              <div style={{ padding: "28px 0", textAlign: "center", color: T.faint }}>Fetching live data…</div>
+            ) : (
+              <textarea
+                readOnly
+                value={analyze.text}
+                onFocus={(e) => e.target.select()}
+                style={{ ...monoText, width: "100%", height: 340, fontSize: 12, lineHeight: 1.5,
+                  padding: 12, border: `1px solid ${T.border}`, borderRadius: 8, color: T.ink, resize: "vertical" }}
+              />
+            )}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
+              {!analyze.busy && (
+                <button
+                  onClick={() => { navigator.clipboard?.writeText(analyze.text).then(() => setAnalyze((a) => ({ ...a, copied: true }))); }}
+                  style={{ ...btn.outline, fontSize: 13, padding: "8px 14px" }}
+                >
+                  Copy again
+                </button>
+              )}
+              <button
+                onClick={() => { clearTimeout(analyzeTimer.current); setAnalyze(null); }}
+                style={{ ...btn.primary, fontSize: 13, padding: "8px 16px" }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

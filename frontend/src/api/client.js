@@ -138,6 +138,11 @@ export async function fetchLivePrice(slug) {
   return request(`/api/screener/live-price?slug=${encodeURIComponent(slug)}&_=${Date.now()}`);
 }
 
+// GET /api/mlb/analyze/{pk} — ready-to-paste game snapshot for the Analyze button
+export async function fetchMlbAnalyze(gamePk) {
+  return request(`/api/mlb/analyze/${gamePk}?_=${Date.now()}`);
+}
+
 // POST /api/events/track — backend persists and starts polling + backfill;
 // the caller re-fetches the market list afterwards.
 export async function trackSelected(slug, conditionIds) {
