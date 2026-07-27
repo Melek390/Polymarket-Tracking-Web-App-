@@ -509,7 +509,15 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                           {trackBusy === r.slug ? "…" : n ? `✓ Tracking (${n})` : "Track"}
                         </button>
                       );
-                    })()}
+                    })()}{" "}
+                    <a
+                      href={`https://polymarket.com/event/${r.slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ ...btn.outline, fontSize: 12, padding: "5px 9px", textDecoration: "none" }}
+                    >
+                      Web ↗
+                    </a>
                   </td>
                 </tr>,
                 open && (
