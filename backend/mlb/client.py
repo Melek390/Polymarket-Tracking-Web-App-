@@ -100,6 +100,7 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
              "home": i.get("home", {}).get("runs")}
             for i in ls.get("innings", [])
         ],
+        "plays": [],  # play-by-play only comes from the full feed (live_game)
     }
 
 
@@ -136,6 +137,26 @@ async def live_game(game_pk: int) -> dict:
     defense = ls.get("defense", {})
     batter = offense.get("batter") or {}
     pitcher = defense.get("pitcher") or {}
+
+    # Recent completed plays for the live event feed — newest first. Each play
+    # is a finished at-bat (an out, hit, walk, home run…); the in-progress
+    # at-bat has no result.event yet, so it's skipped.
+    recent = []
+    for p in reversed(live.get("plays", {}).get("allPlays", [])):
+        res = p.get("result", {})
+        ab = p.get("about", {})
+        if not res.get("event"):
+            continue
+        recent.append({
+            "event": res.get("event"),
+            "desc": res.get("description"),
+            "rbi": res.get("rbi") or 0,
+            "scoring": bool(ab.get("isScoringPlay")),
+            "half": ab.get("halfInning"),   # top | bottom
+            "inning": ab.get("inning"),
+        })
+        if len(recent) >= 5:
+            break
 
     def team(side):
         t = ls["teams"][side]
@@ -182,4 +203,5 @@ async def live_game(game_pk: int) -> dict:
              "home": i.get("home", {}).get("runs")}
             for i in ls.get("innings", [])
         ],
+        "plays": recent,
     }

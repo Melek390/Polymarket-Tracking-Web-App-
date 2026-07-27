@@ -85,6 +85,42 @@ function inningText(live, kickoff) {
   return `${arrow} ${half} ${n}`;
 }
 
+// Live event feed — the last few completed plays, newest big on top, so a run,
+// home run or out is obvious the moment it happens.
+function PlayFeed({ live }) {
+  const plays = live.plays || [];
+  if (!plays.length) return null;
+  return (
+    <div style={{ flex: 1, minWidth: 260 }}>
+      <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase", marginBottom: 8 }}>
+        Latest plays
+      </div>
+      {plays.slice(0, 3).map((p, i) => {
+        const team = p.half === "top" ? live.away.abbr : live.home.abbr;
+        let headline, color;
+        if (p.event === "Home Run") {
+          headline = `🚀 ${team} Home Run${p.rbi ? ` +${p.rbi}` : ""}`;
+          color = T.series[2];
+        } else if (p.scoring && p.rbi > 0) {
+          headline = `${team} scored ${p.rbi} run${p.rbi > 1 ? "s" : ""}`;
+          color = T.green;
+        } else {
+          headline = p.event;
+          color = T.ink;
+        }
+        return (
+          <div key={i} style={{ marginBottom: i === 0 ? 12 : 8, opacity: i === 0 ? 1 : 0.55 }}>
+            <div style={{ fontSize: i === 0 ? 22 : 15, fontWeight: 800, lineHeight: 1.15, color }}>
+              {headline}
+            </div>
+            <div style={{ fontSize: 12, color: T.sub, marginTop: 2 }}>{p.desc}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // The MLB.com-style line score shown when a row is expanded.
 function ExpandPanel({ live }) {
   if (!live) return <div style={{ ...td, color: T.faint }}>Loading live data…</div>;
@@ -103,44 +139,48 @@ function ExpandPanel({ live }) {
     </tr>
   );
   return (
-    <div style={{ padding: "12px 16px", background: T.soft, borderTop: `1px solid ${T.border}` }}>
-      <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
-        {live.status === "Final" ? "Final" : inningText(live)}
-      </div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", marginBottom: 12 }}>
-          <thead>
-            <tr>
-              <th style={head} />
-              {nums.map((n) => <th key={n} style={head}>{n}</th>)}
-              <th style={{ ...head, borderLeft: `1px solid ${T.border}` }}>R</th>
-              <th style={head}>H</th>
-              <th style={head}>E</th>
-            </tr>
-          </thead>
-          <tbody>{row("away")}{row("home")}</tbody>
-        </table>
-      </div>
-      {live.status === "Live" && (
-        <div style={{ display: "flex", gap: 28, flexWrap: "wrap", fontSize: 12 }}>
-          <div>
-            <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase" }}>Pitching</div>
-            <div style={{ fontWeight: 600 }}>{live.pitcher.name ?? "—"}</div>
-            {live.pitcher.era && <div style={{ color: T.sub }}>{live.pitcher.era} ERA</div>}
-          </div>
-          <div>
-            <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase" }}>At bat</div>
-            <div style={{ fontWeight: 600 }}>{live.batter.name ?? "—"}</div>
-            {live.batter.ops && <div style={{ color: T.sub }}>{live.batter.ops} OPS</div>}
-          </div>
-          <div>
-            <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase" }}>Count / Outs</div>
-            <div style={{ fontWeight: 600 }}>{live.balls}-{live.strikes}, {live.outs} out</div>
-            <div style={{ marginTop: 6 }}><OutDots outs={live.outs} size={16} /></div>
-            <div style={{ marginTop: 8 }}><Bases bases={live.bases} /></div>
-          </div>
+    <div style={{ padding: "12px 16px", background: T.soft, borderTop: `1px solid ${T.border}`,
+      display: "flex", gap: 40, flexWrap: "wrap" }}>
+      <div style={{ minWidth: 260 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
+          {live.status === "Final" ? "Final" : inningText(live)}
         </div>
-      )}
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ borderCollapse: "collapse", marginBottom: 12 }}>
+            <thead>
+              <tr>
+                <th style={head} />
+                {nums.map((n) => <th key={n} style={head}>{n}</th>)}
+                <th style={{ ...head, borderLeft: `1px solid ${T.border}` }}>R</th>
+                <th style={head}>H</th>
+                <th style={head}>E</th>
+              </tr>
+            </thead>
+            <tbody>{row("away")}{row("home")}</tbody>
+          </table>
+        </div>
+        {live.status === "Live" && (
+          <div style={{ display: "flex", gap: 28, flexWrap: "wrap", fontSize: 12 }}>
+            <div>
+              <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase" }}>Pitching</div>
+              <div style={{ fontWeight: 600 }}>{live.pitcher.name ?? "—"}</div>
+              {live.pitcher.era && <div style={{ color: T.sub }}>{live.pitcher.era} ERA</div>}
+            </div>
+            <div>
+              <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase" }}>At bat</div>
+              <div style={{ fontWeight: 600 }}>{live.batter.name ?? "—"}</div>
+              {live.batter.ops && <div style={{ color: T.sub }}>{live.batter.ops} OPS</div>}
+            </div>
+            <div>
+              <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase" }}>Count / Outs</div>
+              <div style={{ fontWeight: 600 }}>{live.balls}-{live.strikes}, {live.outs} out</div>
+              <div style={{ marginTop: 6 }}><OutDots outs={live.outs} size={16} /></div>
+              <div style={{ marginTop: 8 }}><Bases bases={live.bases} /></div>
+            </div>
+          </div>
+        )}
+      </div>
+      {live.status === "Live" && <PlayFeed live={live} />}
     </div>
   );
 }
