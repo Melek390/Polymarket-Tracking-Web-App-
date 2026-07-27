@@ -234,13 +234,12 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
   const [dialogRow, setDialogRow] = useState(null); // per-game alert dialog
   const [toast, setToast] = useState(null);
   const [analyze, setAnalyze] = useState(null); // {text, copied, busy}
-  const analyzeTimer = useRef(null);
 
-  // Build the paste-ready snapshot (MLB + Polymarket), copy it to the clipboard,
-  // show it in a modal, and auto-clear after 10s so a later click regenerates it.
+  // Build the paste-ready snapshot (MLB + Polymarket), copy it to the clipboard
+  // and show it in a modal. It stays open until the user closes it; clicking
+  // Analyze again regenerates a fresh snapshot.
   async function runAnalyze(gamePk, pmLine) {
     if (!gamePk) return;
-    clearTimeout(analyzeTimer.current);
     setAnalyze({ busy: true });
     try {
       const res = await fetchMlbAnalyze(gamePk);
@@ -248,10 +247,8 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
       let copied = false;
       try { await navigator.clipboard.writeText(text); copied = true; } catch {}
       setAnalyze({ text, copied });
-      analyzeTimer.current = setTimeout(() => setAnalyze(null), 10000);
     } catch (e) {
       setAnalyze({ text: `Could not build the analysis: ${e.message}`, copied: false });
-      analyzeTimer.current = setTimeout(() => setAnalyze(null), 10000);
     }
   }
   const liveRef = useRef({});
@@ -616,12 +613,20 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
 
       {analyze && (
         <div
-          onClick={() => { clearTimeout(analyzeTimer.current); setAnalyze(null); }}
+          onClick={() => setAnalyze(null)}
           style={{ position: "fixed", inset: 0, background: "rgba(26,29,35,0.45)",
             display: "flex", alignItems: "center", justifyContent: "center", zIndex: 130 }}
         >
-          <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: "min(560px, 94vw)", padding: 20 }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ ...card, width: "min(560px, 94vw)", padding: 20, position: "relative" }}>
+            <button
+              onClick={() => setAnalyze(null)}
+              title="Close"
+              style={{ position: "absolute", top: 10, right: 12, background: "none", border: "none",
+                fontSize: 22, lineHeight: 1, cursor: "pointer", color: T.sub }}
+            >
+              ×
+            </button>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, paddingRight: 24 }}>
               <div style={{ fontSize: 16, fontWeight: 600 }}>Game analysis</div>
               <div style={{ fontSize: 12, color: analyze.copied ? T.green : T.sub }}>
                 {analyze.busy ? "Building…" : analyze.copied ? "✓ Copied to clipboard" : "Select & copy below"}
@@ -648,7 +653,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                 </button>
               )}
               <button
-                onClick={() => { clearTimeout(analyzeTimer.current); setAnalyze(null); }}
+                onClick={() => setAnalyze(null)}
                 style={{ ...btn.primary, fontSize: 13, padding: "8px 16px" }}
               >
                 Close
