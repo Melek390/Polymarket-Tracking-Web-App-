@@ -7,7 +7,7 @@ import BaseballTable from "../components/BaseballTable.jsx";
 import AlertDialog from "../components/AlertDialog.jsx";
 import AlertBar from "../components/AlertBar.jsx";
 import LivePrice from "../components/LivePrice.jsx";
-import { loadAlerts, persistAlerts, matches, playSound, soundType } from "../alerts.js";
+import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
 
 // key = the sport param sent to the API
 const SPORTS = [
@@ -251,7 +251,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
       };
       const hit = rowAlerts.find((a) => matches(a, { prices, live: null }));
       if (hit) {
-        if (!st.matched && !st.acked) fired = { text: `${m.away} @ ${m.home}`, type: soundType(hit) };
+        if (!st.matched && !st.acked)
+          fired = { text: `${m.away} @ ${m.home}`, type: soundType(hit), reason: matchReason(hit, prices, null) };
         st.matched = true;
         if (!st.acked) nextHits.add(m.slug);
       } else {
@@ -262,7 +263,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
     });
     if (fired) {
       playSound(fired.type);
-      setToast(`${fired.text} matches your ${sport} alert`);
+      setToast(`${fired.text} matches your ${sport} alert${fired.reason ? ` · ${fired.reason}` : ""}`);
     }
     setHits(nextHits);
   }

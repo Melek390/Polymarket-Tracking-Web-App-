@@ -86,6 +86,22 @@ export function alertSummary(alert, isMlb) {
   return parts.join(" · ") || "any game";
 }
 
+// A short reason string for why the price rule matched — which side hit the
+// threshold — so an "Any team" alert isn't a mystery. Returns null if the
+// alert has no price rule or nothing is under the threshold.
+export function matchReason(alert, prices, live) {
+  if (!alert || alert.priceMax == null) return null;
+  const under = (p) => p != null && p <= alert.priceMax;
+  let side = alert.side;
+  if (side === "batting") side = live && live.status === "Live" ? live.batting : null;
+  const which =
+    side && side !== "any" ? (under(prices[side]) ? side : null)
+      : ["home", "away", "draw"].find((s) => under(prices[s]));
+  if (!which) return null;
+  const label = { home: "Home", away: "Away", draw: "Draw" }[which];
+  return `${label} ${prices[which]}¢ ≤ ${alert.priceMax}¢`;
+}
+
 // --- evaluation ------------------------------------------------------------
 
 // ctx: { prices: {home, away, draw}, live: <MLB live state | null> }

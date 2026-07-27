@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents, fmtClock, TZ_LABEL } from "../utils.js";
 import { fetchMlbGame, fetchLivePrice } from "../api/client.js";
-import { loadAlerts, persistAlerts, matches, playSound, soundType } from "../alerts.js";
+import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
 import AlertDialog from "./AlertDialog.jsx";
 import AlertBar from "./AlertBar.jsx";
 import LivePrice from "./LivePrice.jsx";
@@ -252,7 +252,8 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
       const hit = rowAlerts.find((a) => matches(a, { prices, live }));
       const m = !!hit;
       if (m && !st.matched && !st.acked) {
-        fired = { text: `${r.away} @ ${r.home} matches your alert`, type: soundType(hit) };
+        fired = { text: `${r.away} @ ${r.home} matches your alert`, type: soundType(hit),
+          reason: matchReason(hit, prices, live) };
       }
       if (!m) st.acked = false;
       st.matched = m;
@@ -261,7 +262,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
     }
     if (fired) {
       playSound(fired.type);
-      setToast(fired.text);
+      setToast(fired.reason ? `${fired.text} · ${fired.reason}` : fired.text);
     }
     setHits(nextHits);
   }
