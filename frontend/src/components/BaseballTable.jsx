@@ -71,12 +71,23 @@ function isInningBreak(live) {
   return live?.inning_state === "Middle" || live?.inning_state === "End";
 }
 
-// "▲ Top 6" / "▼ Bot 7" from the live inning, the between-innings break, or the
-// scheduled time.
+// A game is flagged "Live" during warmup or a delay while no pitch has been
+// thrown — show that instead of the misleading "Top 1".
+function preGameLabel(live) {
+  const gs = live?.game_state || "";
+  if (/warmup/i.test(gs)) return "Warmup";
+  if (/delay|suspend/i.test(gs)) return gs; // e.g. "Delayed Start: Rain"
+  return null;
+}
+
+// "▲ Top 6" / "▼ Bot 7" from the live inning, the between-innings break, warmup,
+// or the scheduled time.
 function inningText(live, kickoff) {
   if (!live || live.status === "Preview")
     return kickoff ? `${fmtClock(kickoff)} ${TZ_LABEL}` : "—";
   if (live.status === "Final") return "Final";
+  const pg = preGameLabel(live);
+  if (pg) return pg;
   const n = live.inning ?? "";
   if (live.inning_state === "Middle") return `End of Top ${n} · break`;
   if (live.inning_state === "End") return `End of Bot ${n} · break`;
@@ -422,14 +433,16 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
             {displayRows.map((r) => {
               const live = r.gamePk ? liveById[r.gamePk] : null;
               const isLive = live?.status === "Live";
+              const warmup = isLive && !!preGameLabel(live);
+              const inPlay = isLive && !warmup; // actually playing (not warmup/delay)
               const open = expanded.has(r.gamePk);
               // MLB decides who is home/away. When we have no live data yet,
               // fall back to Polymarket's away-first order (r.home = away).
               const away = live?.away.abbr ?? r.home;
               const home = live?.home.abbr ?? r.away;
-              const score = live && live.status !== "Preview"
+              const score = inPlay
                 ? `${live.away.runs ?? 0}-${live.home.runs ?? 0}` : "—";
-              const battingTeam = isLive
+              const battingTeam = inPlay
                 ? (live.batting === "away" ? live.away : live.home) : null;
               // live CLOB mid overrides the cached price when available
               const lp = priceBySlug[r.slug];
@@ -483,8 +496,8 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                     {away} @ {home}
                   </td>
                   <td style={{ ...td, whiteSpace: "nowrap",
-                    color: isInningBreak(live) ? T.series[1] : isLive ? T.red : T.sub,
-                    fontWeight: isInningBreak(live) ? 700 : undefined }}>
+                    color: warmup || isInningBreak(live) ? T.series[1] : isLive ? T.red : T.sub,
+                    fontWeight: warmup || isInningBreak(live) ? 700 : undefined }}>
                     {isInningBreak(live) && "⏸ "}{inningText(live, r.kickoff)}
                   </td>
                   <td style={{ ...td, fontFamily: T.ui, whiteSpace: "nowrap" }}>
@@ -502,15 +515,15 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                   {priceCell(awayTeam, awayPrice, priceColor(awayPrice, homePrice))}
                   {priceCell(homeTeam, homePrice, priceColor(homePrice, awayPrice))}
                   <td style={center}>
-                    {isLive ? (
+                    {inPlay ? (
                       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                         <span>{live.outs ?? 0} out</span>
                         <OutDots outs={live.outs} size={11} />
                       </span>
                     ) : "—"}
                   </td>
-                  <td style={center}>{isLive ? `${live.balls}-${live.strikes}` : "—"}</td>
-                  <td style={center}>{isLive ? <Bases bases={live.bases} /> : "—"}</td>
+                  <td style={center}>{inPlay ? `${live.balls}-${live.strikes}` : "—"}</td>
+                  <td style={center}>{inPlay ? <Bases bases={live.bases} /> : "—"}</td>
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
                     <button
                       onClick={() => setDialogRow(r)}

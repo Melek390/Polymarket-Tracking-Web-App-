@@ -34,6 +34,7 @@ async def schedule(date: str) -> list[dict]:
                     "away": g["teams"]["away"]["team"]["name"],
                     "home": g["teams"]["home"]["team"]["name"],
                     "status": g["status"]["abstractGameState"],  # Preview|Live|Final
+                    "detailed": g["status"].get("detailedState"),  # Warmup|In Progress|…
                     "date": g.get("gameDate"),  # ISO UTC first-pitch time
                 }
             )
@@ -53,7 +54,8 @@ async def team_abbreviations() -> dict[str, str]:
     return _TEAM_ABBR
 
 
-async def linescore_state(game_pk: int, away_name: str, home_name: str, status: str) -> dict:
+async def linescore_state(game_pk: int, away_name: str, home_name: str, status: str,
+                          detailed: str | None = None) -> dict:
     """Compact live state from the light 3 KB linescore endpoint (no season
     stats). Same shape as live_game with era/ops left None."""
     r = await _http().get(f"{BASE}/v1/game/{game_pk}/linescore")
@@ -76,6 +78,8 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
     return {
         "status": status,
         "detail": ls.get("inningState") or status,
+        # detailedState from the schedule: Warmup | In Progress | Delayed | …
+        "game_state": detailed,
         # Top | Middle | Bottom | End. Middle/End are the between-half breaks.
         "inning_state": ls.get("inningState"),
         "inning": ls.get("currentInning"),
@@ -171,6 +175,7 @@ async def live_game(game_pk: int) -> dict:
     return {
         "status": game["status"]["abstractGameState"],  # Preview | Live | Final
         "detail": game["status"]["detailedState"],
+        "game_state": game["status"]["detailedState"],  # Warmup | In Progress | …
         # Top | Middle | Bottom | End. Middle/End are the between-half breaks.
         "inning_state": ls.get("inningState"),
         "inning": ls.get("currentInning"),

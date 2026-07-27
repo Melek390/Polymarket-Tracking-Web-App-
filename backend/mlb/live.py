@@ -53,7 +53,7 @@ async def poll() -> None:
     for g in _live["games"]:
         try:
             _state[g["game_pk"]] = await client.linescore_state(
-                g["game_pk"], g["away"], g["home"], g["status"]
+                g["game_pk"], g["away"], g["home"], g["status"], g.get("detailed")
             )
             _state_at[g["game_pk"]] = time.monotonic()
         except Exception as e:
@@ -81,11 +81,11 @@ async def light_state(game_pk: int) -> dict | None:
     # the names we already have rather than serving an indefinitely-stale entry.
     if g is None and st is not None:
         g = {"away": st["away"]["name"], "home": st["home"]["name"],
-             "status": st.get("status") or "Live"}
+             "status": st.get("status") or "Live", "detailed": st.get("game_state")}
     if g is None:
         return st  # unknown game we've never seen — nothing to fetch
     try:
-        st = await client.linescore_state(game_pk, g["away"], g["home"], g["status"])
+        st = await client.linescore_state(game_pk, g["away"], g["home"], g["status"], g.get("detailed"))
     except Exception as e:
         log.warning("MLB light_state %s failed: %s", game_pk, e)
         return _state.get(game_pk)
