@@ -121,6 +121,32 @@ function PlayFeed({ live }) {
   );
 }
 
+// Big at-a-glance score: Away X - Y Home, leader's box green (both green if
+// tied, the trailing side stays neutral).
+function Scoreboard({ live }) {
+  const ar = live.away.runs ?? 0;
+  const hr = live.home.runs ?? 0;
+  const box = (team, runs, lead) => (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 12, minWidth: 130,
+      padding: "8px 16px", borderRadius: 10,
+      background: lead ? T.green : "#fff",
+      color: lead ? "#fff" : T.ink,
+      border: `1px solid ${lead ? T.green : T.border}`,
+    }}>
+      <span style={{ fontWeight: 700, fontSize: 15 }}>{team.abbr}</span>
+      <span style={{ fontWeight: 800, fontSize: 26, marginLeft: "auto", lineHeight: 1 }}>{runs}</span>
+    </div>
+  );
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+      {box(live.away, ar, ar >= hr)}
+      <span style={{ color: T.faint, fontWeight: 700, fontSize: 18 }}>–</span>
+      {box(live.home, hr, hr >= ar)}
+    </div>
+  );
+}
+
 // The MLB.com-style line score shown when a row is expanded.
 function ExpandPanel({ live }) {
   if (!live) return <div style={{ ...td, color: T.faint }}>Loading live data…</div>;
@@ -139,8 +165,9 @@ function ExpandPanel({ live }) {
     </tr>
   );
   return (
-    <div style={{ padding: "12px 16px", background: T.soft, borderTop: `1px solid ${T.border}`,
-      display: "flex", gap: 40, flexWrap: "wrap" }}>
+    <div style={{ padding: "12px 16px", background: T.soft, borderTop: `1px solid ${T.border}` }}>
+      {live.status !== "Preview" && <Scoreboard live={live} />}
+      <div style={{ display: "flex", gap: 40, flexWrap: "wrap" }}>
       <div style={{ minWidth: 260 }}>
         <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
           {live.status === "Final" ? "Final" : inningText(live)}
@@ -181,6 +208,7 @@ function ExpandPanel({ live }) {
         )}
       </div>
       {live.status === "Live" && <PlayFeed live={live} />}
+      </div>
     </div>
   );
 }
