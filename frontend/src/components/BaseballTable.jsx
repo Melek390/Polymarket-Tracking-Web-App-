@@ -312,8 +312,8 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
               <th style={th}>Inning</th>
               <th style={th}>Batting</th>
               <th style={th}>Score</th>
-              <th style={{ ...th, textAlign: "right" }}>Home</th>
               <th style={{ ...th, textAlign: "right" }}>Away</th>
+              <th style={{ ...th, textAlign: "right" }}>Home</th>
               <th style={{ ...th, textAlign: "center" }}>Outs</th>
               <th style={{ ...th, textAlign: "center" }}>Count</th>
               <th style={{ ...th, textAlign: "center" }}>Bases</th>
@@ -399,8 +399,10 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                     ) : "—"}
                   </td>
                   <td style={td}>{score}</td>
-                  {priceCell(homeTeam, homePrice, priceColor(homePrice, awayPrice))}
+                  {/* Away first, then Home — matches the "Away @ Home" game
+                      column and the away-home score, so the columns line up */}
                   {priceCell(awayTeam, awayPrice, priceColor(awayPrice, homePrice))}
+                  {priceCell(homeTeam, homePrice, priceColor(homePrice, awayPrice))}
                   <td style={center}>
                     {isLive ? (
                       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
