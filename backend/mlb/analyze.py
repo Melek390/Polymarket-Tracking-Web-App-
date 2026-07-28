@@ -108,8 +108,15 @@ async def analyze_text(game_pk: int) -> str:
 
     # pitcher game pitch count + season ERA
     pp = box[def_side]["players"].get(pid_key(pitcher.get("id", 0)), {})
-    pitches = pp.get("stats", {}).get("pitching", {}).get("numberOfPitches")
+    gp = pp.get("stats", {}).get("pitching", {})  # this-game line
+    pitches = gp.get("numberOfPitches")
     era = pp.get("seasonStats", {}).get("pitching", {}).get("era")
+    pitcher_line = (
+        f"{gp.get('inningsPitched', '0.0')} IP, {gp.get('hits', 0)} H, "
+        f"{gp.get('runs', 0)} R, {gp.get('earnedRuns', 0)} ER, "
+        f"{gp.get('baseOnBalls', 0)} BB, {gp.get('strikeOuts', 0)} K, "
+        f"{gp.get('homeRuns', 0)} HR"
+    )
 
     # batter OPS
     b_ops = ops(off_side, batter.get("id", 0))
@@ -181,6 +188,7 @@ async def analyze_text(game_pk: int) -> str:
         "",
         f"Pitcher on mound: {pitcher.get('fullName', '—')} "
         f"(pitch count: {pitches if pitches is not None else 'n/a'}, season ERA {era or 'n/a'})",
+        f"  This game: {pitcher_line}",
         f"{batter_label}: {batter.get('fullName', '—')} (OPS {b_ops or 'n/a'})",
         "",
         "Next batters due up:",
