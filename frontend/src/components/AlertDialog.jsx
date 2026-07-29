@@ -4,6 +4,7 @@ import { soundType, playSound } from "../alerts.js";
 
 const EMPTY = {
   priceMax: "",
+  priceMin: "",
   side: "any",
   inningFrom: "",
   inningTo: "",
@@ -47,12 +48,13 @@ export default function AlertDialog({ sport, isMlb, hasDraw, row, existing, onSa
   function save() {
     const alert = {
       priceMax: num(f.priceMax),
+      priceMin: num(f.priceMin),
       side: f.side,
       inningFrom: isMlbMode ? num(f.inningFrom) : null,
       inningTo: isMlbMode ? num(f.inningTo) : null,
       runDiff: isMlbMode ? f.runDiff : "any",
     };
-    if (alert.priceMax == null && alert.inningFrom == null &&
+    if (alert.priceMax == null && alert.priceMin == null && alert.inningFrom == null &&
         alert.inningTo == null && alert.runDiff === "any") {
       return; // nothing set — ignore
     }
@@ -78,7 +80,15 @@ export default function AlertDialog({ sport, isMlb, hasDraw, row, existing, onSa
         <div style={rowStyle}>
           <span style={labelStyle}>Price ≤ (¢)</span>
           <input value={f.priceMax} onChange={(e) => set("priceMax", e.target.value)}
-            placeholder="25" style={field} />
+            placeholder="e.g. 25" style={field} />
+          <span style={{ fontSize: 11, color: T.faint }}>at or below</span>
+        </div>
+
+        <div style={rowStyle}>
+          <span style={labelStyle}>Price ≥ (¢)</span>
+          <input value={f.priceMin} onChange={(e) => set("priceMin", e.target.value)}
+            placeholder="e.g. 80" style={field} />
+          <span style={{ fontSize: 11, color: T.faint }}>at or above</span>
         </div>
 
         <div style={rowStyle}>

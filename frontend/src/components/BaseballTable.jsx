@@ -245,6 +245,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
   const [dialogRow, setDialogRow] = useState(null); // per-game alert dialog
   const [toast, setToast] = useState(null);
   const [analyze, setAnalyze] = useState(null); // {text, copied, busy}
+  const [sort, setSort] = useState({ key: null, dir: "desc" }); // key: away|home|score|null
 
   // Build the paste-ready snapshot (MLB + Polymarket), copy it to the clipboard
   // and show it in a modal. It stays open until the user closes it; clicking
@@ -401,6 +402,43 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
   }
   const displayRows = status === "all" ? rows : rows.filter((r) => rowStatus(r) === status);
 
+  // Resolve a row's MLB-designated home/away teams + prices (shared by the row
+  // render and the sort comparator, so they always agree).
+  function resolved(r) {
+    const lp = priceBySlug[r.slug];
+    const rHome = lp?.home ?? r.homePrice;
+    const rAway = lp?.away ?? r.awayPrice;
+    const live = liveById[r.gamePk];
+    const rHomeIsHome = !live || !live.home || !live.away
+      ? false
+      : _teamMatch(live.home.name, r.home) >= _teamMatch(live.home.name, r.away);
+    return {
+      homeTeam: rHomeIsHome ? r.home : r.away,
+      homePrice: rHomeIsHome ? rHome : rAway,
+      awayTeam: rHomeIsHome ? r.away : r.home,
+      awayPrice: rHomeIsHome ? rAway : rHome,
+    };
+  }
+  function sortVal(r, key) {
+    if (key === "home") return resolved(r).homePrice;
+    if (key === "away") return resolved(r).awayPrice;
+    if (key === "score") {
+      const l = liveById[r.gamePk];
+      return l && l.status !== "Preview" ? (l.away.runs ?? 0) + (l.home.runs ?? 0) : null;
+    }
+    return null;
+  }
+  function sortBy(key) {
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "desc" }));
+  }
+  const arrow = (key) => (sort.key === key ? (sort.dir === "asc" ? " ↑" : " ↓") : "");
+  const shown = sort.key
+    ? [...displayRows].sort((a, b) => {
+        const dir = sort.dir === "asc" ? 1 : -1;
+        return dir * ((sortVal(a, sort.key) ?? -Infinity) - (sortVal(b, sort.key) ?? -Infinity));
+      })
+    : displayRows;
+
   const center = { ...td, textAlign: "center" };
   return (
     <div>
@@ -420,9 +458,9 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
               <th style={th}>Game</th>
               <th style={th}>Inning</th>
               <th style={th}>Batting</th>
-              <th style={th}>Score</th>
-              <th style={{ ...th, textAlign: "right" }}>Away</th>
-              <th style={{ ...th, textAlign: "right" }}>Home</th>
+              <th style={{ ...th, cursor: "pointer" }} onClick={() => sortBy("score")}>Score{arrow("score")}</th>
+              <th style={{ ...th, textAlign: "right", cursor: "pointer" }} onClick={() => sortBy("away")}>Away{arrow("away")}</th>
+              <th style={{ ...th, textAlign: "right", cursor: "pointer" }} onClick={() => sortBy("home")}>Home{arrow("home")}</th>
               <th style={{ ...th, textAlign: "center" }}>Outs</th>
               <th style={{ ...th, textAlign: "center" }}>Count</th>
               <th style={{ ...th, textAlign: "center" }}>Bases</th>
@@ -430,7 +468,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
             </tr>
           </thead>
           <tbody>
-            {displayRows.map((r) => {
+            {shown.map((r) => {
               const live = r.gamePk ? liveById[r.gamePk] : null;
               const isLive = live?.status === "Live";
               const warmup = isLive && !!preGameLabel(live);
@@ -444,19 +482,9 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                 ? `${live.away.runs ?? 0}-${live.home.runs ?? 0}` : "—";
               const battingTeam = inPlay
                 ? (live.batting === "away" ? live.away : live.home) : null;
-              // live CLOB mid overrides the cached price when available
-              const lp = priceBySlug[r.slug];
-              const rHomePrice = lp?.home ?? r.homePrice;
-              const rAwayPrice = lp?.away ?? r.awayPrice;
-              // Map MLB's real home/away onto the Polymarket price sides by
-              // name, so the Home column shows the home team + its price.
-              const rHomeIsHome = !live || !live.home || !live.away
-                ? false // no MLB data: Polymarket lists away first, so r.home = away
-                : _teamMatch(live.home.name, r.home) >= _teamMatch(live.home.name, r.away);
-              const homeTeam = rHomeIsHome ? r.home : r.away;
-              const homePrice = rHomeIsHome ? rHomePrice : rAwayPrice;
-              const awayTeam = rHomeIsHome ? r.away : r.home;
-              const awayPrice = rHomeIsHome ? rAwayPrice : rHomePrice;
+              // MLB-designated home/away teams + prices (live CLOB mid overrides
+              // the cached price); shared with the sort comparator via resolved()
+              const { homeTeam, homePrice, awayTeam, awayPrice } = resolved(r);
               // Home / Away columns: the team name under its win price
               const priceCell = (team, price, color) => (
                 <td style={{ ...td, textAlign: "right" }}>

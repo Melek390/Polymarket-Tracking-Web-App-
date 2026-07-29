@@ -2,8 +2,21 @@ import { T } from "../theme.js";
 
 const NAVY = "#191970"; // header keeps its own darker blue
 
-// Top bar: app name, page nav, collector health, refresh.
-export default function Header({ collectorRunning, refreshing, onRefresh, onNavigate }) {
+const szBtn = {
+  fontFamily: T.ui,
+  fontSize: 13,
+  fontWeight: 700,
+  padding: "5px 10px",
+  borderRadius: 8,
+  border: "1px solid rgba(255, 255, 255, 0.55)",
+  background: "transparent",
+  color: "#fff",
+  cursor: "pointer",
+  lineHeight: 1,
+};
+
+// Top bar: app name, page nav, collector health, text size, refresh.
+export default function Header({ collectorRunning, refreshing, onRefresh, onNavigate, scale = 1, onScale }) {
   return (
     <header
       style={{
@@ -54,6 +67,15 @@ export default function Header({ collectorRunning, refreshing, onRefresh, onNavi
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        {onScale && (
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }} title="Text size (only scales the content)">
+            <button onClick={() => onScale(-0.1)} style={szBtn}>A−</button>
+            <button onClick={() => onScale(0, true)} style={{ ...szBtn, fontWeight: 600, minWidth: 46 }}>
+              {Math.round(scale * 100)}%
+            </button>
+            <button onClick={() => onScale(0.1)} style={{ ...szBtn, fontSize: 15 }}>A+</button>
+          </div>
+        )}
         <span
           style={{
             display: "flex",

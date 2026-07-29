@@ -39,6 +39,19 @@ export default function App() {
   const [markets, setMarkets] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  // Content zoom (persisted). Scales only the content area, not the header, so
+  // it stays readable on a big screen without browser zoom breaking the layout.
+  const [scale, setScale] = useState(() => {
+    const s = Number(localStorage.getItem("uiScale"));
+    return s >= 0.8 && s <= 2 ? s : 1;
+  });
+  function changeScale(delta, reset) {
+    setScale((prev) => {
+      const next = reset ? 1 : Math.min(2, Math.max(0.8, Math.round((prev + delta) * 10) / 10));
+      localStorage.setItem("uiScale", String(next));
+      return next;
+    });
+  }
 
   useEffect(() => {
     const onNav = () => setRoute(parseRoute());
@@ -111,6 +124,8 @@ export default function App() {
         refreshing={refreshing}
         onRefresh={refresh}
         onNavigate={navigate}
+        scale={scale}
+        onScale={changeScale}
       />
 
       {error && (
@@ -119,6 +134,7 @@ export default function App() {
         </div>
       )}
 
+      <div style={{ zoom: scale }}>
       {route.view === "screener" ? (
         <Screener
           sport={route.sport}
@@ -144,6 +160,7 @@ export default function App() {
           onDelete={handleDelete}
         />
       )}
+      </div>
     </div>
   );
 }

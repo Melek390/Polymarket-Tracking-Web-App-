@@ -75,7 +75,9 @@ export function alertSummary(alert, isMlb) {
   if (!alert) return null;
   const parts = [];
   const side = { home: "home", away: "away", draw: "draw", batting: "batting team" }[alert.side];
-  if (alert.priceMax != null) parts.push(`${side ? side + " " : ""}price ≤ ${alert.priceMax}¢`);
+  const who = side ? side + " " : "";
+  if (alert.priceMax != null) parts.push(`${who}price ≤ ${alert.priceMax}¢`);
+  if (alert.priceMin != null) parts.push(`${who}price ≥ ${alert.priceMin}¢`);
   if (isMlb) {
     if (alert.inningFrom != null || alert.inningTo != null) {
       parts.push(`inning ${alert.inningFrom ?? 1}–${alert.inningTo ?? "∞"}`);
@@ -90,16 +92,20 @@ export function alertSummary(alert, isMlb) {
 // threshold — so an "Any team" alert isn't a mystery. Returns null if the
 // alert has no price rule or nothing is under the threshold.
 export function matchReason(alert, prices, live) {
-  if (!alert || alert.priceMax == null) return null;
-  const under = (p) => p != null && p <= alert.priceMax;
+  if (!alert) return null;
   let side = alert.side;
   if (side === "batting") side = live && live.status === "Live" ? live.batting : null;
-  const which =
-    side && side !== "any" ? (under(prices[side]) ? side : null)
-      : ["home", "away", "draw"].find((s) => under(prices[s]));
-  if (!which) return null;
-  const label = { home: "Home", away: "Away", draw: "Draw" }[which];
-  return `${label} ${prices[which]}¢ ≤ ${alert.priceMax}¢`;
+  const sides = side && side !== "any" ? [side] : ["home", "away", "draw"];
+  const label = (s) => ({ home: "Home", away: "Away", draw: "Draw" }[s]);
+  if (alert.priceMax != null) {
+    const w = sides.find((s) => prices[s] != null && prices[s] <= alert.priceMax);
+    if (w) return `${label(w)} ${prices[w]}¢ ≤ ${alert.priceMax}¢`;
+  }
+  if (alert.priceMin != null) {
+    const w = sides.find((s) => prices[s] != null && prices[s] >= alert.priceMin);
+    if (w) return `${label(w)} ${prices[w]}¢ ≥ ${alert.priceMin}¢`;
+  }
+  return null;
 }
 
 // --- evaluation ------------------------------------------------------------
@@ -125,6 +131,14 @@ export function matches(alert, ctx) {
       side && side !== "any"
         ? under(prices[side])
         : ["home", "away", "draw"].some((s) => under(prices[s]));
+    if (!ok) return false;
+  }
+  if (alert.priceMin != null) {
+    const over = (p) => p != null && p >= alert.priceMin;
+    const ok =
+      side && side !== "any"
+        ? over(prices[side])
+        : ["home", "away", "draw"].some((s) => over(prices[s]));
     if (!ok) return false;
   }
 
