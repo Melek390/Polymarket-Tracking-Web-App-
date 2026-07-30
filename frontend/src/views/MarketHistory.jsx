@@ -62,7 +62,7 @@ export default function MarketHistory({ market, onBack, onToggle }) {
     if (!slug.startsWith("mlb-")) return;
     let ok = true;
     fetchMlbTimeline(slug)
-      .then((r) => { if (ok) setTimeline(r.plays || []); })
+      .then((r) => { if (ok && r.plays?.length) setTimeline(r); })
       .catch(() => {});
     return () => { ok = false; };
   }, [market.id, market.eventSlug]);

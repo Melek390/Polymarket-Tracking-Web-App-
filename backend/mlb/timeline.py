@@ -40,22 +40,50 @@ async def resolve_game_pk(slug: str) -> int | None:
     return None
 
 
-async def play_timeline(game_pk: int) -> list[dict]:
+async def _pitcher_eras(game_pk: int) -> tuple[dict[int, str], str, str]:
+    """{pitcher id: season ERA} plus the away/home abbreviations, from the
+    boxscore. One extra call, made once when a history page opens."""
+    try:
+        r = await client._http().get(f"{client.BASE}/v1/game/{game_pk}/boxscore")
+        r.raise_for_status()
+        box = r.json()["teams"]
+    except Exception:
+        return {}, "AWY", "HOM"
+    eras: dict[int, str] = {}
+    for side in ("away", "home"):
+        for pid in box[side].get("pitchers", []):
+            pl = box[side]["players"].get(f"ID{pid}", {})
+            era = pl.get("seasonStats", {}).get("pitching", {}).get("era")
+            if era is not None:
+                eras[pid] = era
+    away = box["away"].get("team", {}).get("abbreviation") or "AWY"
+    home = box["home"].get("team", {}).get("abbreviation") or "HOM"
+    return eras, away, home
+
+
+async def play_timeline(game_pk: int) -> dict:
     r = await client._http().get(f"{client.BASE}/v1/game/{game_pk}/playByPlay")
     r.raise_for_status()
+    eras, away_abbr, home_abbr = await _pitcher_eras(game_pk)
     out = []
     for p in r.json().get("allPlays", []):
         a = p.get("about", {})
         mm = p.get("matchup", {})
+        res = p.get("result", {})
         start = _ms(a.get("startTime"))
         if start is None:
             continue
+        pit = mm.get("pitcher") or {}
         out.append({
             "start": start,
             "end": _ms(a.get("endTime")) or start,
             "inning": a.get("inning"),
             "half": a.get("halfInning"),  # top | bottom
-            "pitcher": (mm.get("pitcher") or {}).get("fullName"),
+            "pitcher": pit.get("fullName"),
+            "era": eras.get(pit.get("id")),
             "batter": (mm.get("batter") or {}).get("fullName"),
+            # score AFTER this play — i.e. the score as of that moment
+            "awayScore": res.get("awayScore"),
+            "homeScore": res.get("homeScore"),
         })
-    return out
+    return {"away": away_abbr, "home": home_abbr, "plays": out}

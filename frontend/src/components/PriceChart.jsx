@@ -18,21 +18,21 @@ const LEVELS = [10, 15, 20, 25, 30, 40, 50]; // cents
 const MAX_LEVEL_DOTS = 300;
 
 // The play that was happening at time `ts` (last play that had started by then).
-function stateAt(timeline, ts) {
-  if (!timeline || !timeline.length || ts == null) return null;
+function stateAt(plays, ts) {
+  if (!plays || !plays.length || ts == null) return null;
   let found = null;
-  for (const p of timeline) {
+  for (const p of plays) {
     if (p.start <= ts) found = p;
     else break;
   }
   return found;
 }
 
-// Tooltip: the prices at the hovered point, plus (for MLB) the inning and who
-// was pitching / batting at that moment.
+// Tooltip: the prices at the hovered point, plus (for MLB) the game state at
+// that moment — score, inning, pitcher (with ERA) and batter.
 function ChartTooltip({ active, payload, label, timeline }) {
   if (!active || !payload || !payload.length) return null;
-  const play = stateAt(timeline, label);
+  const play = stateAt(timeline?.plays, label);
   return (
     <div style={{ ...monoText, fontSize: 12, background: "#fff",
       border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 10px" }}>
@@ -44,10 +44,19 @@ function ChartTooltip({ active, payload, label, timeline }) {
       ))}
       {play && (
         <div style={{ marginTop: 6, paddingTop: 5, borderTop: `1px solid ${T.border}` }}>
+          {play.awayScore != null && (
+            <div style={{ fontWeight: 700, fontSize: 14, color: T.ink }}>
+              {timeline.away} {play.awayScore} – {play.homeScore} {timeline.home}
+            </div>
+          )}
           <div style={{ fontWeight: 700, color: T.ink }}>
             {play.half === "top" ? "▲ Top" : "▼ Bot"} {play.inning}
           </div>
-          {play.pitcher && <div style={{ color: T.sub }}>Pitching: {play.pitcher}</div>}
+          {play.pitcher && (
+            <div style={{ color: T.sub }}>
+              Pitching: {play.pitcher}{play.era ? ` (${play.era} ERA)` : ""}
+            </div>
+          )}
           {play.batter && <div style={{ color: T.sub }}>At bat: {play.batter}</div>}
         </div>
       )}

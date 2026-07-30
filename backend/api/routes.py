@@ -144,7 +144,7 @@ async def mlb_timeline(slug: str):
         pk = await mlb_timeline_mod.resolve_game_pk(slug)
         if not pk:
             return {"game_pk": None, "plays": []}
-        return {"game_pk": pk, "plays": await mlb_timeline_mod.play_timeline(pk)}
+        return {"game_pk": pk, **await mlb_timeline_mod.play_timeline(pk)}
     except httpx.HTTPError:
         return {"game_pk": None, "plays": []}
 
