@@ -7,6 +7,7 @@ import BaseballTable from "../components/BaseballTable.jsx";
 import AlertDialog from "../components/AlertDialog.jsx";
 import AlertBar from "../components/AlertBar.jsx";
 import LivePrice from "../components/LivePrice.jsx";
+import Toasts, { useToasts } from "../components/Toasts.jsx";
 import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
 
 // key = the sport param sent to the API
@@ -136,7 +137,16 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const [error, setError] = useState(null);
   const [league, setLeague] = useState(null); // one league, null = all
   const [search, setSearch] = useState(""); // team or league text, filters live
-  const [status, setStatus] = useState("all"); // coming soon / live / over
+  // Selected match statuses. Empty = show all; otherwise a match must be one of
+  // them, so LIVE + COMING SOON can be watched together. Clicking a chip again
+  // unchecks it.
+  const [statuses, setStatuses] = useState([]);
+  const toggleStatus = (s) =>
+    setStatuses((prev) =>
+      s === "all" ? [] : prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
+    );
+  const statusOk = (kickoff) =>
+    statuses.length === 0 || statuses.includes(matchStatus(kickoff));
   const [draft, setDraft] = useState(EMPTY_FILTERS); // what the user is typing
   const [applied, setApplied] = useState(EMPTY_FILTERS); // what the table uses
   const [sort, setSort] = useState({ key: "volume", dir: "desc" });
@@ -150,7 +160,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const [hits, setHits] = useState(new Set());
   const [dialogOpen, setDialogOpen] = useState(false); // global sport alert
   const [alertRow, setAlertRow] = useState(null); // per-game alert
-  const [toast, setToast] = useState(null);
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const alertsRef = useRef(alerts);
   alertsRef.current = alerts;
   const livePricesRef = useRef(livePrices);
@@ -234,7 +244,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
     const globalAlert = alertsRef.current[sport];
     const rows = data?.rows ?? [];
     const nextHits = new Set();
-    let fired = null;
+    const fired = []; // every game that just started matching (each gets a toast)
     rows.forEach((m) => {
       const rowAlerts = [globalAlert, alertsRef.current[m.slug]].filter(Boolean);
       const st = matchRef.current[m.slug] || { matched: false, acked: false };
@@ -251,8 +261,13 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
       };
       const hit = rowAlerts.find((a) => matches(a, { prices, live: null }));
       if (hit) {
-        if (!st.matched && !st.acked)
-          fired = { text: `${m.away} @ ${m.home}`, type: soundType(hit), reason: matchReason(hit, prices, null) };
+        if (!st.matched && !st.acked) {
+          const reason = matchReason(hit, prices, null);
+          fired.push({
+            text: `${m.away} @ ${m.home} matches your ${sport} alert${reason ? ` · ${reason}` : ""}`,
+            type: soundType(hit),
+          });
+        }
         st.matched = true;
         if (!st.acked) nextHits.add(m.slug);
       } else {
@@ -261,18 +276,12 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
       }
       matchRef.current[m.slug] = st;
     });
-    if (fired) {
-      playSound(fired.type);
-      setToast(`${fired.text} matches your ${sport} alert${fired.reason ? ` · ${fired.reason}` : ""}`);
+    if (fired.length) {
+      playSound(fired[0].type); // one sound per tick, however many matched
+      fired.forEach((f) => pushToast(f.text));
     }
     setHits(nextHits);
   }
-
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(null), 5000);
-    return () => clearTimeout(id);
-  }, [toast]);
 
   // Track opens a chooser with every prop of the match. The extra props
   // (spreads, totals) live in a twin event whose slug is always the match
@@ -382,7 +391,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const hasDraw = rows.some((m) => m.drawPrice != null);
   const visible = rows
     .filter((m) => matchesFilters(m, applied, league, search))
-    .filter((m) => status === "all" || matchStatus(m.kickoff) === status)
+    .filter((m) => statusOk(m.kickoff))
     .sort((a, b) => {
       const dir = sort.dir === "asc" ? 1 : -1;
       if (sort.key === "match") return dir * a.home.localeCompare(b.home);
@@ -396,7 +405,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const leagueSet = new Set(
     rows
       .filter((m) => matchesFilters(m, applied, null, search))
-      .filter((m) => status === "all" || matchStatus(m.kickoff) === status)
+      .filter((m) => statusOk(m.kickoff))
       .map((m) => m.league),
   );
   if (league) leagueSet.add(league); // keep the current pick deselectable
@@ -495,14 +504,15 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 12, color: T.sub }}>Status:</span>
           {STATUS_FILTERS.map((s) => (
-            <button key={s} onClick={() => setStatus(s)} style={chipBtn(status === s)}>
+            <button key={s} onClick={() => toggleStatus(s)}
+              style={chipBtn(s === "all" ? statuses.length === 0 : statuses.includes(s))}>
               {s === "all" ? "All" : STATUS_META[s].label}
             </button>
           ))}
         </div>
         <BaseballTable
           rows={baseballRows}
-          status={status}
+          statuses={statuses}
           onTrack={openPicker}
           tracked={tracked}
           trackBusy={trackBusy}
@@ -521,7 +531,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: T.sub }}>Status:</span>
         {STATUS_FILTERS.map((s) => (
-          <button key={s} onClick={() => setStatus(s)} style={chipBtn(status === s)}>
+          <button key={s} onClick={() => toggleStatus(s)}
+              style={chipBtn(s === "all" ? statuses.length === 0 : statuses.includes(s))}>
             {s === "all" ? "All" : STATUS_META[s].label}
           </button>
         ))}
@@ -633,7 +644,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
               setApplied(EMPTY_FILTERS);
               setLeague(null);
               setSearch("");
-              setStatus("all");
+              setStatuses([]);
             }}
             style={{ ...btn.ghost, fontSize: 13, padding: "9px 14px" }}
           >
@@ -894,16 +905,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
         />
       )}
 
-      {toast && (
-        <div
-          onClick={() => setToast(null)}
-          style={{ position: "fixed", right: 20, bottom: 20, zIndex: 120,
-            background: T.ink, color: "#fff", padding: "12px 18px", borderRadius: 8,
-            fontSize: 14, cursor: "pointer", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}
-        >
-          🔔 {toast}
-        </div>
-      )}
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 }

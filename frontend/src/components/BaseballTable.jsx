@@ -6,6 +6,7 @@ import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason }
 import AlertDialog from "./AlertDialog.jsx";
 import AlertBar from "./AlertBar.jsx";
 import LivePrice from "./LivePrice.jsx";
+import Toasts, { useToasts } from "./Toasts.jsx";
 
 const POLL_MS = 2000; // fast live prices + state; backend caps each at ~2s
 
@@ -235,7 +236,7 @@ function ExpandPanel({ live, onAnalyze }) {
   );
 }
 
-export default function BaseballTable({ rows, onTrack, tracked, trackBusy, trackedCount = () => 0, status = "all" }) {
+export default function BaseballTable({ rows, onTrack, tracked, trackBusy, trackedCount = () => 0, statuses = [] }) {
   const [liveById, setLiveById] = useState({});
   const [priceBySlug, setPriceBySlug] = useState({}); // live CLOB asks
   const [expanded, setExpanded] = useState(new Set());
@@ -243,7 +244,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
   const [hits, setHits] = useState(new Set()); // slugs currently alerting
   const [dialogOpen, setDialogOpen] = useState(false); // global MLB alert dialog
   const [dialogRow, setDialogRow] = useState(null); // per-game alert dialog
-  const [toast, setToast] = useState(null);
+  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [analyze, setAnalyze] = useState(null); // {text, copied, busy}
   const [sort, setSort] = useState({ key: null, dir: "desc" }); // key: away|home|score|null
 
@@ -306,7 +307,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
   function evaluate(liveMap, priceMap) {
     const globalAlert = alertsRef.current[SPORT];
     const nextHits = new Set();
-    let fired = null;
+    const fired = []; // every game that just started matching (each gets a toast)
     for (const r of rowsRef.current) {
       const rowAlerts = [globalAlert, alertsRef.current[r.slug]].filter(Boolean);
       const st = matchRef.current[r.slug] || { matched: false, acked: false };
@@ -321,26 +322,23 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
       const hit = rowAlerts.find((a) => matches(a, { prices, live }));
       const m = !!hit;
       if (m && !st.matched && !st.acked) {
-        fired = { text: `${r.away} @ ${r.home} matches your alert`, type: soundType(hit),
-          reason: matchReason(hit, prices, live) };
+        const reason = matchReason(hit, prices, live);
+        fired.push({
+          text: `${r.away} @ ${r.home} matches your alert${reason ? ` · ${reason}` : ""}`,
+          type: soundType(hit),
+        });
       }
       if (!m) st.acked = false;
       st.matched = m;
       matchRef.current[r.slug] = st;
       if (m && !st.acked) nextHits.add(r.slug);
     }
-    if (fired) {
-      playSound(fired.type);
-      setToast(fired.reason ? `${fired.text} · ${fired.reason}` : fired.text);
+    if (fired.length) {
+      playSound(fired[0].type); // one sound per tick, however many matched
+      fired.forEach((f) => pushToast(f.text));
     }
     setHits(nextHits);
   }
-
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(null), 5000);
-    return () => clearTimeout(id);
-  }, [toast]);
 
   // Poll the MLB feed + live prices for games in progress (or expanded). A
   // SINGLE stable interval reads the latest rows/expanded from refs, so a
@@ -400,7 +398,9 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
     if (!r.kickoff) return "soon";
     return r.kickoff > nowMs ? "soon" : "over";
   }
-  const displayRows = status === "all" ? rows : rows.filter((r) => rowStatus(r) === status);
+  const displayRows = statuses.length === 0
+    ? rows
+    : rows.filter((r) => statuses.includes(rowStatus(r)));
 
   // Resolve a row's MLB-designated home/away teams + prices (shared by the row
   // render and the sort comparator, so they always agree).
@@ -641,16 +641,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
         />
       )}
 
-      {toast && (
-        <div
-          onClick={() => setToast(null)}
-          style={{ position: "fixed", right: 20, bottom: 20, zIndex: 120,
-            background: T.ink, color: "#fff", padding: "12px 18px", borderRadius: 8,
-            fontSize: 14, cursor: "pointer", boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}
-        >
-          🔔 {toast}
-        </div>
-      )}
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
 
       {analyze && (
         <div
