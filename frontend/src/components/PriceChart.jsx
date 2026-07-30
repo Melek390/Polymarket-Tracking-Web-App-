@@ -17,6 +17,44 @@ import { fmtCents, fmtDate, fmtTime, fmtTimestamp } from "../utils.js";
 const LEVELS = [10, 15, 20, 25, 30, 40, 50]; // cents
 const MAX_LEVEL_DOTS = 300;
 
+// The play that was happening at time `ts` (last play that had started by then).
+function stateAt(timeline, ts) {
+  if (!timeline || !timeline.length || ts == null) return null;
+  let found = null;
+  for (const p of timeline) {
+    if (p.start <= ts) found = p;
+    else break;
+  }
+  return found;
+}
+
+// Tooltip: the prices at the hovered point, plus (for MLB) the inning and who
+// was pitching / batting at that moment.
+function ChartTooltip({ active, payload, label, timeline }) {
+  if (!active || !payload || !payload.length) return null;
+  const play = stateAt(timeline, label);
+  return (
+    <div style={{ ...monoText, fontSize: 12, background: "#fff",
+      border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 10px" }}>
+      <div style={{ color: T.sub, marginBottom: 4 }}>{fmtTimestamp(label)}</div>
+      {payload.map((p) => (
+        <div key={p.dataKey} style={{ color: p.color }}>
+          {p.dataKey}: {p.value != null ? fmtCents(p.value) : "—"}
+        </div>
+      ))}
+      {play && (
+        <div style={{ marginTop: 6, paddingTop: 5, borderTop: `1px solid ${T.border}` }}>
+          <div style={{ fontWeight: 700, color: T.ink }}>
+            {play.half === "top" ? "▲ Top" : "▼ Bot"} {play.inning}
+          </div>
+          {play.pitcher && <div style={{ color: T.sub }}>Pitching: {play.pitcher}</div>}
+          {play.batter && <div style={{ color: T.sub }}>At bat: {play.batter}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // The price line chart: outcome lines, current-price dots, zoom slider and price levels.
 export default function PriceChart({
   ticks,
@@ -24,6 +62,7 @@ export default function PriceChart({
   trackedSince,
   window: win,
   onWindowChange,
+  timeline,
 }) {
   const [level, setLevel] = useState(null);
 
@@ -135,16 +174,7 @@ export default function PriceChart({
             tick={{ fontFamily: T.mono, fontSize: 11, fill: T.sub }}
             stroke={T.border}
           />
-          <Tooltip
-            labelFormatter={fmtTimestamp}
-            formatter={(value) => (value != null ? fmtCents(value) : "—")}
-            contentStyle={{
-              ...monoText,
-              fontSize: 12,
-              border: `1px solid ${T.border}`,
-              borderRadius: 8,
-            }}
-          />
+          <Tooltip content={<ChartTooltip timeline={timeline} />} />
           {LEVELS.map((l) => (
             <ReferenceLine
               key={l}

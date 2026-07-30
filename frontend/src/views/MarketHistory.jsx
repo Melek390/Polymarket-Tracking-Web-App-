@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import PriceChart from "../components/PriceChart.jsx";
 import TicksTable from "../components/TicksTable.jsx";
-import { fetchTicks, exportCsvFor } from "../api/client.js";
+import { fetchTicks, exportCsvFor, fetchMlbTimeline } from "../api/client.js";
 import { T, label, monoText, page, btn } from "../theme.js";
 import { fmtCents, fmtDate, timeAgo } from "../utils.js";
 
@@ -14,6 +14,7 @@ export default function MarketHistory({ market, onBack, onToggle }) {
   const [win, setWin] = useState(null); // [fromTs, toTs] the user is looking at
   const [live, setLive] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [timeline, setTimeline] = useState(null); // MLB play-by-play for the tooltip
   const ticksRef = useRef(null); // latest ticks for the live interval closure
 
   async function load(followEdge = false) {
@@ -52,6 +53,19 @@ export default function MarketHistory({ market, onBack, onToggle }) {
     setLive(false);
     load();
   }, [market.id]);
+
+  // MLB games: pull the play-by-play timeline once so the chart tooltip can
+  // show the inning + pitcher + batter at the hovered moment.
+  useEffect(() => {
+    setTimeline(null);
+    const slug = market.eventSlug || "";
+    if (!slug.startsWith("mlb-")) return;
+    let ok = true;
+    fetchMlbTimeline(slug)
+      .then((r) => { if (ok) setTimeline(r.plays || []); })
+      .catch(() => {});
+    return () => { ok = false; };
+  }, [market.id, market.eventSlug]);
 
   // live mode: refetch on the market's own rhythm until switched off
   useEffect(() => {
@@ -146,6 +160,7 @@ export default function MarketHistory({ market, onBack, onToggle }) {
           trackedSince={market.createdAt}
           window={win}
           onWindowChange={setWin}
+          timeline={timeline}
         />
       )}
 

@@ -143,6 +143,12 @@ export async function fetchMlbAnalyze(gamePk) {
   return request(`/api/mlb/analyze/${gamePk}?_=${Date.now()}`);
 }
 
+// GET /api/mlb/timeline?slug= — play-by-play (inning/pitcher/batter per ms) for
+// the price chart tooltip. {game_pk, plays:[{start,end,inning,half,pitcher,batter}]}
+export async function fetchMlbTimeline(slug) {
+  return request(`/api/mlb/timeline?slug=${encodeURIComponent(slug)}`);
+}
+
 // POST /api/events/track — backend persists and starts polling + backfill;
 // the caller re-fetches the market list afterwards.
 export async function trackSelected(slug, conditionIds) {

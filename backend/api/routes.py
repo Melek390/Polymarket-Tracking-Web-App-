@@ -19,6 +19,7 @@ from backend.models.schemas import (
 from backend.mlb import client as mlb
 from backend.mlb import live as mlb_live
 from backend.mlb import analyze as mlb_analyze_mod
+from backend.mlb import timeline as mlb_timeline_mod
 from backend.polymarket import clob, gamma
 from backend.screener import screener as market_screener
 from backend.screener import live_prices
@@ -130,6 +131,22 @@ async def mlb_analyze(game_pk: int):
         return {"text": await mlb_analyze_mod.analyze_text(game_pk)}
     except httpx.HTTPError as e:
         raise HTTPException(502, f"MLB API unreachable: {e}")
+
+
+@router.get("/mlb/timeline")
+async def mlb_timeline(slug: str):
+    """Play-by-play timeline (inning + pitcher + batter per timestamp) for a
+    market's MLB game, so the price chart can show game state under the cursor.
+    Empty when the slug isn't an MLB game we can resolve."""
+    if not slug.startswith("mlb-"):
+        return {"game_pk": None, "plays": []}
+    try:
+        pk = await mlb_timeline_mod.resolve_game_pk(slug)
+        if not pk:
+            return {"game_pk": None, "plays": []}
+        return {"game_pk": pk, "plays": await mlb_timeline_mod.play_timeline(pk)}
+    except httpx.HTTPError:
+        return {"game_pk": None, "plays": []}
 
 
 @router.post("/events/track")
