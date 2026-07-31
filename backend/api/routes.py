@@ -206,6 +206,17 @@ def stop_market(market_id: int):
     return {"id": market_id, "tracking": False}
 
 
+@router.get("/health")
+def health():
+    """Liveness detail for the health check: which background jobs are actually
+    scheduled. A market closing once silently deleted all of them, so this is
+    worth asserting from outside the process."""
+    return {
+        "running": scheduler.scheduler.running,
+        "jobs": sorted(j.id for j in scheduler.scheduler.get_jobs()),
+    }
+
+
 @router.get("/markets/{market_id}/ticks")
 def market_ticks(market_id: int, limit: int = 500, before: str | None = None):
     """Paged time-series rows for the chart and the ticks table."""
