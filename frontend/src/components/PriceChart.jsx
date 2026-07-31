@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -13,16 +13,18 @@ import {
 } from "recharts";
 import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents, fmtDate, fmtTime, fmtTimestamp } from "../utils.js";
+import { estimateLag } from "../mlbLag.js";
 
 const LEVELS = [10, 15, 20, 25, 30, 40, 50]; // cents
 const MAX_LEVEL_DOTS = 300;
 
-// The play that was happening at time `ts` (last play that had started by then).
-function stateAt(plays, ts) {
+// The play in effect at time `ts`, corrected for feed lag: the market saw a
+// play ~lagMs before the API stamped it, so we compare against p.start - lagMs.
+function stateAt(plays, ts, lagMs = 0) {
   if (!plays || !plays.length || ts == null) return null;
   let found = null;
   for (const p of plays) {
-    if (p.start <= ts) found = p;
+    if (p.start - lagMs <= ts) found = p;
     else break;
   }
   return found;
@@ -30,9 +32,9 @@ function stateAt(plays, ts) {
 
 // Tooltip: the prices at the hovered point, plus (for MLB) the game state at
 // that moment — score, inning, pitcher (with ERA) and batter.
-function ChartTooltip({ active, payload, label, timeline }) {
+function ChartTooltip({ active, payload, label, timeline, lagMs = 0 }) {
   if (!active || !payload || !payload.length) return null;
-  const play = stateAt(timeline?.plays, label);
+  const play = stateAt(timeline?.plays, label, lagMs);
   return (
     <div style={{ ...monoText, fontSize: 12, background: "#fff",
       border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 10px" }}>
@@ -74,6 +76,14 @@ export default function PriceChart({
   timeline,
 }) {
   const [level, setLevel] = useState(null);
+  const [lagOverride, setLagOverride] = useState(null); // manual nudge, null = auto
+
+  // How far the MLB feed trails the market for this game (see mlbLag.js).
+  const autoLag = useMemo(
+    () => estimateLag(ticks, timeline?.plays, outcomes),
+    [ticks, timeline, outcomes],
+  );
+  const lagMs = lagOverride ?? autoLag?.lagMs ?? 0;
 
   // translate the remembered time window into data indexes for the slider
   let startIndex = 0;
@@ -183,7 +193,7 @@ export default function PriceChart({
             tick={{ fontFamily: T.mono, fontSize: 11, fill: T.sub }}
             stroke={T.border}
           />
-          <Tooltip content={<ChartTooltip timeline={timeline} />} />
+          <Tooltip content={<ChartTooltip timeline={timeline} lagMs={lagMs} />} />
           {LEVELS.map((l) => (
             <ReferenceLine
               key={l}
@@ -261,10 +271,34 @@ export default function PriceChart({
           />
         </LineChart>
       </ResponsiveContainer>
+      {timeline?.plays?.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10,
+          fontSize: 12, color: T.sub, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 600, color: T.ink }}>MLB feed lag:</span>
+          <span style={{ ...monoText }}>{(lagMs / 1000).toFixed(1)}s</span>
+          <span style={{ color: T.faint }}>
+            {lagOverride != null
+              ? "(manual)"
+              : autoLag
+                ? `(measured from this game — ${autoLag.moves} price moves)`
+                : "(not enough price movement to measure)"}
+          </span>
+          <button onClick={() => setLagOverride(Math.max(0, lagMs - 500))}
+            style={{ ...btn.outline, fontSize: 11, padding: "2px 8px" }}>−0.5s</button>
+          <button onClick={() => setLagOverride(lagMs + 500)}
+            style={{ ...btn.outline, fontSize: 11, padding: "2px 8px" }}>+0.5s</button>
+          {lagOverride != null && (
+            <button onClick={() => setLagOverride(null)}
+              style={{ ...btn.ghost, fontSize: 11, padding: "2px 8px" }}>auto</button>
+          )}
+        </div>
+      )}
       <div style={{ fontSize: 12, color: T.faint, marginTop: 8 }}>
         Hover for exact prices · drag the blue slider edges to zoom a time
         range · click a price level above to mark every touch of that line ·
         the big dots are the current price.
+        {timeline?.plays?.length > 0 &&
+          " The MLB feed reports a play a few seconds after it happens, so the game state is shifted back by the measured lag to line up with the price move it caused."}
       </div>
     </div>
   );
