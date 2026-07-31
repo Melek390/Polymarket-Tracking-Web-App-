@@ -327,12 +327,25 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
           (bySlug[r.eventSlug] ??= []).push(r.conditionId);
         }
       }
+      let picked = 0;
+      let alreadyClosed = 0;
       for (const [slug, ids] of Object.entries(bySlug)) {
-        await trackSelected(slug, ids);
+        const res = await trackSelected(slug, ids);
+        picked += res?.market_ids?.length ?? 0;
+        alreadyClosed += res?.closed_market_ids?.length ?? 0;
       }
       setTracked((prev) => new Set(prev).add(picker.row.slug));
       onTracked?.(); // dashboard picks the new markets up right away
       setPicker(null);
+      // A resolved market can't be re-tracked — say so instead of doing
+      // nothing visible (this game is over, its history is already stored).
+      if (alreadyClosed > 0) {
+        setError(
+          alreadyClosed === picked
+            ? "That market is already settled on Polymarket, so it can't be tracked again — its price history is already saved and still open from the dashboard."
+            : `${alreadyClosed} of the ${picked} props you picked are already settled on Polymarket and were skipped; the rest are now tracking.`,
+        );
+      }
     } catch (e) {
       setError(`Tracking failed: ${e.message}`);
     } finally {

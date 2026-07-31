@@ -175,10 +175,14 @@ async def track_event(body: TrackRequest):
         raise HTTPException(400, "no matching markets in that event")
 
     scheduler.sync_jobs()
+    # A market Polymarket has already resolved stays closed — re-tracking it is
+    # a no-op, so tell the caller which ones those were.
+    closed_ids = db.closed_among(market_ids)
     # pull all available 1-min history in the background; live polling starts now
     for market_id in market_ids:
-        asyncio.create_task(backfill.backfill_market(market_id))
-    return {"market_ids": market_ids}
+        if market_id not in closed_ids:
+            asyncio.create_task(backfill.backfill_market(market_id))
+    return {"market_ids": market_ids, "closed_market_ids": closed_ids}
 
 
 @router.post("/markets/{market_id}/start")

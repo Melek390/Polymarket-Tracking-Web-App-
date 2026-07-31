@@ -192,6 +192,20 @@ def set_tracking(market_id: int, tracking: bool):
         )
 
 
+def closed_among(market_ids: list[int]) -> list[int]:
+    """Which of these markets Polymarket has already resolved. Re-tracking one
+    is a no-op, so the UI needs to say so instead of silently doing nothing."""
+    if not market_ids:
+        return []
+    placeholders = ",".join("?" * len(market_ids))
+    with get_db() as conn:
+        rows = conn.execute(
+            f"SELECT id FROM markets WHERE closed = 1 AND id IN ({placeholders})",
+            market_ids,
+        ).fetchall()
+        return [r["id"] for r in rows]
+
+
 def mlb_tracked_markets() -> list[dict]:
     """Open, tracked MLB markets with their slug — the collector uses these to
     poll a game fast only while it is actually in progress."""
