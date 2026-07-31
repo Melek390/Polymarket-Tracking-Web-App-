@@ -15,6 +15,10 @@ class Settings(BaseSettings):
 
     # Collector
     default_poll_interval: int = 5  # seconds
+    # MLB markets are polled faster: measuring the feed lag means correlating
+    # price moves against play times, and at 5s sampling the lag (~5-10s) can't
+    # be resolved. 1s sampling gives the resolution that measurement needs.
+    mlb_poll_interval: int = 1
     http_timeout: float = 30.0
     max_retries: int = 5
 

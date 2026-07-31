@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from backend.collector import backfill, scheduler
+from backend.config.settings import settings
 from backend.database import db
 from backend.models.schemas import (
     LookupRequest,
@@ -160,8 +161,13 @@ async def track_event(body: TrackRequest):
         raise HTTPException(404, "event no longer available")
 
     event_id = db.upsert_event(event["slug"], event["title"])
+    # MLB games get 1s price sampling so the feed-lag measurement has the
+    # resolution it needs (see settings.mlb_poll_interval).
+    interval = (settings.mlb_poll_interval
+                if event["slug"].startswith("mlb-") else None)
     market_ids = [
-        db.add_market(event_id, m["condition_id"], m["question"], m["kind"], m["outcomes"])
+        db.add_market(event_id, m["condition_id"], m["question"], m["kind"],
+                      m["outcomes"], poll_interval=interval)
         for m in event["markets"]
         if m["condition_id"] in body.market_condition_ids
     ]
