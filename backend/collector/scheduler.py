@@ -9,6 +9,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from backend.config.settings import settings
 from backend.database import db
 from backend.mlb import live as mlb_live
+from backend.mlb import timeline as mlb_timeline
 from backend.polymarket import clob
 from backend.screener import cache
 from backend.screener import live_prices
@@ -69,6 +70,44 @@ async def poll(interval: int):
             sync_jobs()
 
 
+_game_pk_cache: dict[str, int | None] = {}  # slug -> gamePk (a slug never moves)
+
+
+async def sync_mlb_intervals():
+    """Poll an MLB market every second only while its game is in progress.
+
+    1s sampling is what makes the feed-lag measurement possible, but running it
+    around the clock on finished games just writes pinned prices forever (~140
+    MB/day). Live games get settings.mlb_poll_interval, everything else falls
+    back to the normal interval."""
+    rows = db.mlb_tracked_markets()
+    if not rows:
+        return
+    try:
+        await mlb_live._refresh_schedule()
+    except Exception as e:
+        log.warning("mlb interval sync: schedule refresh failed: %s", e)
+        return
+
+    changed = False
+    for r in rows:
+        slug = r["slug"]
+        if slug not in _game_pk_cache:
+            try:
+                _game_pk_cache[slug] = await mlb_timeline.resolve_game_pk(slug)
+            except Exception:
+                _game_pk_cache[slug] = None
+        pk = _game_pk_cache[slug]
+        live = pk is not None and mlb_live._sched.get(pk, {}).get("status") == "Live"
+        want = settings.mlb_poll_interval if live else settings.default_poll_interval
+        if r["poll_interval"] != want:
+            db.set_poll_interval(r["id"], want)
+            log.info("collector: %s -> %ss (%s)", slug, want, "live" if live else "not live")
+            changed = True
+    if changed:
+        sync_jobs()
+
+
 def sync_jobs():
     """Add or remove polling jobs so they match what the database says is tracked."""
     wanted = {f"poll-{o['poll_interval']}" for o in db.tracked_outcomes()}
@@ -111,6 +150,11 @@ def start():
     # read a shared cache instead of each poll hitting the CLOB
     scheduler.add_job(
         live_prices.poll, "interval", seconds=settings.live_price_poll_seconds, id="live-prices"
+    )
+    # move MLB markets between 1s (game in progress) and the normal interval
+    scheduler.add_job(
+        sync_mlb_intervals, "interval", seconds=60, id="mlb-intervals",
+        next_run_time=datetime.now(timezone.utc),
     )
     scheduler.start()
 

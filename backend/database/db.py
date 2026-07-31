@@ -191,6 +191,18 @@ def set_tracking(market_id: int, tracking: bool):
         )
 
 
+def mlb_tracked_markets() -> list[dict]:
+    """Open, tracked MLB markets with their slug — the collector uses these to
+    poll a game fast only while it is actually in progress."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT m.id, m.poll_interval, e.slug FROM markets m "
+            "JOIN events e ON m.event_id = e.id "
+            "WHERE m.tracking = 1 AND m.closed = 0 AND e.slug LIKE 'mlb-%'"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def set_poll_interval(market_id: int, seconds: int):
     """Change how often a market gets polled."""
     with get_db() as conn:
