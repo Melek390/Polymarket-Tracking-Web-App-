@@ -271,6 +271,21 @@ export default function MarketList({ groups, onToggle, onHistory, onDelete }) {
                         color: "rgba(255, 255, 255, 0.85)",
                       }}
                     >
+                      {g.category && (
+                        <span
+                          style={{
+                            background: "rgba(255, 255, 255, 0.95)",
+                            color: T.series[0],
+                            borderRadius: 4,
+                            padding: "1px 6px",
+                            marginRight: 8,
+                            fontWeight: 700,
+                            letterSpacing: 0.3,
+                          }}
+                        >
+                          {g.category}
+                        </span>
+                      )}
                       event · {g.markets.length} props
                     </div>
                     <div

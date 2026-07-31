@@ -51,10 +51,11 @@ export function groupByEvent(markets) {
     const slug = m.eventSlug.replace(/-more-markets$/, "");
     let g = groups.find((g) => g.slug === slug);
     if (!g) {
-      g = { slug, event: m.event, createdAt: m.createdAt, markets: [] };
+      g = { slug, event: m.event, category: m.category, createdAt: m.createdAt, markets: [] };
       groups.push(g);
     }
     g.markets.push(m);
+    g.category ??= m.category; // the twin event carries it if the main one didn't
     g.createdAt = Math.min(g.createdAt, m.createdAt);
   }
   return groups;

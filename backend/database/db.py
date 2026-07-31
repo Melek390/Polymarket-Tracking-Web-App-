@@ -109,6 +109,10 @@ def init_db():
             conn.execute("PRAGMA user_version = 1")
 
         # add newer columns to older screener caches
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(events)")]
+        if cols and "category" not in cols:
+            conn.execute("ALTER TABLE events ADD COLUMN category TEXT")
+
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(screener_cache)")]
         if cols and "game_pk" not in cols:
             conn.execute("ALTER TABLE screener_cache ADD COLUMN game_pk INTEGER")
@@ -127,13 +131,14 @@ def init_db():
 
 # --- writes ----------------------------------------------------------------
 
-def upsert_event(slug: str, title: str) -> int:
-    """Insert an event (or refresh its title) and return its id."""
+def upsert_event(slug: str, title: str, category: str | None = None) -> int:
+    """Insert an event (or refresh its title/category) and return its id."""
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO events (slug, title) VALUES (?, ?) "
-            "ON CONFLICT(slug) DO UPDATE SET title = excluded.title",
-            (slug, title),
+            "INSERT INTO events (slug, title, category) VALUES (?, ?, ?) "
+            "ON CONFLICT(slug) DO UPDATE SET title = excluded.title, "
+            "category = COALESCE(excluded.category, events.category)",
+            (slug, title, category),
         )
         return conn.execute(
             "SELECT id FROM events WHERE slug = ?", (slug,)
@@ -371,7 +376,8 @@ def list_markets(spark_points: int = 20) -> list[dict]:
         markets = [
             dict(r)
             for r in conn.execute(
-                "SELECT m.*, e.title AS event_title, e.slug AS event_slug "
+                "SELECT m.*, e.title AS event_title, e.slug AS event_slug, "
+                "e.category AS category "
                 "FROM markets m JOIN events e ON m.event_id = e.id ORDER BY m.id"
             )
         ]

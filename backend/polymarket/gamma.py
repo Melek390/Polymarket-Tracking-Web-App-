@@ -29,6 +29,36 @@ def parse_slug(url_or_slug: str) -> str:
     return text
 
 
+# Tags every event carries, so they say nothing about what it is
+_GENERIC_TAGS = {"sports", "games", "all", "hide from new", "recurring",
+                 "trending", "breaking news", "up or down"}
+# The badge shown on the tracker, most specific first ("MLB" beats "baseball",
+# "Crypto" beats "Bitcoin") so a prop is easy to find by category.
+_CATEGORIES = [
+    "MLB", "NBA", "NFL", "NHL", "NCAA", "MLS", "EPL", "UFC", "F1",
+    "Soccer", "Tennis", "Cricket", "Esports", "Golf", "MMA", "Boxing",
+    "Basketball", "Baseball", "Football", "Hockey", "Rugby",
+    "Politics", "Elections", "Geopolitics", "Middle East", "Ukraine",
+    "Crypto", "Bitcoin", "Ethereum", "Finance", "Economics", "Business",
+    "Tech", "AI", "Science", "Weather", "Pop Culture", "Awards", "Mentions",
+]
+
+
+def category_of(event: dict) -> str:
+    """A short category for an event ("MLB", "Soccer", "Politics", "Crypto"),
+    taken from its Gamma tags."""
+    labels = [t.get("label", "") for t in (event.get("tags") or []) if t.get("label")]
+    lower = {label.lower() for label in labels}
+    for category in _CATEGORIES:
+        if category.lower() in lower:
+            return category
+    # nothing recognised — fall back to the most specific meaningful tag
+    for label in reversed(labels):
+        if label.lower() not in _GENERIC_TAGS:
+            return label
+    return "Other"
+
+
 def infer_kind(labels: list[str]) -> str:
     """Guess the market type (yes_no / totals / wdl / team) from its outcome labels."""
     lower = [label.lower() for label in labels]
@@ -114,4 +144,9 @@ async def lookup_event(url_or_slug: str) -> dict | None:
             }
         )
 
-    return {"slug": event["slug"], "title": event["title"], "markets": markets}
+    return {
+        "slug": event["slug"],
+        "title": event["title"],
+        "category": category_of(event),
+        "markets": markets,
+    }

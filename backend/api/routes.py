@@ -171,7 +171,7 @@ async def track_event(body: TrackRequest):
     if not event:
         raise HTTPException(404, "event no longer available")
 
-    event_id = db.upsert_event(event["slug"], event["title"])
+    event_id = db.upsert_event(event["slug"], event["title"], event.get("category"))
     # MLB games get 1s price sampling so the feed-lag measurement has the
     # resolution it needs (see settings.mlb_poll_interval).
     interval = (settings.mlb_poll_interval
