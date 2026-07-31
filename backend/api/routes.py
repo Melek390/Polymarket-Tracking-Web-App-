@@ -178,10 +178,11 @@ async def track_event(body: TrackRequest):
     # A market Polymarket has already resolved stays closed — re-tracking it is
     # a no-op, so tell the caller which ones those were.
     closed_ids = db.closed_among(market_ids)
-    # pull all available 1-min history in the background; live polling starts now
+    # Pull all available history in the background; live polling starts now.
+    # Settled markets are backfilled too — their history is the whole point of
+    # tracking one, even though no new ticks will follow.
     for market_id in market_ids:
-        if market_id not in closed_ids:
-            asyncio.create_task(backfill.backfill_market(market_id))
+        asyncio.create_task(backfill.backfill_market(market_id))
     return {"market_ids": market_ids, "closed_market_ids": closed_ids}
 
 

@@ -14,8 +14,6 @@ from backend.polymarket import clob
 
 log = logging.getLogger(__name__)
 
-WINDOW = 3 * 86400  # 3-day pages: the widest span the API serves at 1-min fidelity
-MAX_WINDOWS = 400  # hard stop (~3 years) so we can never loop forever
 
 
 def _iso(unix_ts: int) -> str:
@@ -41,19 +39,11 @@ async def backfill_market(market_id: int):
 
     for outcome in market["outcomes"]:
         try:
-            points: dict[int, float] = {}
-            end = tracked_since
-            for _ in range(MAX_WINDOWS):
-                window = await clob.fetch_price_history(
-                    outcome["token_id"], end - WINDOW, end
-                )
-                if not window:
-                    break  # reached back before the market existed
-                before = len(points)
-                points.update(dict(window))
-                if len(points) == before:
-                    break  # API is re-serving its earliest data — we have it all
-                end -= WINDOW
+            # One call for the whole history. Paging backwards in fixed windows
+            # used to stop at the first empty window, so a market that settled
+            # before we started tracking it (its recent windows are empty while
+            # older ones hold the data) backfilled nothing at all.
+            points = dict(await clob.fetch_full_price_history(outcome["token_id"]))
 
             # history endpoint also speaks 0..1 fractions; store cents
             rows = [

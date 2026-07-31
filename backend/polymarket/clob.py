@@ -84,6 +84,20 @@ async def fetch_buy_prices(token_ids: list[str]) -> dict[str, float | None]:
     return dict(results)
 
 
+async def fetch_full_price_history(token_id: str, fidelity: int = 1) -> list[tuple[int, float]]:
+    """A token's entire available history in one call.
+
+    `interval=max` serves history even for markets that resolved before we
+    started tracking them — the startTs/endTs form returns nothing for those,
+    which used to leave late-tracked markets with no history at all."""
+    params = {"market": token_id, "interval": "max", "fidelity": fidelity}
+    r = await _http().get(f"{settings.clob_base_url}/prices-history", params=params)
+    if r.status_code == 400:  # token unknown to the history service
+        return []
+    r.raise_for_status()
+    return [(p["t"], float(p["p"])) for p in r.json().get("history", [])]
+
+
 async def fetch_price_history(
     token_id: str, start_ts: int, end_ts: int, fidelity: int = 1
 ) -> list[tuple[int, float]]:
