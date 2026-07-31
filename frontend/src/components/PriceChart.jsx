@@ -10,6 +10,7 @@ import {
   CartesianGrid,
   ReferenceLine,
   ReferenceDot,
+  ReferenceArea,
 } from "recharts";
 import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents, fmtDate, fmtTime, fmtTimestamp } from "../utils.js";
@@ -77,6 +78,7 @@ export default function PriceChart({
 }) {
   const [level, setLevel] = useState(null);
   const [lagOverride, setLagOverride] = useState(null); // manual nudge, null = auto
+  const [showInnings, setShowInnings] = useState(true);
 
   // How far the MLB feed trails the market for this game (see mlbLag.js).
   const autoLag = useMemo(
@@ -84,6 +86,29 @@ export default function PriceChart({
     [ticks, timeline, outcomes],
   );
   const lagMs = lagOverride ?? autoLag?.lagMs ?? 0;
+
+  // Each half-inning as one band on the time axis, shifted back by the feed lag
+  // so it sits over the price movement it actually caused.
+  const innings = useMemo(() => {
+    const plays = timeline?.plays;
+    if (!plays?.length) return [];
+    const segs = [];
+    for (const p of plays) {
+      const last = segs[segs.length - 1];
+      if (last && last.inning === p.inning && last.half === p.half) {
+        last.end = Math.max(last.end, p.end);
+      } else {
+        segs.push({ inning: p.inning, half: p.half, start: p.start, end: p.end });
+      }
+    }
+    return segs.map((s) => ({
+      ...s,
+      key: `${s.inning}-${s.half}`,
+      label: (s.half === "top" ? "T" : "B") + s.inning,
+      start: s.start - lagMs,
+      end: s.end - lagMs,
+    }));
+  }, [timeline, lagMs]);
 
   // translate the remembered time window into data indexes for the slider
   let startIndex = 0;
@@ -177,6 +202,26 @@ export default function PriceChart({
             strokeOpacity={0.6}
             vertical={false}
           />
+          {/* half-inning bands sit behind the price lines */}
+          {showInnings && innings.map((s, i) => (
+            <ReferenceArea
+              key={s.key}
+              x1={s.start}
+              x2={s.end}
+              ifOverflow="hidden"
+              fill={s.half === "top" ? T.series[0] : T.series[1]}
+              fillOpacity={0.07}
+              stroke={T.border}
+              strokeOpacity={0.5}
+              label={{
+                value: s.label,
+                position: "insideTop",
+                fontFamily: T.mono,
+                fontSize: 9,
+                fill: T.sub,
+              }}
+            />
+          ))}
           <XAxis
             dataKey="ts"
             type="number"
@@ -291,6 +336,14 @@ export default function PriceChart({
             <button onClick={() => setLagOverride(null)}
               style={{ ...btn.ghost, fontSize: 11, padding: "2px 8px" }}>auto</button>
           )}
+          <button
+            onClick={() => setShowInnings((v) => !v)}
+            title="Shade each half-inning on the chart (lag-corrected)"
+            style={{ ...(showInnings ? btn.primary : btn.outline), fontSize: 11,
+              padding: "2px 10px", marginLeft: 6 }}
+          >
+            {showInnings ? "✓ Innings" : "Innings"}
+          </button>
         </div>
       )}
       <div style={{ fontSize: 12, color: T.faint, marginTop: 8 }}>
