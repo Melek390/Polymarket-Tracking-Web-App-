@@ -164,8 +164,33 @@ function Scoreboard({ live }) {
 function MatchupPanel({ m }) {
   if (!m || !m.away) return null;
   const lbl = { color: T.sub, fontSize: 10, textTransform: "uppercase" };
+
+  // A one-line read on who the numbers favour, from the records we already have
+  const edge = (() => {
+    const a = m.away, h = m.home;
+    if (a.wins == null || h.wins == null) return null;
+    const bits = [];
+    const aPct = a.wins / Math.max(1, a.wins + a.losses);
+    const hPct = h.wins / Math.max(1, h.wins + h.losses);
+    const better = aPct === hPct ? null : aPct > hPct ? a : h;
+    if (better) {
+      bits.push(`${better.abbr} has the better record`);
+    } else {
+      bits.push("Even records");
+    }
+    if (a.runDiff != null && h.runDiff != null && a.runDiff !== h.runDiff) {
+      const rd = a.runDiff > h.runDiff ? a : h;
+      bits.push(`${rd.abbr} the better run differential`);
+    }
+    const ten = (t) => Number(String(t.lastTen || "0-0").split("-")[0]);
+    if (a.lastTen && h.lastTen && ten(a) !== ten(h)) {
+      const hot = ten(a) > ten(h) ? a : h;
+      bits.push(`${hot.abbr} hotter over the last 10`);
+    }
+    return bits.join(" · ");
+  })();
   const side = (t) => (
-    <div style={{ minWidth: 150 }}>
+    <div style={{ flex: 1, minWidth: 150 }}>
       <div style={{ fontWeight: 700, fontSize: 14 }}>{t.abbr}</div>
       <div style={{ ...monoText, fontSize: 13, fontWeight: 700 }}>
         {t.wins}-{t.losses}{" "}
@@ -203,18 +228,28 @@ function MatchupPanel({ m }) {
   return (
     <div style={{ flex: 1, minWidth: 320 }}>
       <div style={{ ...lbl, marginBottom: 6 }}>Matchup</div>
-      <div style={{ display: "flex", gap: 26, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 26, flexWrap: "wrap", alignItems: "flex-start" }}>
         {side(m.away)}
         {side(m.home)}
-      </div>
-      {m.series && (
-        <div style={{ fontSize: 12, color: T.ink, marginTop: 8, fontWeight: 600 }}>
-          {m.series}
+        {/* series + venue take the third column so the row fills the panel */}
+        <div style={{ flex: 1, minWidth: 150 }}>
+          <div style={lbl}>Season series</div>
+          <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>
+            {m.series || "—"}
+          </div>
+          {m.venue && (
+            <div style={{ fontSize: 11, color: T.sub, marginTop: 6 }}>{m.venue}</div>
+          )}
+          {edge && (
+            <div style={{ marginTop: 8, paddingTop: 6, borderTop: `1px solid ${T.border}` }}>
+              <div style={lbl}>Season form</div>
+              <div style={{ fontSize: 12, color: T.sub, marginTop: 2, lineHeight: 1.5 }}>
+                {edge}
+              </div>
+            </div>
+          )}
         </div>
-      )}
-      {m.venue && (
-        <div style={{ fontSize: 11, color: T.faint, marginTop: 2 }}>{m.venue}</div>
-      )}
+      </div>
     </div>
   );
 }
