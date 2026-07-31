@@ -21,6 +21,7 @@ from backend.mlb import client as mlb
 from backend.mlb import live as mlb_live
 from backend.mlb import analyze as mlb_analyze_mod
 from backend.mlb import timeline as mlb_timeline_mod
+from backend.mlb import matchup as mlb_matchup_mod
 from backend.polymarket import clob, gamma
 from backend.screener import screener as market_screener
 from backend.screener import live_prices
@@ -132,6 +133,16 @@ async def mlb_analyze(game_pk: int):
         return {"text": await mlb_analyze_mod.analyze_text(game_pk)}
     except httpx.HTTPError as e:
         raise HTTPException(502, f"MLB API unreachable: {e}")
+
+
+@router.get("/mlb/matchup/{game_pk}")
+async def mlb_matchup(game_pk: int):
+    """Standings, season series and probable starters — the context shown when
+    a baseball row is expanded. On demand only, with cached standings."""
+    try:
+        return await mlb_matchup_mod.matchup(game_pk)
+    except httpx.HTTPError:
+        return {}
 
 
 @router.get("/mlb/timeline")

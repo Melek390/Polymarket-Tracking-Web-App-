@@ -143,6 +143,11 @@ export async function fetchMlbAnalyze(gamePk) {
   return request(`/api/mlb/analyze/${gamePk}?_=${Date.now()}`);
 }
 
+// GET /api/mlb/matchup/{pk} — standings, season series and probable starters
+export async function fetchMlbMatchup(gamePk) {
+  return request(`/api/mlb/matchup/${gamePk}`);
+}
+
 // GET /api/mlb/timeline?slug= — play-by-play (inning/pitcher/batter per ms) for
 // the price chart tooltip. {game_pk, plays:[{start,end,inning,half,pitcher,batter}]}
 export async function fetchMlbTimeline(slug) {

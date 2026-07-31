@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents, fmtClock, TZ_LABEL } from "../utils.js";
-import { fetchMlbGame, fetchLivePrice, fetchMlbAnalyze } from "../api/client.js";
+import { fetchMlbGame, fetchLivePrice, fetchMlbAnalyze, fetchMlbMatchup } from "../api/client.js";
 import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
 import AlertDialog from "./AlertDialog.jsx";
 import AlertBar from "./AlertBar.jsx";
@@ -159,8 +159,68 @@ function Scoreboard({ live }) {
   );
 }
 
+// Standings, season series and probable starters — the context that fills the
+// panel before first pitch, and sits beside the play feed once a game is on.
+function MatchupPanel({ m }) {
+  if (!m || !m.away) return null;
+  const lbl = { color: T.sub, fontSize: 10, textTransform: "uppercase" };
+  const side = (t) => (
+    <div style={{ minWidth: 150 }}>
+      <div style={{ fontWeight: 700, fontSize: 14 }}>{t.abbr}</div>
+      <div style={{ ...monoText, fontSize: 13, fontWeight: 700 }}>
+        {t.wins}-{t.losses}{" "}
+        <span style={{ color: T.sub, fontWeight: 400 }}>{t.pct}</span>
+      </div>
+      <div style={{ color: T.sub, fontSize: 11, marginTop: 2 }}>
+        {t.division}
+        {t.divisionRank ? ` · #${t.divisionRank}` : ""}
+        {t.gamesBack && t.gamesBack !== "-" ? ` · ${t.gamesBack} GB` : ""}
+      </div>
+      <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 4 }}>
+        L10 {t.lastTen ?? "—"} · {t.streak ?? "—"} ·{" "}
+        <span style={{ color: t.runDiff > 0 ? T.green : t.runDiff < 0 ? T.red : T.sub }}>
+          {t.runDiff > 0 ? "+" : ""}{t.runDiff ?? "—"}
+        </span>
+      </div>
+      <div style={{ ...monoText, fontSize: 11, color: T.faint }}>
+        home {t.homeRecord ?? "—"} · away {t.awayRecord ?? "—"}
+      </div>
+      {t.probable && (
+        <div style={{ marginTop: 7, paddingTop: 6, borderTop: `1px solid ${T.border}` }}>
+          <div style={lbl}>Probable</div>
+          <div style={{ fontWeight: 600, fontSize: 12 }}>{t.probable.name}</div>
+          <div style={{ ...monoText, fontSize: 11, color: T.sub }}>
+            {[t.probable.record && `${t.probable.record}`,
+              t.probable.era && `${t.probable.era} ERA`,
+              t.probable.whip && `${t.probable.whip} WHIP`,
+              t.probable.strikeOuts != null && `${t.probable.strikeOuts} K`]
+              .filter(Boolean).join(" · ")}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+  return (
+    <div style={{ flex: 1, minWidth: 320 }}>
+      <div style={{ ...lbl, marginBottom: 6 }}>Matchup</div>
+      <div style={{ display: "flex", gap: 26, flexWrap: "wrap" }}>
+        {side(m.away)}
+        {side(m.home)}
+      </div>
+      {m.series && (
+        <div style={{ fontSize: 12, color: T.ink, marginTop: 8, fontWeight: 600 }}>
+          {m.series}
+        </div>
+      )}
+      {m.venue && (
+        <div style={{ fontSize: 11, color: T.faint, marginTop: 2 }}>{m.venue}</div>
+      )}
+    </div>
+  );
+}
+
 // The MLB.com-style line score shown when a row is expanded.
-function ExpandPanel({ live, onAnalyze }) {
+function ExpandPanel({ live, onAnalyze, matchup }) {
   if (!live) return <div style={{ ...td, color: T.faint }}>Loading live data…</div>;
   const nums = live.innings.map((i) => i.num);
   const cell = { ...monoText, fontSize: 12, padding: "3px 7px", textAlign: "center", minWidth: 18 };
@@ -231,6 +291,7 @@ function ExpandPanel({ live, onAnalyze }) {
         )}
       </div>
       {live.status === "Live" && <PlayFeed live={live} />}
+      <MatchupPanel m={matchup} />
       </div>
     </div>
   );
@@ -247,6 +308,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
   const [analyze, setAnalyze] = useState(null); // {text, copied, busy}
   const [sort, setSort] = useState({ key: null, dir: "desc" }); // key: away|home|score|null
+  const [matchups, setMatchups] = useState({}); // gamePk -> standings/series/probables
 
   // Build the paste-ready snapshot (MLB + Polymarket), copy it to the clipboard
   // and show it in a modal. It stays open until the user closes it; clicking
@@ -386,6 +448,13 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
       next.has(pk) ? next.delete(pk) : next.add(pk);
       return next;
     });
+    // standings / series / probables, fetched once per game on first expand
+    if (pk && matchups[pk] === undefined) {
+      setMatchups((prev) => ({ ...prev, [pk]: null }));
+      fetchMlbMatchup(pk)
+        .then((m) => setMatchups((prev) => ({ ...prev, [pk]: m })))
+        .catch(() => {});
+    }
   }
 
   // status for the filter chips: prefer MLB's own state, fall back to kickoff
@@ -595,6 +664,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                     <td colSpan={11} style={{ padding: 0 }}>
                       <ExpandPanel
                         live={live}
+                        matchup={matchups[r.gamePk]}
                         onAnalyze={() =>
                           runAnalyze(
                             r.gamePk,
