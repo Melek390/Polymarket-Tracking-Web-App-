@@ -71,7 +71,9 @@ async def play_timeline(game_pk: int) -> dict:
         mm = p.get("matchup", {})
         res = p.get("result", {})
         start = _ms(a.get("startTime"))
-        if start is None:
+        # skip administrative "Game Advisory" notes — they aren't plays, so
+        # they must not label a price move or an inning band
+        if start is None or res.get("eventType") == "game_advisory":
             continue
         pit = mm.get("pitcher") or {}
         out.append({

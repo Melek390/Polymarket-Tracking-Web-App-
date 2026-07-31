@@ -149,7 +149,10 @@ async def live_game(game_pk: int) -> dict:
     for p in reversed(live.get("plays", {}).get("allPlays", [])):
         res = p.get("result", {})
         ab = p.get("about", {})
-        if not res.get("event"):
+        # "Game Advisory" entries are administrative notes (status changes,
+        # delays), not plays — they were headlining the feed as if something
+        # had happened on the field
+        if not res.get("event") or res.get("eventType") == "game_advisory":
             continue
         recent.append({
             "event": res.get("event"),
