@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -79,6 +79,24 @@ export default function PriceChart({
   const [level, setLevel] = useState(null);
   const [lagOverride, setLagOverride] = useState(null); // manual nudge, null = auto
   const [showInnings, setShowInnings] = useState(true);
+
+  // The brush fires on every pixel of a drag. Pushing each one straight into
+  // state re-rendered thousands of points and fed the indexes back into the
+  // brush mid-drag, which made it feel slow and jumpy — so settle first.
+  const brushTimer = useRef(null);
+  const dragging = useRef(false);
+  useEffect(() => () => clearTimeout(brushTimer.current), []);
+  function onBrush(e) {
+    if (!onWindowChange || !ticks[e.startIndex] || !ticks[e.endIndex]) return;
+    dragging.current = true;
+    clearTimeout(brushTimer.current);
+    const from = ticks[e.startIndex].ts;
+    const to = ticks[e.endIndex].ts;
+    brushTimer.current = setTimeout(() => {
+      dragging.current = false;
+      onWindowChange([from, to]);
+    }, 180);
+  }
 
   // How far the MLB feed trails the market for this game (see mlbLag.js).
   const autoLag = useMemo(
@@ -271,6 +289,10 @@ export default function PriceChart({
               strokeWidth={1.8}
               dot={false}
               isAnimationActive={false}
+              // backfilled history stores each outcome a second apart, so a row
+              // can hold only one side's price; join across those gaps instead
+              // of shattering the line into disconnected segments
+              connectNulls
             />
           ))}
           {touches.map((t, i) => (
@@ -299,7 +321,9 @@ export default function PriceChart({
               ),
           )}
           <Brush
-            key={`${ticks.length}-${ticks[0]?.ts ?? 0}`}
+            // keyed on the series identity only — keying on ticks.length
+            // remounted (and re-seated) the brush on every new tick
+            key={ticks[0]?.ts ?? 0}
             dataKey="ts"
             height={28}
             travellerWidth={12}
@@ -308,11 +332,7 @@ export default function PriceChart({
             startIndex={startIndex}
             endIndex={endIndex}
             tickFormatter={fmtTime}
-            onChange={(e) => {
-              if (onWindowChange && ticks[e.startIndex] && ticks[e.endIndex]) {
-                onWindowChange([ticks[e.startIndex].ts, ticks[e.endIndex].ts]);
-              }
-            }}
+            onChange={onBrush}
           />
         </LineChart>
       </ResponsiveContainer>

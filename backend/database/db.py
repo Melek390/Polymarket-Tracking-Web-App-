@@ -3,6 +3,7 @@
 import json
 import sqlite3
 from contextlib import contextmanager
+from datetime import datetime, timezone
 
 from backend.config.settings import settings
 
@@ -396,6 +397,15 @@ def list_markets(spark_points: int = 20) -> list[dict]:
         return markets
 
 
+def _ts_seconds(ts: str) -> int:
+    """Epoch seconds from our stored 2026-07-31T21:04:09Z format."""
+    try:
+        return int(datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")
+                   .replace(tzinfo=timezone.utc).timestamp())
+    except (ValueError, TypeError):
+        return 0
+
+
 def get_ticks(market_id: int, limit: int = 500, before: str | None = None) -> list[dict]:
     """Time-series rows for one market, one dict per poll, oldest first."""
     with get_db() as conn:
@@ -425,6 +435,24 @@ def get_ticks(market_id: int, limit: int = 500, before: str | None = None) -> li
         by_ts: dict[str, dict] = {}
         for r in rows:
             by_ts.setdefault(r["ts"], {})[r["outcome_id"]] = r["price"]
+
+        # Backfilled history stores each outcome a second or two apart, which
+        # left every row holding only one side's price — the chart then drew
+        # each series as disconnected fragments. Fold a row into the previous
+        # one when it is within MERGE_SECONDS and adds outcomes that row is
+        # missing (live polls already share one timestamp, so they are
+        # unaffected).
+        MERGE_SECONDS = 2
+        merged: list[tuple[str, dict]] = []
+        for ts, prices in sorted(by_ts.items()):
+            if merged:
+                prev_ts, prev_prices = merged[-1]
+                close = (_ts_seconds(ts) - _ts_seconds(prev_ts)) <= MERGE_SECONDS
+                if close and not (prices.keys() & prev_prices.keys()):
+                    prev_prices.update(prices)
+                    continue
+            merged.append((ts, dict(prices)))
+
         return [
             {
                 "ts": ts,
@@ -432,7 +460,7 @@ def get_ticks(market_id: int, limit: int = 500, before: str | None = None) -> li
                     label: prices[oid] for oid, label in labels.items() if oid in prices
                 },
             }
-            for ts, prices in sorted(by_ts.items())
+            for ts, prices in merged
         ]
 
 
