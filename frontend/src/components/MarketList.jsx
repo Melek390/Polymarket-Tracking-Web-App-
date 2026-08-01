@@ -55,8 +55,26 @@ function PropRow({ market: m, showEvent, onToggle, onHistory, onRequestDelete })
             }}
           >
             {m.closed ? "closed" : m.tracking ? "open" : "paused"}
+            {m.category && (
+              <span
+                title="Category on Polymarket"
+                style={{
+                  background: T.series[0],
+                  color: "#fff",
+                  borderRadius: 4,
+                  padding: "1px 6px",
+                  margin: "0 8px",
+                  fontWeight: 700,
+                  letterSpacing: 0.3,
+                }}
+              >
+                {m.category}
+              </span>
+            )}
             {showEvent && (
-              <span style={{ color: T.faint }}> · {m.event}</span>
+              <span style={{ color: T.faint }}>
+                {m.category ? "" : " · "}{m.event}
+              </span>
             )}
           </div>
           <div
