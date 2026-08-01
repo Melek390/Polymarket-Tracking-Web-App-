@@ -92,12 +92,17 @@ async def sync_mlb_intervals():
     changed = False
     for r in rows:
         slug = r["slug"]
-        if slug not in _game_pk_cache:
+        pk = _game_pk_cache.get(slug)
+        if pk is None:
+            # Only a SUCCESSFUL lookup is cached. Caching a failure would pin
+            # the market at the slow interval forever after one transient MLB
+            # error; this way the next cycle simply tries again.
             try:
-                _game_pk_cache[slug] = await mlb_timeline.resolve_game_pk(slug)
+                pk = await mlb_timeline.resolve_game_pk(slug)
             except Exception:
-                _game_pk_cache[slug] = None
-        pk = _game_pk_cache[slug]
+                pk = None
+            if pk is not None:
+                _game_pk_cache[slug] = pk
         live = pk is not None and mlb_live._sched.get(pk, {}).get("status") == "Live"
         want = settings.mlb_poll_interval if live else settings.default_poll_interval
         if r["poll_interval"] != want:

@@ -332,7 +332,7 @@ function ExpandPanel({ live, onAnalyze, matchup }) {
   );
 }
 
-export default function BaseballTable({ rows, onTrack, tracked, trackBusy, trackedCount = () => 0, statuses = [] }) {
+export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount = () => 0, statuses = [] }) {
   const [liveById, setLiveById] = useState({});
   const [priceBySlug, setPriceBySlug] = useState({}); // live CLOB asks
   const [expanded, setExpanded] = useState(new Set());

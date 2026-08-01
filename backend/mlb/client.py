@@ -108,15 +108,6 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
     }
 
 
-async def find_game_pk(team_a: str, team_b: str, date: str) -> int | None:
-    """Match two team names (in any order) to their MLB gamePk on a date."""
-    pair = {team_a.lower(), team_b.lower()}
-    for g in await schedule(date):
-        if {g["away"].lower(), g["home"].lower()} == pair:
-            return g["game_pk"]
-    return None
-
-
 def _season_stat(boxscore: dict, side: str, player_id, group: str, key: str):
     """Pull one season stat (era / ops) for a player from the boxscore."""
     if not player_id:

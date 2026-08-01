@@ -66,22 +66,6 @@ async def fetch_mid_prices(token_ids: list[str]) -> dict[str, float | None]:
     return out
 
 
-async def fetch_buy_prices(token_ids: list[str]) -> dict[str, float | None]:
-    """Live best-ask (buy price) in cents per token — what Polymarket's buy
-    buttons show. Used for live games where the cached price is too stale."""
-    async def one(token):
-        try:
-            r = await _http().get(
-                f"{settings.clob_base_url}/price",
-                params={"token_id": token, "side": "buy"},
-            )
-            r.raise_for_status()
-            return token, round(float(r.json()["price"]) * 100, 2)
-        except (httpx.HTTPError, KeyError, ValueError):
-            return token, None
-
-    results = await asyncio.gather(*(one(t) for t in token_ids))
-    return dict(results)
 
 
 async def fetch_full_price_history(token_id: str, fidelity: int = 1) -> list[tuple[int, float]]:
@@ -98,18 +82,3 @@ async def fetch_full_price_history(token_id: str, fidelity: int = 1) -> list[tup
     return [(p["t"], float(p["p"])) for p in r.json().get("history", [])]
 
 
-async def fetch_price_history(
-    token_id: str, start_ts: int, end_ts: int, fidelity: int = 1
-) -> list[tuple[int, float]]:
-    """One window of a token's price history at 1-minute resolution; [(unix_ts, price), ...]."""
-    params = {
-        "market": token_id,
-        "startTs": start_ts,
-        "endTs": end_ts,
-        "fidelity": fidelity,
-    }
-    r = await _http().get(f"{settings.clob_base_url}/prices-history", params=params)
-    if r.status_code == 400:  # window predates the market — nothing there
-        return []
-    r.raise_for_status()
-    return [(p["t"], float(p["p"])) for p in r.json().get("history", [])]

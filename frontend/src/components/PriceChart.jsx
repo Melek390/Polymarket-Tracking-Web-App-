@@ -98,23 +98,19 @@ export default function PriceChart({
   timeline,
 }) {
   const [level, setLevel] = useState(null);
-  const lagOverride = null; // the measured value is used as-is
   const [showInnings, setShowInnings] = useState(true);
 
   // The brush fires on every pixel of a drag. Pushing each one straight into
   // state re-rendered thousands of points and fed the indexes back into the
   // brush mid-drag, which made it feel slow and jumpy — so settle first.
   const brushTimer = useRef(null);
-  const dragging = useRef(false);
   useEffect(() => () => clearTimeout(brushTimer.current), []);
   function onBrush(e) {
     if (!onWindowChange || !ticks[e.startIndex] || !ticks[e.endIndex]) return;
-    dragging.current = true;
     clearTimeout(brushTimer.current);
     const from = ticks[e.startIndex].ts;
     const to = ticks[e.endIndex].ts;
     brushTimer.current = setTimeout(() => {
-      dragging.current = false;
       onWindowChange([from, to]);
     }, 180);
   }
@@ -124,7 +120,7 @@ export default function PriceChart({
     () => estimateLag(ticks, timeline?.plays, outcomes),
     [ticks, timeline, outcomes],
   );
-  const lagMs = lagOverride ?? autoLag?.lagMs ?? 0;
+  const lagMs = autoLag?.lagMs ?? 0;
 
   // Which play caused each burst of price movement (see mlbLag.js)
   const attributed = useMemo(
@@ -395,9 +391,7 @@ export default function PriceChart({
           <span style={{ fontWeight: 600, color: T.ink }}>MLB feed lag:</span>
           <span style={{ ...monoText }}>≈{(lagMs / 1000).toFixed(1)}s typical</span>
           <span style={{ color: T.faint }}>
-            {lagOverride != null
-              ? "(set by hand)"
-              : autoLag
+            {autoLag
                 ? `· big moves start ~${(autoLag.leadMs / 1000).toFixed(0)}s before the play is recorded `
                   + `(measured from ${autoLag.samples} reactions in this game)`
                 : "(not enough price movement to measure)"}

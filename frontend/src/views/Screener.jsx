@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { T, card, label, monoText, page, btn } from "../theme.js";
-import { fmtCents, fmtTimestamp, fmtVolume, TZ_LABEL } from "../utils.js";
+import { fmtTimestamp, fmtVolume, TZ_LABEL } from "../utils.js";
 import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected } from "../api/client.js";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
 import BaseballTable from "../components/BaseballTable.jsx";
@@ -151,7 +151,6 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const [applied, setApplied] = useState(EMPTY_FILTERS); // what the table uses
   const [sort, setSort] = useState({ key: "volume", dir: "desc" });
   const [refreshSecs, setRefreshSecs] = useState(0);
-  const [tracked, setTracked] = useState(new Set()); // slugs tracked just now
   const [trackBusy, setTrackBusy] = useState(null); // slug whose props are loading
   const [picker, setPicker] = useState(null); // {row, results} chooser state
   const [pickerBusy, setPickerBusy] = useState(false);
@@ -334,7 +333,6 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
         picked += res?.market_ids?.length ?? 0;
         alreadyClosed += res?.closed_market_ids?.length ?? 0;
       }
-      setTracked((prev) => new Set(prev).add(picker.row.slug));
       onTracked?.(); // dashboard picks the new markets up right away
       setPicker(null);
       // A resolved market can't be re-tracked — say so instead of doing
@@ -527,7 +525,6 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
           rows={baseballRows}
           statuses={statuses}
           onTrack={openPicker}
-          tracked={tracked}
           trackBusy={trackBusy}
           trackedCount={trackedCount}
         />
