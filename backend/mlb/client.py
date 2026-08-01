@@ -64,6 +64,10 @@ def offense_defense(ls: dict, away, home, key: str = "id") -> tuple[str, str]:
     looked the new pitcher up under the wrong team and lost his season stats.
     Falls back to the inning state if the teams are missing.
     """
+    # Before first pitch MLB parks the HOME team in `offense` as a placeholder,
+    # so the teams can't be trusted until the game is actually under way.
+    if not ls.get("currentInning"):
+        return "away", "home"  # the away team always bats first
     off = ((ls.get("offense") or {}).get("team") or {}).get(key)
     dfn = ((ls.get("defense") or {}).get("team") or {}).get(key)
     if off != dfn and off in (away, home) and dfn in (away, home):
