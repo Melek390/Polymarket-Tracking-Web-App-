@@ -59,6 +59,15 @@ export default function App() {
     return () => window.removeEventListener("popstate", onNav);
   }, []);
 
+  // The dashboard keeps its filters in the query string (?status=closed&page=2…).
+  // Remember them while we're there so "Back to markets" returns to the same
+  // filtered list instead of resetting to everything.
+  const dashboardQuery = useRef("");
+  useEffect(() => {
+    if (route.view === "dashboard") dashboardQuery.current = window.location.search;
+  }, [route]);
+  const backToMarkets = () => navigate(`/${dashboardQuery.current || ""}`);
+
   // deletes still being purged server-side, and a counter that lets a newer
   // refresh invalidate a slower older one — both stop deleted rows from
   // being resurrected when deletes and reloads overlap
@@ -145,7 +154,7 @@ export default function App() {
       ) : openMarket ? (
         <MarketHistory
           market={openMarket}
-          onBack={() => navigate("/")}
+          onBack={backToMarkets}
           onToggle={handleToggle}
         />
       ) : (
