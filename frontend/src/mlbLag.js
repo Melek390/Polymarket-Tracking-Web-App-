@@ -109,8 +109,8 @@ export function moveAt(attributed, ts, slackMs = 3000) {
 }
 
 /**
- * @returns {{lagMs:number, leadMs:number, samples:number, moves:number,
- *            biggest:number}|null} null when there isn't enough to measure.
+ * @returns {{lagMs:number, leadMs:number, samples:number}|null} null when there
+ *          isn't enough to measure.
  */
 export function estimateLag(ticks, plays, outcomes) {
   if (!ticks?.length || !plays?.length || !outcomes?.length) return null;
@@ -151,12 +151,5 @@ export function estimateLag(ticks, plays, outcomes) {
     Math.round(median((big.length >= 3 ? big : matched).map((m) => m.leadStart))),
   );
 
-  return {
-    lagMs,
-    leadMs,
-    samples: matched.length,
-    bigSamples: big.length,
-    moves: bursts.length,
-    biggest: Math.round(Math.max(...matched.map((m) => m.total))),
-  };
+  return { lagMs, leadMs, samples: matched.length };
 }
