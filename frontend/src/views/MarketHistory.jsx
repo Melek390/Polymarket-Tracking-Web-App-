@@ -111,6 +111,15 @@ export default function MarketHistory({ market, onBack, onToggle }) {
         </div>
         <div style={{ fontSize: 20, fontWeight: 600, margin: "4px 0" }}>
           {market.question}
+          {market.gameDate && (
+            <span
+              title="Which game in the series this market is for"
+              style={{ ...monoText, fontSize: 13, fontWeight: 700, color: "#fff",
+                background: T.series[0], borderRadius: 5, padding: "2px 8px", marginLeft: 10 }}
+            >
+              {market.gameDate}
+            </span>
+          )}
         </div>
         <div style={{ ...monoText, fontSize: 12, color: T.sub }}>
           {market.kind} · polled every {market.pollInterval}s ·{" "}

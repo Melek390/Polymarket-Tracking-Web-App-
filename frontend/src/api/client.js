@@ -43,6 +43,9 @@ function toMarket(m) {
     id: m.id,
     conditionId: m.condition_id, // to mark already-tracked props in the screener
     category: m.category || null, // MLB / Soccer / Politics / Crypto …
+    // Teams in a series play on consecutive days, so two markets can share a
+    // title and differ only by date — surface the date from the event slug.
+    gameDate: (m.event_slug || "").match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? null,
     // the "- More Markets" twin holds a match's extra props; show the
     // match name, not the twin's technical title
     event: m.event_title.replace(/ - More Markets$/i, ""),

@@ -94,7 +94,12 @@ function PropRow({ market: m, showEvent, onToggle, onHistory, onRequestDelete })
             {m.question}
           </div>
           <div style={{ ...monoText, fontSize: 11, color: T.faint }}>
-            #{m.id} · {m.kind} · every {m.pollInterval}s · added{" "}
+            #{m.id} ·{" "}
+            {m.gameDate && (
+              // two games of a series share a title; the date tells them apart
+              <span style={{ color: T.series[0], fontWeight: 700 }}>game {m.gameDate} · </span>
+            )}
+            {m.kind} · every {m.pollInterval}s · added{" "}
             {fmtDate(m.createdAt)} · updated {timeAgo(m.lastUpdate)}
           </div>
         </div>
