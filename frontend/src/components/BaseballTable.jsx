@@ -578,10 +578,12 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
               const warmup = isLive && !!preGameLabel(live);
               const inPlay = isLive && !warmup; // actually playing (not warmup/delay)
               const open = expanded.has(r.gamePk);
-              // MLB decides who is home/away. When we have no live data yet,
-              // fall back to Polymarket's away-first order (r.home = away).
-              const away = live?.away.abbr ?? r.home;
-              const home = live?.home.abbr ?? r.away;
+              // MLB decides who is home/away, but show the full club names —
+              // they stayed readable before first pitch and shouldn't collapse
+              // to abbreviations once the game starts. Without live data, fall
+              // back to Polymarket's away-first order (r.home = away).
+              const away = live?.away.name ?? r.home;
+              const home = live?.home.name ?? r.away;
               const score = inPlay
                 ? `${live.away.runs ?? 0}-${live.home.runs ?? 0}` : "—";
               const battingTeam = inPlay
@@ -637,7 +639,7 @@ export default function BaseballTable({ rows, onTrack, tracked, trackBusy, track
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <span style={{ width: 8, height: 8, borderRadius: "50%",
                           background: live.batting === "away" ? T.series[2] : T.series[0] }} />
-                        {battingTeam.abbr}
+                        {battingTeam.name}
                       </span>
                     ) : "—"}
                   </td>
