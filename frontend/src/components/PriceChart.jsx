@@ -347,12 +347,13 @@ export default function PriceChart({
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10,
           fontSize: 12, color: T.sub, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 600, color: T.ink }}>MLB feed lag:</span>
-          <span style={{ ...monoText }}>{(lagMs / 1000).toFixed(1)}s</span>
+          <span style={{ ...monoText }}>≈{(lagMs / 1000).toFixed(1)}s typical</span>
           <span style={{ color: T.faint }}>
             {lagOverride != null
-              ? "(manual)"
+              ? "(set by hand)"
               : autoLag
-                ? `(measured from this game — ${autoLag.moves} price moves)`
+                ? `· big moves start ~${(autoLag.leadMs / 1000).toFixed(0)}s before the play is recorded `
+                  + `(measured from ${autoLag.samples} reactions in this game)`
                 : "(not enough price movement to measure)"}
           </span>
           <button onClick={() => setLagOverride(Math.max(0, lagMs - 500))}

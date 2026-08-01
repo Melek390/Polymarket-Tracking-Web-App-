@@ -5,6 +5,7 @@ the cursor. Timestamps are epoch ms, matching the chart's tick timestamps."""
 import re
 from datetime import datetime
 
+from backend.database import db
 from backend.mlb import client
 
 
@@ -17,12 +18,40 @@ def _ms(iso: str | None) -> int | None:
         return None
 
 
+# Polymarket slugs keep some older/looser abbreviations than the MLB API uses
+# (the Athletics are "oak" in slugs but "ATH" to MLB; Arizona is "ari" vs "AZ"),
+# so match on any of a team's accepted forms rather than one exact string.
+_ABBR_ALIASES = {
+    "ATH": {"oak", "ath", "oakland"},
+    "AZ": {"ari", "az", "arz"},
+    "CWS": {"cws", "chw"},
+    "WSH": {"wsh", "was"},
+    "SD": {"sd", "sdp"},
+    "SF": {"sf", "sfg"},
+    "TB": {"tb", "tbr"},
+    "KC": {"kc", "kcr"},
+}
+
+
+def _forms(abbr: str, name: str) -> set[str]:
+    a = (abbr or "").lower()
+    forms = {a} | _ABBR_ALIASES.get((abbr or "").upper(), set())
+    forms.add((name or "").split()[-1].lower())  # "Athletics" -> "athletics"
+    return {f for f in forms if f}
+
+
 async def resolve_game_pk(slug: str) -> int | None:
-    """Derive a gamePk from a Polymarket MLB slug like
-    'mlb-cle-tb-2026-07-25' — the two team abbreviations + the date, matched
-    against that day's schedule. (History games are usually gone from the
-    screener cache, so we resolve from the slug.)"""
+    """The gamePk for a Polymarket MLB slug like 'mlb-cle-tb-2026-07-25'.
+
+    Prefers the match the screener already made (it compares full team names,
+    which agree with MLB exactly); falls back to reading the two abbreviations
+    and the date out of the slug for games the cache has since dropped."""
     s = slug.replace("-more-markets", "")
+
+    cached = db.screener_game_pk(s)
+    if cached:
+        return cached
+
     m = re.search(r"\d{4}-\d{2}-\d{2}$", s)
     if not m:
         return None
@@ -33,9 +62,9 @@ async def resolve_game_pk(slug: str) -> int | None:
     a1, a2 = parts[-2].lower(), parts[-1].lower()
     abbr = await client.team_abbreviations()  # full name -> abbr
     for g in await client.schedule(date):
-        aw = (abbr.get(g["away"]) or "").lower()
-        hm = (abbr.get(g["home"]) or "").lower()
-        if {aw, hm} == {a1, a2}:
+        away = _forms(abbr.get(g["away"]), g["away"])
+        home = _forms(abbr.get(g["home"]), g["home"])
+        if (a1 in away and a2 in home) or (a1 in home and a2 in away):
             return g["game_pk"]
     return None
 

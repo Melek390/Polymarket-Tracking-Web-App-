@@ -197,6 +197,18 @@ def set_tracking(market_id: int, tracking: bool):
         )
 
 
+def screener_game_pk(slug: str) -> int | None:
+    """The gamePk the screener already matched to this event. The screener
+    matches on full team names (which agree with MLB exactly), so this is more
+    reliable than re-deriving it from the slug's abbreviations."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT game_pk FROM screener_cache WHERE event_slug = ? AND game_pk IS NOT NULL",
+            (slug.replace("-more-markets", ""),),
+        ).fetchone()
+        return row["game_pk"] if row else None
+
+
 def closed_among(market_ids: list[int]) -> list[int]:
     """Which of these markets Polymarket has already resolved. Re-tracking one
     is a no-op, so the UI needs to say so instead of silently doing nothing."""
