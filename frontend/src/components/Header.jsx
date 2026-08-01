@@ -34,9 +34,15 @@ export default function Header({ collectorRunning, refreshing, onRefresh, onNavi
           {[
             ["Dashboard", "/"],
             ["Screener", "/screener"],
+            ["Accounts", "/accounts_tracker"],
           ].map(([name, href]) => {
-            const onScreener = window.location.pathname.startsWith("/screener");
-            const active = href === "/screener" ? onScreener : !onScreener;
+            // Dashboard owns "/" and the market history pages under it; the
+            // others match their own prefix.
+            const path = window.location.pathname;
+            const active =
+              href === "/"
+                ? path === "/" || path.startsWith("/market")
+                : path.startsWith(href);
             return (
               <a
                 key={name}

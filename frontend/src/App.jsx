@@ -3,6 +3,7 @@ import Header from "./components/Header.jsx";
 import Dashboard from "./views/Dashboard.jsx";
 import MarketHistory from "./views/MarketHistory.jsx";
 import Screener from "./views/Screener.jsx";
+import AccountsTracker from "./views/AccountsTracker.jsx";
 import {
   deleteMarket,
   fetchDashboard,
@@ -16,9 +17,11 @@ import { T } from "./theme.js";
 //   /screener              the market screener (soccer by default)
 //   /screener/football     the screener on a specific sport
 //   /market/12             history page for market 12
+//   /accounts_tracker      V3 trader portfolio tracker
 function parseRoute() {
   const path = window.location.pathname;
   const params = new URLSearchParams(window.location.search);
+  if (path === "/accounts_tracker") return { view: "accounts", params };
   const screener = path.match(/^\/screener(?:\/([a-z]+))?$/);
   if (screener) return { view: "screener", sport: screener[1] || "soccer", params };
   const match = path.match(/^\/market\/(\d+)$/);
@@ -144,7 +147,9 @@ export default function App() {
       )}
 
       <div style={{ zoom: scale }}>
-      {route.view === "screener" ? (
+      {route.view === "accounts" ? (
+        <AccountsTracker />
+      ) : route.view === "screener" ? (
         <Screener
           sport={route.sport}
           onSport={(s) => navigate(`/screener/${s}`)}
