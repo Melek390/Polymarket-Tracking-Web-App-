@@ -61,8 +61,10 @@ export default function MarketHistory({ market, onBack, onToggle }) {
     const slug = market.eventSlug || "";
     if (!slug.startsWith("mlb-")) return;
     let ok = true;
+    // keep it even with no plays yet — the chart says "not started" rather
+    // than silently showing nothing
     fetchMlbTimeline(slug)
-      .then((r) => { if (ok && r.plays?.length) setTimeline(r); })
+      .then((r) => { if (ok && r.game_pk) setTimeline(r); })
       .catch(() => {});
     return () => { ok = false; };
   }, [market.id, market.eventSlug]);

@@ -336,6 +336,13 @@ export default function PriceChart({
           />
         </LineChart>
       </ResponsiveContainer>
+      {timeline?.game_pk && !timeline?.plays?.length && (
+        <div style={{ marginTop: 10, fontSize: 12, color: T.sub }}>
+          <span style={{ fontWeight: 600, color: T.ink }}>MLB game state:</span>{" "}
+          not started yet — the inning, pitcher and batter appear on hover once
+          the game is under way.
+        </div>
+      )}
       {timeline?.plays?.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10,
           fontSize: 12, color: T.sub, flexWrap: "wrap" }}>
