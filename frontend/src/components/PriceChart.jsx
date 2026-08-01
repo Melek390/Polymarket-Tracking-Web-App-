@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents, fmtDate, fmtTime, fmtTimestamp } from "../utils.js";
-import { estimateLag } from "../mlbLag.js";
+import { estimateLag, attributeMoves, moveAt } from "../mlbLag.js";
 
 const LEVELS = [10, 15, 20, 25, 30, 40, 50]; // cents
 const MAX_LEVEL_DOTS = 300;
@@ -33,9 +33,10 @@ function stateAt(plays, ts, lagMs = 0) {
 
 // Tooltip: the prices at the hovered point, plus (for MLB) the game state at
 // that moment — score, inning, pitcher (with ERA) and batter.
-function ChartTooltip({ active, payload, label, timeline, lagMs = 0 }) {
+function ChartTooltip({ active, payload, label, timeline, lagMs = 0, attributed }) {
   if (!active || !payload || !payload.length) return null;
   const play = stateAt(timeline?.plays, label, lagMs);
+  const cause = moveAt(attributed, label);
   return (
     <div style={{ ...monoText, fontSize: 12, background: "#fff",
       border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 10px" }}>
@@ -45,6 +46,26 @@ function ChartTooltip({ active, payload, label, timeline, lagMs = 0 }) {
           {p.dataKey}: {p.value != null ? fmtCents(p.value) : "—"}
         </div>
       ))}
+      {cause && (
+        <div style={{ marginTop: 6, paddingTop: 5, borderTop: `1px solid ${T.border}`,
+          background: "#FFF8E1", margin: "6px -10px 0", padding: "6px 10px" }}>
+          <div style={{ ...monoText, fontSize: 10, color: T.sub, textTransform: "uppercase" }}>
+            price moved {cause.total.toFixed(1)}¢ — caused by
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 13, color: T.ink, marginTop: 1 }}>
+            {cause.play.event}
+            {cause.play.rbi > 0 ? ` · ${cause.play.rbi} RBI` : ""}
+          </div>
+          {cause.play.desc && (
+            <div style={{ fontSize: 11, color: T.sub, marginTop: 2, maxWidth: 300 }}>
+              {cause.play.desc}
+            </div>
+          )}
+          <div style={{ ...monoText, fontSize: 10, color: T.faint, marginTop: 2 }}>
+            market moved {(cause.lead / 1000).toFixed(1)}s before MLB recorded it
+          </div>
+        </div>
+      )}
       {play && (
         <div style={{ marginTop: 6, paddingTop: 5, borderTop: `1px solid ${T.border}` }}>
           {play.awayScore != null && (
@@ -104,6 +125,20 @@ export default function PriceChart({
     [ticks, timeline, outcomes],
   );
   const lagMs = lagOverride ?? autoLag?.lagMs ?? 0;
+
+  // Which play caused each burst of price movement (see mlbLag.js)
+  const attributed = useMemo(
+    () => attributeMoves(ticks, timeline?.plays, outcomes),
+    [ticks, timeline, outcomes],
+  );
+  // the meaningful ones get a marker on the line
+  const marked = useMemo(() => {
+    if (!attributed.length) return [];
+    const cut = Math.max(3, [...attributed].sort((a, b) => b.total - a.total)[
+      Math.floor(attributed.length * 0.2)
+    ]?.total ?? 3);
+    return attributed.filter((m) => m.total >= cut).slice(0, 40);
+  }, [attributed]);
 
   // Each half-inning as one band on the time axis, shifted back by the feed lag
   // so it sits over the price movement it actually caused.
@@ -256,7 +291,7 @@ export default function PriceChart({
             tick={{ fontFamily: T.mono, fontSize: 11, fill: T.sub }}
             stroke={T.border}
           />
-          <Tooltip content={<ChartTooltip timeline={timeline} lagMs={lagMs} />} />
+          <Tooltip content={<ChartTooltip timeline={timeline} lagMs={lagMs} attributed={attributed} />} />
           {LEVELS.map((l) => (
             <ReferenceLine
               key={l}
@@ -293,6 +328,17 @@ export default function PriceChart({
               // can hold only one side's price; join across those gaps instead
               // of shattering the line into disconnected segments
               connectNulls
+            />
+          ))}
+          {/* a tick under each price move we can name a cause for */}
+          {showInnings && marked.map((m, i) => (
+            <ReferenceLine
+              key={`cause-${i}`}
+              x={m.centre ?? m.start}
+              stroke={m.play?.scoring ? T.green : T.faint}
+              strokeWidth={m.play?.scoring ? 1.6 : 1}
+              strokeDasharray={m.play?.scoring ? undefined : "2 3"}
+              ifOverflow="hidden"
             />
           ))}
           {touches.map((t, i) => (

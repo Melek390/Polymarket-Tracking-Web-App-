@@ -62,6 +62,52 @@ function reactions(ticks, keys) {
   return out.map((r) => ({ ...r, centre: r.weighted / r.total }));
 }
 
+// Nearest play stamp to a moment, by binary search over sorted end times.
+function nearestIndex(ends, ts) {
+  let lo = 0, hi = ends.length - 1, best = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (best < 0 || Math.abs(ends[mid] - ts) < Math.abs(ends[best] - ts)) best = mid;
+    if (ends[mid] < ts) lo = mid + 1; else hi = mid - 1;
+  }
+  return best;
+}
+
+/**
+ * Attribute price moves to the plays that caused them.
+ *
+ * Each burst of price movement is matched to the play whose stamp it sits
+ * nearest (the market moves BEFORE the feed records the play, so a burst
+ * normally precedes its stamp). Returns the bursts in time order, each with
+ * the play it was caused by, so the chart can name the reason for a move.
+ *
+ * @returns {Array<{start:number,end:number,total:number,play:object,lead:number}>}
+ */
+export function attributeMoves(ticks, plays, outcomes) {
+  if (!ticks?.length || !plays?.length || !outcomes?.length) return [];
+  const sorted = [...plays].sort((a, b) => a.end - b.end);
+  const ends = sorted.map((p) => p.end);
+  const out = [];
+  for (const r of reactions(ticks, outcomes)) {
+    const i = nearestIndex(ends, r.centre);
+    if (i < 0) continue;
+    const play = sorted[i];
+    const lead = play.end - r.centre;
+    if (lead > MATCH_BEFORE_MS || lead < -MATCH_AFTER_MS) continue;
+    out.push({ start: r.start, end: r.end, centre: r.centre, total: r.total, play, lead });
+  }
+  return out;
+}
+
+/** The attributed move covering (or just around) a moment, if any. */
+export function moveAt(attributed, ts, slackMs = 3000) {
+  if (!attributed?.length || ts == null) return null;
+  for (const m of attributed) {
+    if (ts >= m.start - slackMs && ts <= m.end + slackMs) return m;
+  }
+  return null;
+}
+
 /**
  * @returns {{lagMs:number, leadMs:number, samples:number, moves:number,
  *            biggest:number}|null} null when there isn't enough to measure.

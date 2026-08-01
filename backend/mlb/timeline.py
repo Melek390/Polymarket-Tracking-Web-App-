@@ -113,6 +113,11 @@ async def play_timeline(game_pk: int) -> dict:
             "pitcher": pit.get("fullName"),
             "era": eras.get(pit.get("id")),
             "batter": (mm.get("batter") or {}).get("fullName"),
+            # what happened, so a price move can name its cause
+            "event": res.get("event"),
+            "desc": res.get("description"),
+            "rbi": res.get("rbi") or 0,
+            "scoring": bool(a.get("isScoringPlay")),
             # score AFTER this play — i.e. the score as of that moment
             "awayScore": res.get("awayScore"),
             "homeScore": res.get("homeScore"),
