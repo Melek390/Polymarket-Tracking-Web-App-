@@ -4,6 +4,20 @@ import { HIGHLIGHT_COLORS, highlightColor } from "../highlights.js";
 
 const PALETTE_W = 232; // wide enough for six swatches + "None"
 
+// Cumulative CSS `zoom` on the ancestors. The app scales its whole content div
+// with `zoom` for the A-/A+ text size control, and that changes the coordinate
+// space a position:fixed child is laid out in: getBoundingClientRect() reports
+// VISUAL pixels, but the top/left we set get multiplied by the zoom. Without
+// dividing it back out the palette drifted further the more the user had zoomed
+// (at 150% it landed ~300px low, off-screen, so nothing could be highlighted).
+function zoomOf(el) {
+  let z = 1;
+  for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+    z *= parseFloat(getComputedStyle(n).zoom) || 1;
+  }
+  return z || 1;
+}
+
 // The per-row colour button. Shows the row's current colour (a hollow outline
 // when it has none) and opens a small palette. Picking the colour it already
 // has clears it, so the same button marks and unmarks.
@@ -19,11 +33,15 @@ export default function HighlightPicker({ color, onPick }) {
   function place() {
     const r = ref.current?.getBoundingClientRect();
     if (!r) return;
-    const below = window.innerHeight - r.bottom > 70;
-    setAt({
-      top: below ? r.bottom + 6 : r.top - 50,
-      left: Math.max(8, Math.min(r.right - PALETTE_W, window.innerWidth - PALETTE_W - 8)),
-    });
+    // Work entirely in visual pixels (what getBoundingClientRect and
+    // innerWidth/innerHeight speak), then convert to the zoomed space the
+    // fixed-position element is actually laid out in.
+    const z = zoomOf(ref.current);
+    const w = PALETTE_W * z;
+    const below = window.innerHeight - r.bottom > 70 * z;
+    const top = below ? r.bottom + 6 * z : r.top - 50 * z;
+    const left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8));
+    setAt({ top: top / z, left: left / z });
   }
 
   // A fixed palette would drift away from its row on scroll, so follow the
