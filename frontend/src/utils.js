@@ -75,6 +75,16 @@ export function fmtVolume(usd) {
   return `$${usd}`;
 }
 
+// "played 2026-07-31" / "plays today" / "plays 2026-08-02" — tells two games
+// of the same series apart, and says whether it already happened.
+export function gameWhen(date) {
+  if (!date) return null;
+  const today = fmtDate(Date.now()); // today in the display timezone
+  if (date < today) return `played ${date}`;
+  if (date === today) return "plays today";
+  return `plays ${date}`;
+}
+
 // Prices are stored AND displayed in cents; this only trims noise:
 // 40.5 -> "40.5¢", 99.95 -> "99.95¢", 50 -> "50¢"
 export function fmtCents(cents) {

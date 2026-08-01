@@ -98,7 +98,7 @@ export default function PriceChart({
   timeline,
 }) {
   const [level, setLevel] = useState(null);
-  const [lagOverride, setLagOverride] = useState(null); // manual nudge, null = auto
+  const lagOverride = null; // the measured value is used as-is
   const [showInnings, setShowInnings] = useState(true);
 
   // The brush fires on every pixel of a drag. Pushing each one straight into
@@ -402,14 +402,6 @@ export default function PriceChart({
                   + `(measured from ${autoLag.samples} reactions in this game)`
                 : "(not enough price movement to measure)"}
           </span>
-          <button onClick={() => setLagOverride(Math.max(0, lagMs - 500))}
-            style={{ ...btn.outline, fontSize: 11, padding: "2px 8px" }}>−0.5s</button>
-          <button onClick={() => setLagOverride(lagMs + 500)}
-            style={{ ...btn.outline, fontSize: 11, padding: "2px 8px" }}>+0.5s</button>
-          {lagOverride != null && (
-            <button onClick={() => setLagOverride(null)}
-              style={{ ...btn.ghost, fontSize: 11, padding: "2px 8px" }}>auto</button>
-          )}
           <button
             onClick={() => setShowInnings((v) => !v)}
             title="Shade each half-inning on the chart (lag-corrected)"

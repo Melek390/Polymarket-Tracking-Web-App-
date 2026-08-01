@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { T, card, monoText, btn } from "../theme.js";
-import { fmtDate, timeAgo } from "../utils.js";
+import { fmtDate, timeAgo, gameWhen } from "../utils.js";
 import Sparkline from "./Sparkline.jsx";
 import OutcomeChips from "./OutcomeChips.jsx";
 import ConfirmDialog from "./ConfirmDialog.jsx";
@@ -97,7 +97,14 @@ function PropRow({ market: m, showEvent, onToggle, onHistory, onRequestDelete })
             #{m.id} ·{" "}
             {m.gameDate && (
               // two games of a series share a title; the date tells them apart
-              <span style={{ color: T.series[0], fontWeight: 700 }}>game {m.gameDate} · </span>
+              <span
+                style={{
+                  background: "#FEF3C7", color: T.ink, fontWeight: 700,
+                  borderRadius: 4, padding: "1px 6px", marginRight: 6,
+                }}
+              >
+                {gameWhen(m.gameDate)}
+              </span>
             )}
             {m.kind} · every {m.pollInterval}s · added{" "}
             {fmtDate(m.createdAt)} · updated {timeAgo(m.lastUpdate)}

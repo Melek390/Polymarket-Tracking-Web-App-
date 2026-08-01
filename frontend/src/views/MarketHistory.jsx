@@ -3,7 +3,7 @@ import PriceChart from "../components/PriceChart.jsx";
 import TicksTable from "../components/TicksTable.jsx";
 import { fetchTicks, exportCsvFor, fetchMlbTimeline } from "../api/client.js";
 import { T, label, monoText, page, btn } from "../theme.js";
-import { fmtCents, fmtDate, timeAgo } from "../utils.js";
+import { fmtCents, fmtDate, timeAgo, gameWhen } from "../utils.js";
 
 const actionBtn = { fontSize: 13, padding: "9px 16px" };
 const DEFAULT_WINDOW_MS = 10 * 60 * 1000; // open focused on the last 10 minutes
@@ -114,10 +114,10 @@ export default function MarketHistory({ market, onBack, onToggle }) {
           {market.gameDate && (
             <span
               title="Which game in the series this market is for"
-              style={{ ...monoText, fontSize: 13, fontWeight: 700, color: "#fff",
-                background: T.series[0], borderRadius: 5, padding: "2px 8px", marginLeft: 10 }}
+              style={{ ...monoText, fontSize: 13, fontWeight: 700, color: T.ink,
+                background: "#FEF3C7", borderRadius: 5, padding: "2px 8px", marginLeft: 10 }}
             >
-              {market.gameDate}
+              {gameWhen(market.gameDate)}
             </span>
           )}
         </div>
