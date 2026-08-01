@@ -115,9 +115,25 @@ function inningText(live, kickoff) {
 
 // Live event feed — the last few completed plays, newest big on top, so a run,
 // home run or out is obvious the moment it happens.
+// The column ALWAYS renders while a game is live, even with nothing to show:
+// plays only arrive with the heavy feed, so returning null here meant the panel
+// opened without this column and then reflowed — shoving the matchup sideways —
+// the moment the first play landed.
 function PlayFeed({ live }) {
   const plays = live.plays || [];
-  if (!plays.length) return null;
+  if (!plays.length) {
+    return (
+      <div style={{ flex: 1, minWidth: 260 }}>
+        <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase", marginBottom: 8 }}>
+          Latest plays
+        </div>
+        <div style={{ fontSize: 12, color: T.faint }}>
+          {/* `full` marks the heavy feed; without it we simply haven't loaded yet */}
+          {live.full ? "No completed plays yet." : "Loading plays…"}
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ flex: 1, minWidth: 260 }}>
       <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase", marginBottom: 8 }}>
@@ -178,8 +194,19 @@ function Scoreboard({ live }) {
 // Standings, season series and probable starters — the context that fills the
 // panel before first pitch, and sits beside the play feed once a game is on.
 function MatchupPanel({ m }) {
-  if (!m || !m.away) return null;
   const lbl = { color: T.sub, fontSize: 10, textTransform: "uppercase" };
+  // Reserve the column while it loads, for the same reason as PlayFeed —
+  // this is fetched once on expand, so returning null meant it popped in late
+  // and shoved the rest of the panel sideways. `false` = the fetch failed.
+  if (m === false) return null;
+  if (!m || !m.away) {
+    return (
+      <div style={{ flex: 1, minWidth: 320 }}>
+        <div style={{ ...lbl, marginBottom: 6 }}>Matchup</div>
+        <div style={{ fontSize: 12, color: T.faint }}>Loading matchup…</div>
+      </div>
+    );
+  }
 
   // A one-line read on who the numbers favour, from the records we already have
   const edge = (() => {
@@ -525,17 +552,27 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   }, []);
 
   function toggle(pk) {
+    const opening = !expanded.has(pk);
     setExpanded((prev) => {
       const next = new Set(prev);
       next.has(pk) ? next.delete(pk) : next.add(pk);
       return next;
     });
+    // Pull the heavy feed straight away instead of waiting up to POLL_MS for
+    // the next tick. Only it carries plays / ERA / OPS, so without this the
+    // panel sat on the light state for a beat before filling in.
+    if (opening && pk) {
+      fetchMlbGame(pk, true)
+        .then((g) => g && setLiveById((prev) => ({ ...prev, [pk]: g })))
+        .catch(() => {});
+    }
     // standings / series / probables, fetched once per game on first expand
     if (pk && matchups[pk] === undefined) {
       setMatchups((prev) => ({ ...prev, [pk]: null }));
       fetchMlbMatchup(pk)
         .then((m) => setMatchups((prev) => ({ ...prev, [pk]: m })))
-        .catch(() => {});
+        // false, not null: null still means "loading" to MatchupPanel
+        .catch(() => setMatchups((prev) => ({ ...prev, [pk]: false })));
     }
   }
 
