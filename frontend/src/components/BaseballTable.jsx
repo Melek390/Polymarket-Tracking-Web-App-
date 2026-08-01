@@ -3,8 +3,10 @@ import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents, fmtClock, TZ_LABEL } from "../utils.js";
 import { fetchMlbGame, fetchLivePrice, fetchMlbAnalyze, fetchMlbMatchup } from "../api/client.js";
 import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
+import { loadHighlights, persistHighlights, highlightColor } from "../highlights.js";
 import AlertDialog from "./AlertDialog.jsx";
 import AlertBar from "./AlertBar.jsx";
+import HighlightPicker, { ClearHighlights } from "./HighlightPicker.jsx";
 import LivePrice from "./LivePrice.jsx";
 import Toasts, { useToasts } from "./Toasts.jsx";
 
@@ -70,6 +72,20 @@ function OutDots({ outs, size = 11 }) {
 // coming up) or the whole inning ended (visiting team up next inning).
 function isInningBreak(live) {
   return live?.inning_state === "Middle" || live?.inning_state === "End";
+}
+
+// Is this game done? A finished market's prices are pinned at ~0¢/100¢, so a
+// price alert would match on every tick for the rest of the day.
+// With no MLB data at all we are never told it is Final, so fall back to the
+// clock: a game with nothing to report 4h after first pitch is over far more
+// often than it is still running. Inside that window we let alerts through, so
+// a transient MLB outage doesn't silence a genuinely live game.
+const NO_DATA_OVER_MS = 4 * 3600e3;
+function isFinished(live, kickoff) {
+  if (live) {
+    return live.status === "Final" || /postponed|cancel/i.test(live.game_state || "");
+  }
+  return kickoff != null && Date.now() - kickoff > NO_DATA_OVER_MS;
 }
 
 // A game is flagged "Live" during warmup or a delay while no pitch has been
@@ -309,7 +325,17 @@ function ExpandPanel({ live, onAnalyze, matchup }) {
             <div>
               <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase" }}>Pitching</div>
               <div style={{ fontWeight: 600 }}>{live.pitcher.name ?? "—"}</div>
-              {live.pitcher.era && <div style={{ color: T.sub }}>{live.pitcher.era} ERA</div>}
+              {/* only the full feed carries season stats — don't claim a
+                  pitcher has no ERA while the light state is still showing */}
+              {live.pitcher.era ? (
+                <div style={{ color: T.sub }}>{live.pitcher.era} ERA</div>
+              ) : live.full ? (
+                <div style={{ color: T.faint }}>no season ERA yet</div>
+              ) : null}
+              {/* this game's line — tells a fresh reliever from a worked arm */}
+              {live.pitcher.line && (
+                <div style={{ color: T.faint, fontSize: 11 }}>{live.pitcher.line}</div>
+              )}
             </div>
             <div>
               <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase" }}>At bat</div>
@@ -337,6 +363,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const [priceBySlug, setPriceBySlug] = useState({}); // live CLOB asks
   const [expanded, setExpanded] = useState(new Set());
   const [alerts, setAlerts] = useState(loadAlerts);
+  const [highlights, setHighlights] = useState(loadHighlights); // slug -> colour key
   const [hits, setHits] = useState(new Set()); // slugs currently alerting
   const [dialogOpen, setDialogOpen] = useState(false); // global MLB alert dialog
   const [dialogRow, setDialogRow] = useState(null); // per-game alert dialog
@@ -393,6 +420,25 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   }
   const saveAlert = (a) => saveKey(SPORT, a); // global
   const clearAlert = () => clearKey(SPORT);
+
+  // Row highlights: the user's own colour marks, kept in the browser. Read
+  // fresh from storage on write so the screener's other table can't clobber
+  // them (same reason the alert map does).
+  function setHighlight(slug, colorKey) {
+    const next = { ...loadHighlights() };
+    if (colorKey) next[slug] = colorKey;
+    else delete next[slug];
+    setHighlights(next);
+    persistHighlights(next);
+  }
+  function clearHighlights() {
+    const next = { ...loadHighlights() };
+    for (const r of rows) delete next[r.slug];
+    setHighlights(next);
+    persistHighlights(next);
+  }
+  const highlightCount = rows.filter((r) => highlights[r.slug]).length;
+
   function dismiss(slug) {
     if (matchRef.current[slug]) matchRef.current[slug].acked = true;
     setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
@@ -416,7 +462,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
       const live = liveMap[r.gamePk] ?? liveRef.current[r.gamePk] ?? null;
       const lp = priceMap[r.slug] ?? priceRef.current[r.slug];
       const prices = { home: lp?.home ?? r.homePrice, away: lp?.away ?? r.awayPrice, draw: null };
-      const hit = rowAlerts.find((a) => matches(a, { prices, live }));
+      const over = isFinished(live, r.kickoff);
+      const hit = rowAlerts.find((a) => matches(a, { prices, live, over }));
       const m = !!hit;
       if (m && !st.matched && !st.acked) {
         const reason = matchReason(hit, prices, live);
@@ -553,6 +600,11 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
         onEdit={() => setDialogOpen(true)}
         onClear={clearAlert}
       />
+      {highlightCount > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <ClearHighlights count={highlightCount} onClear={clearHighlights} />
+        </div>
+      )}
       <div style={{ ...card, overflow: "hidden" }}>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -599,15 +651,18 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                 </td>
               );
               const alerting = hits.has(r.slug);
+              const hl = highlightColor(highlights[r.slug]);
               return [
                 <tr
                   key={r.slug}
                   style={{
                     borderTop: `1px solid ${T.border}`,
-                    background: alerting ? "#FEF3C7" : undefined, // yellow while matching
+                    // a live alert outranks the user's colour, but the colour
+                    // stays readable as the stripe on the first cell below
+                    background: alerting ? "#FEF3C7" : hl?.bg,
                   }}
                 >
-                  <td style={center}>
+                  <td style={{ ...center, boxShadow: hl ? `inset 4px 0 0 ${hl.dot}` : undefined }}>
                     <button
                       onClick={() => toggle(r.gamePk)}
                       disabled={!r.gamePk}
@@ -659,6 +714,10 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                   <td style={center}>{inPlay ? `${live.balls}-${live.strikes}` : "—"}</td>
                   <td style={center}>{inPlay ? <Bases bases={live.bases} /> : "—"}</td>
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <HighlightPicker
+                      color={highlights[r.slug]}
+                      onPick={(c) => setHighlight(r.slug, c)}
+                    />{" "}
                     <button
                       onClick={() => setDialogRow(r)}
                       title={alerts[r.slug] ? "Edit this game's alert" : "Alert for this game only"}

@@ -8,7 +8,9 @@ import AlertDialog from "../components/AlertDialog.jsx";
 import AlertBar from "../components/AlertBar.jsx";
 import LivePrice from "../components/LivePrice.jsx";
 import Toasts, { useToasts } from "../components/Toasts.jsx";
+import HighlightPicker, { ClearHighlights } from "../components/HighlightPicker.jsx";
 import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
+import { loadHighlights, persistHighlights, highlightColor } from "../highlights.js";
 
 // key = the sport param sent to the API
 const SPORTS = [
@@ -156,6 +158,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const [pickerBusy, setPickerBusy] = useState(false);
   const [livePrices, setLivePrices] = useState({}); // slug -> fresh CLOB asks
   const [alerts, setAlerts] = useState(loadAlerts);
+  const [highlights, setHighlights] = useState(loadHighlights); // slug -> colour key
   const [hits, setHits] = useState(new Set());
   const [dialogOpen, setDialogOpen] = useState(false); // global sport alert
   const [alertRow, setAlertRow] = useState(null); // per-game alert
@@ -234,6 +237,17 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   }
   const saveAlert = (a) => saveKey(sport, a); // global (the AlertBar)
   const clearAlert = () => clearKey(sport);
+
+  // Row highlights: the user's own colour marks, kept in the browser. Read
+  // fresh from storage on write so the baseball table can't clobber them.
+  function setHighlight(slug, colorKey) {
+    const next = { ...loadHighlights() };
+    if (colorKey) next[slug] = colorKey;
+    else delete next[slug];
+    setHighlights(next);
+    persistHighlights(next);
+  }
+
   function dismiss(slug) {
     const st = matchRef.current[slug];
     if (st) st.acked = true; // stop highlighting until it stops then matches again
@@ -258,7 +272,9 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
         away: lp.away ?? m.awayPrice,
         draw: lp.draw ?? m.drawPrice,
       };
-      const hit = rowAlerts.find((a) => matches(a, { prices, live: null }));
+      // a finished match's prices are pinned, so it must never alert
+      const over = matchStatus(m.kickoff) === "over";
+      const hit = rowAlerts.find((a) => matches(a, { prices, live: null, over }));
       if (hit) {
         if (!st.matched && !st.acked) {
           const reason = matchReason(hit, prices, null);
@@ -702,6 +718,15 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
           {rows.length} matches
         </span>
         <span style={{ flex: 1 }} />
+        <ClearHighlights
+          count={visible.filter((m) => highlights[m.slug]).length}
+          onClear={() => {
+            const next = { ...loadHighlights() };
+            for (const m of rows) delete next[m.slug];
+            setHighlights(next);
+            persistHighlights(next);
+          }}
+        />
         <span style={{ fontSize: 12, color: T.sub }}>Auto-refresh:</span>
         {REFRESH_OPTIONS.map((o) => (
           <button
@@ -761,11 +786,16 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
               </tr>
             </thead>
             <tbody>
-              {visible.map((m) => (
+              {visible.map((m) => {
+                const hl = highlightColor(highlights[m.slug]);
+                return (
                 <tr key={m.slug} className="mkt-row"
                   style={{ borderTop: `1px solid ${T.border}`,
-                    background: hits.has(m.slug) ? "#FEF3C7" : undefined }}>
-                  <td style={{ ...td, fontFamily: T.ui, fontWeight: 500 }}>
+                    // a live alert outranks the user's colour; the colour stays
+                    // visible as the stripe down the first cell
+                    background: hits.has(m.slug) ? "#FEF3C7" : hl?.bg }}>
+                  <td style={{ ...td, fontFamily: T.ui, fontWeight: 500,
+                    boxShadow: hl ? `inset 4px 0 0 ${hl.dot}` : undefined }}>
                     {hits.has(m.slug) && (
                       <span title="Alert matching — click to dismiss"
                         onClick={() => dismiss(m.slug)}
@@ -830,6 +860,10 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                     ));
                   })()}
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                    <HighlightPicker
+                      color={highlights[m.slug]}
+                      onPick={(c) => setHighlight(m.slug, c)}
+                    />{" "}
                     <button
                       onClick={() => setAlertRow(m)}
                       title={alerts[m.slug] ? "Edit this game's alert" : "Alert for this game only"}
@@ -867,7 +901,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                     </a>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

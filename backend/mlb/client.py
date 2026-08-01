@@ -54,6 +54,38 @@ async def team_abbreviations() -> dict[str, str]:
     return _TEAM_ABBR
 
 
+def offense_defense(ls: dict, away, home, key: str = "id") -> tuple[str, str]:
+    """(offense_side, defense_side) for a linescore.
+
+    Trust MLB's own offense/defense teams rather than isTopInning. During a
+    between-halves break (inningState Middle/End) they already point at the
+    NEXT half while isTopInning has not flipped yet — and that break is exactly
+    when relief pitchers are announced, so reading the side off isTopInning
+    looked the new pitcher up under the wrong team and lost his season stats.
+    Falls back to the inning state if the teams are missing.
+    """
+    off = ((ls.get("offense") or {}).get("team") or {}).get(key)
+    dfn = ((ls.get("defense") or {}).get("team") or {}).get(key)
+    if off != dfn and off in (away, home) and dfn in (away, home):
+        return ("away" if off == away else "home"), ("away" if dfn == away else "home")
+    state = ls.get("inningState")
+    if state in ("Middle", "Bottom"):  # top just ended / bottom under way -> home bats
+        return "home", "away"
+    if state in ("End", "Top"):        # inning over / top under way -> away bats
+        return "away", "home"
+    # nothing to go on (pre-game): the away team always bats first
+    return ("home", "away") if ls.get("isTopInning") is False else ("away", "home")
+
+
+def _clean_stat(value):
+    """MLB writes '-.--' (or '.---') for a stat with no value yet — a reliever
+    with no innings this season. Show nothing rather than that placeholder."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return None if not text or set(text) <= {"-", "."} else value
+
+
 async def linescore_state(game_pk: int, away_name: str, home_name: str, status: str,
                           detailed: str | None = None) -> dict:
     """Compact live state from the light 3 KB linescore endpoint (no season
@@ -64,6 +96,8 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
     abbr = await team_abbreviations()
     offense = ls.get("offense", {})
     defense = ls.get("defense", {})
+    # the light linescore only names the teams, so match on name
+    off_side, _def_side = offense_defense(ls, away_name, home_name, key="name")
 
     def team(side, name):
         t = ls["teams"][side]
@@ -77,6 +111,8 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
 
     return {
         "status": status,
+        # season stats (ERA / OPS) only come from the heavy feed — see live_game
+        "full": False,
         "detail": ls.get("inningState") or status,
         # detailedState from the schedule: Warmup | In Progress | Delayed | …
         "game_state": detailed,
@@ -95,7 +131,7 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
         },
         "away": team("away", away_name),
         "home": team("home", home_name),
-        "batting": "away" if ls.get("isTopInning") else "home",
+        "batting": off_side,
         "batter": {"name": (offense.get("batter") or {}).get("fullName"), "ops": None},
         "pitcher": {"name": (defense.get("pitcher") or {}).get("fullName"), "era": None},
         "innings": [
@@ -113,7 +149,25 @@ def _season_stat(boxscore: dict, side: str, player_id, group: str, key: str):
     if not player_id:
         return None
     player = boxscore["teams"][side]["players"].get(f"ID{player_id}", {})
-    return player.get("seasonStats", {}).get(group, {}).get(key)
+    return _clean_stat(player.get("seasonStats", {}).get(group, {}).get(key))
+
+
+def _game_pitching_line(boxscore: dict, side: str, player_id) -> str | None:
+    """This pitcher's line in THIS game, e.g. "0.2 IP, 1 H, 0 R, 2 K, 11 P".
+    None before he has thrown a pitch."""
+    if not player_id:
+        return None
+    player = boxscore["teams"][side]["players"].get(f"ID{player_id}", {})
+    st = player.get("stats", {}).get("pitching", {})
+    if not st:
+        return None
+    parts = [f"{st.get('inningsPitched', '0.0')} IP",
+             f"{st.get('hits', 0)} H",
+             f"{st.get('runs', 0)} R",
+             f"{st.get('strikeOuts', 0)} K"]
+    if st.get("numberOfPitches"):
+        parts.append(f"{st['numberOfPitches']} P")
+    return ", ".join(parts)
 
 
 async def live_game(game_pk: int) -> dict:
@@ -132,6 +186,9 @@ async def live_game(game_pk: int) -> dict:
     defense = ls.get("defense", {})
     batter = offense.get("batter") or {}
     pitcher = defense.get("pitcher") or {}
+    off_side, def_side = offense_defense(
+        ls, game["teams"]["away"]["id"], game["teams"]["home"]["id"]
+    )
 
     # Recent completed plays for the live event feed — newest first. Each play
     # is a finished at-bat (an out, hit, walk, home run…); the in-progress
@@ -168,6 +225,7 @@ async def live_game(game_pk: int) -> dict:
 
     return {
         "status": game["status"]["abstractGameState"],  # Preview | Live | Final
+        "full": True,  # carries season stats; the light state does not
         "detail": game["status"]["detailedState"],
         "game_state": game["status"]["detailedState"],  # Warmup | In Progress | …
         # Top | Middle | Bottom | End. Middle/End are the between-half breaks.
@@ -185,16 +243,17 @@ async def live_game(game_pk: int) -> dict:
         },
         "away": team("away"),
         "home": team("home"),
-        "batting": "away" if ls.get("isTopInning") else "home",
+        "batting": off_side,
         "batter": {
             "name": batter.get("fullName"),
-            "ops": _season_stat(box, "away" if ls.get("isTopInning") else "home",
-                                 batter.get("id"), "batting", "ops"),
+            "ops": _season_stat(box, off_side, batter.get("id"), "batting", "ops"),
         },
         "pitcher": {
             "name": pitcher.get("fullName"),
-            "era": _season_stat(box, "home" if ls.get("isTopInning") else "away",
-                                pitcher.get("id"), "pitching", "era"),
+            "era": _season_stat(box, def_side, pitcher.get("id"), "pitching", "era"),
+            # this game's line — a reliever who just came in has no innings yet,
+            # so this is how you tell a fresh arm from one that's been worked
+            "line": _game_pitching_line(box, def_side, pitcher.get("id")),
         },
         "innings": [
             {"num": i.get("num"),

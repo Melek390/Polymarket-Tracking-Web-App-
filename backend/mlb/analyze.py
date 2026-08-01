@@ -25,19 +25,6 @@ def _bases(offense: dict) -> str:
     return "Runner on " + " & ".join(on)
 
 
-def _offense_defense(ls: dict) -> tuple[str, str]:
-    """(offense_side, defense_side). During a between-halves break the batting
-    team is the one coming up next."""
-    state = ls.get("inningState")
-    if state == "Middle":   # top just ended -> home comes up
-        return "home", "away"
-    if state == "End":      # inning over -> away comes up next
-        return "away", "home"
-    if state == "Bottom":
-        return "home", "away"
-    return "away", "home"   # "Top" (or anything else)
-
-
 async def _season_series(away_id, home_id, year, away_name, home_name) -> str:
     try:
         r = await client._http().get(
@@ -81,9 +68,8 @@ async def analyze_text(game_pk: int) -> str:
     ls = ld["linescore"]
     box = ld["boxscore"]["teams"]
     players = gd.get("players", {})
-    off_side, def_side = _offense_defense(ls)
-
     away, home = gd["teams"]["away"], gd["teams"]["home"]
+    off_side, def_side = client.offense_defense(ls, away["id"], home["id"])
     a_ls, h_ls = ls["teams"]["away"], ls["teams"]["home"]
     ar, hr = a_ls.get("runs", 0) or 0, h_ls.get("runs", 0) or 0
 
@@ -91,8 +77,8 @@ async def analyze_text(game_pk: int) -> str:
         return f"ID{pid}"
 
     def ops(side, pid):
-        return (box[side]["players"].get(pid_key(pid), {})
-                .get("seasonStats", {}).get("batting", {}).get("ops"))
+        return client._clean_stat(box[side]["players"].get(pid_key(pid), {})
+                                  .get("seasonStats", {}).get("batting", {}).get("ops"))
 
     def hand(pid):
         return players.get(pid_key(pid), {}).get("batSide", {}).get("code")
@@ -110,7 +96,7 @@ async def analyze_text(game_pk: int) -> str:
     pp = box[def_side]["players"].get(pid_key(pitcher.get("id", 0)), {})
     gp = pp.get("stats", {}).get("pitching", {})  # this-game line
     pitches = gp.get("numberOfPitches")
-    era = pp.get("seasonStats", {}).get("pitching", {}).get("era")
+    era = client._clean_stat(pp.get("seasonStats", {}).get("pitching", {}).get("era"))
     pitcher_line = (
         f"{gp.get('inningsPitched', '0.0')} IP, {gp.get('hits', 0)} H, "
         f"{gp.get('runs', 0)} R, {gp.get('earnedRuns', 0)} ER, "

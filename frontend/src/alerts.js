@@ -110,9 +110,22 @@ export function matchReason(alert, prices, live) {
 
 // --- evaluation ------------------------------------------------------------
 
-// ctx: { prices: {home, away, draw}, live: <MLB live state | null> }
+// A game that is over must never alert. Once a market resolves its prices sit
+// pinned at ~0¢ / ~100¢, so a "price ≤ X" rule would match on every tick for
+// the rest of the day. Callers pass `over` (they know their sport's clock);
+// a Final/postponed MLB state is caught here too so neither table can miss it.
+export function isOver(ctx) {
+  if (ctx.over) return true;
+  const live = ctx.live;
+  if (!live) return false;
+  if (live.status === "Final") return true;
+  return /postponed|cancel/i.test(live.game_state || "");
+}
+
+// ctx: { prices: {home, away, draw}, live: <MLB live state | null>, over: bool }
 export function matches(alert, ctx) {
   if (!alert) return false;
+  if (isOver(ctx)) return false;
   const { prices, live } = ctx;
   const isLive = live && live.status === "Live";
   const wantsSituation =
