@@ -791,9 +791,10 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                 return (
                 <tr key={m.slug} className="mkt-row"
                   style={{ borderTop: `1px solid ${T.border}`,
-                    // a live alert outranks the user's colour; the colour stays
-                    // visible as the stripe down the first cell
-                    background: hits.has(m.slug) ? "#FEF3C7" : hl?.bg }}>
+                    // The user's colour WINS — a matching alert used to override
+                    // it, which made highlighting an alerting row look broken.
+                    // The alert keeps its bell and gets an amber right edge.
+                    background: hl ? hl.bg : hits.has(m.slug) ? "#FEF3C7" : undefined }}>
                   <td style={{ ...td, fontFamily: T.ui, fontWeight: 500,
                     boxShadow: hl ? `inset 4px 0 0 ${hl.dot}` : undefined }}>
                     {hits.has(m.slug) && (
@@ -859,7 +860,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                       </td>
                     ));
                   })()}
-                  <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                  <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap",
+                    boxShadow: hits.has(m.slug) && hl ? `inset -4px 0 0 ${T.series[1]}` : undefined }}>
                     <HighlightPicker
                       color={highlights[m.slug]}
                       onPick={(c) => setHighlight(m.slug, c)}

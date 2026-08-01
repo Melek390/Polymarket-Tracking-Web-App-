@@ -694,9 +694,12 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                   key={r.slug}
                   style={{
                     borderTop: `1px solid ${T.border}`,
-                    // a live alert outranks the user's colour, but the colour
-                    // stays readable as the stripe on the first cell below
-                    background: alerting ? "#FEF3C7" : hl?.bg,
+                    // The user's colour WINS. A matching alert used to override
+                    // it, so picking a colour on an alerting row looked like it
+                    // did nothing at all — the colour was saved, just invisible.
+                    // The alert stays obvious via the bell and the amber stripe
+                    // down the right edge.
+                    background: hl ? hl.bg : alerting ? "#FEF3C7" : undefined,
                   }}
                 >
                   <td style={{ ...center, boxShadow: hl ? `inset 4px 0 0 ${hl.dot}` : undefined }}>
@@ -750,7 +753,10 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                   </td>
                   <td style={center}>{inPlay ? `${live.balls}-${live.strikes}` : "—"}</td>
                   <td style={center}>{inPlay ? <Bases bases={live.bases} /> : "—"}</td>
-                  <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                  <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap",
+                    // a highlighted row keeps its own colour, so the alert
+                    // needs its own mark — amber down the right edge
+                    boxShadow: alerting && hl ? `inset -4px 0 0 ${T.series[1]}` : undefined }}>
                     <HighlightPicker
                       color={highlights[r.slug]}
                       onPick={(c) => setHighlight(r.slug, c)}
