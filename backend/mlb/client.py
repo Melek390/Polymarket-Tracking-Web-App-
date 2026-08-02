@@ -136,8 +136,9 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
         "away": team("away", away_name),
         "home": team("home", home_name),
         "batting": off_side,
-        # the linescore has no pitch data at all; the poller attaches this
+        # neither of these is in the linescore; the poller attaches both
         "last_pitch": None,
+        "pitchers": None,
         "batter": {"name": (offense.get("batter") or {}).get("fullName"), "ops": None},
         "pitcher": {"name": (defense.get("pitcher") or {}).get("fullName"), "era": None},
         "innings": [
@@ -181,6 +182,37 @@ async def last_pitch(game_pk: int) -> dict | None:
     )
     r.raise_for_status()
     return _pitch_from_play(r.json().get("currentPlay"))
+
+
+def _pitchers_from_box(boxscore: dict) -> dict | None:
+    """{"away": n, "home": n} — pitchers each side has used so far."""
+    teams = (boxscore or {}).get("teams") or {}
+    out = {}
+    for side in ("away", "home"):
+        used = (teams.get(side) or {}).get("pitchers")
+        if used is None:
+            return None
+        out[side] = len(used)
+    return out
+
+
+async def pitchers_used(game_pk: int) -> dict | None:
+    """How many pitchers each side has used so far in this game.
+
+    Field-filtered boxscore, ~8.5 KB — the per-player map cannot be pruned any
+    further, which is why the poller refreshes this on a SLOWER cadence than
+    the 3 KB linescore rather than every cycle.
+
+    Timing, measured by timecode replay: MLB only counts a reliever once he
+    throws his first pitch, about 1-2 minutes after the change is announced.
+    Polling harder does not make a change show up sooner.
+    """
+    r = await _http().get(
+        f"{BASE}/v1/game/{game_pk}/boxscore",
+        params={"fields": "teams,away,home,pitchers"},
+    )
+    r.raise_for_status()
+    return _pitchers_from_box(r.json())
 
 
 def _season_stat(boxscore: dict, side: str, player_id, group: str, key: str):
@@ -283,8 +315,9 @@ async def live_game(game_pk: int) -> dict:
         "away": team("away"),
         "home": team("home"),
         "batting": off_side,
-        # already in this payload — no extra call needed on the heavy path
+        # both already in this payload — no extra calls on the heavy path
         "last_pitch": _pitch_from_play(live.get("plays", {}).get("currentPlay")),
+        "pitchers": _pitchers_from_box(box),
         "batter": {
             "name": batter.get("fullName"),
             "ops": _season_stat(box, off_side, batter.get("id"), "batting", "ops"),

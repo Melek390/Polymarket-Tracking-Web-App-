@@ -397,6 +397,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const [alerts, setAlerts] = useState(loadAlerts);
   const [highlights, setHighlights] = useState(loadHighlights); // slug -> colour key
   const [hits, setHits] = useState(new Set()); // slugs currently alerting
+  // slug -> [team abbrs that have just gone to the bullpen], until dismissed
+  const [pitcherChange, setPitcherChange] = useState({});
   const [dialogOpen, setDialogOpen] = useState(false); // global MLB alert dialog
   const [dialogRow, setDialogRow] = useState(null); // per-game alert dialog
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
@@ -427,6 +429,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const alertsRef = useRef(alerts);
   alertsRef.current = alerts;
   const matchRef = useRef({}); // slug -> { matched, acked }
+  const pitcherRef = useRef({}); // gamePk -> last seen {away, home} counts
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const expandedRef = useRef(expanded);
@@ -475,6 +478,33 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
     if (matchRef.current[slug]) matchRef.current[slug].acked = true;
     setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
   }
+
+  // Flag a game whose pitcher count went up since the last tick, so a change is
+  // visible in the list without expanding anything. Only an INCREASE counts, and
+  // the very first reading for a game is only recorded — otherwise every game
+  // would flag on page load just because we hadn't seen it before.
+  function detectPitcherChanges(liveMap) {
+    const flags = {};
+    for (const r of rowsRef.current) {
+      const live = liveMap[r.gamePk] ?? liveRef.current[r.gamePk];
+      const now = live?.pitchers;
+      if (!now) continue;
+      const prev = pitcherRef.current[r.gamePk];
+      pitcherRef.current[r.gamePk] = now;
+      if (!prev) continue;
+      const teams = [];
+      if (now.away > prev.away) teams.push(live.away?.abbr ?? "Away");
+      if (now.home > prev.home) teams.push(live.home?.abbr ?? "Home");
+      if (teams.length) flags[r.slug] = teams;
+    }
+    if (Object.keys(flags).length) setPitcherChange((prev) => ({ ...prev, ...flags }));
+  }
+  const dismissPitcher = (slug) =>
+    setPitcherChange((prev) => {
+      const next = { ...prev };
+      delete next[slug];
+      return next;
+    });
 
   // Check the global MLB alert AND each game's own alert against the freshest
   // live data. A game matches if EITHER fires. Sound plays (three times) when a
@@ -549,6 +579,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
       });
       setLiveById((prev) => ({ ...prev, ...nextLive }));
       setPriceBySlug((prev) => ({ ...prev, ...nextPrice }));
+      detectPitcherChanges(nextLive);
       evaluate(nextLive, nextPrice);
     }
     tick();
@@ -728,6 +759,30 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                       </span>
                     )}
                     {away} @ {home}
+                    {/* running bullpen usage, so the depth is visible without
+                        expanding the row */}
+                    {inPlay && live?.pitchers && (
+                      <div style={{ fontFamily: T.mono, fontSize: 10, color: T.faint, fontWeight: 400 }}>
+                        pitchers used: {live.away.abbr} {live.pitchers.away} · {live.home.abbr}{" "}
+                        {live.pitchers.home}
+                      </div>
+                    )}
+                    {pitcherChange[r.slug] && (
+                      <div style={{
+                        display: "inline-flex", alignItems: "center", gap: 6, marginTop: 3,
+                        fontFamily: T.ui, fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
+                        color: "#fff", background: T.series[1], borderRadius: 4, padding: "2px 6px",
+                      }}>
+                        PITCHER CHANGED · {pitcherChange[r.slug].join(" & ")}
+                        <span
+                          onClick={() => dismissPitcher(r.slug)}
+                          title="Dismiss"
+                          style={{ cursor: "pointer", fontWeight: 700, opacity: 0.85 }}
+                        >
+                          ×
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td style={{ ...td, whiteSpace: "nowrap",
                     color: warmup || isInningBreak(live) ? T.series[1] : isLive ? T.red : T.sub,
