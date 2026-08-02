@@ -136,9 +136,10 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
         "away": team("away", away_name),
         "home": team("home", home_name),
         "batting": off_side,
-        # neither of these is in the linescore; the poller attaches both
+        # none of these are in the linescore; the poller attaches them
         "last_pitch": None,
         "pitchers": None,
+        "home_runs": None,
         "batter": {"name": (offense.get("batter") or {}).get("fullName"), "ops": None},
         "pitcher": {"name": (defense.get("pitcher") or {}).get("fullName"), "era": None},
         "innings": [
@@ -213,6 +214,32 @@ async def pitchers_used(game_pk: int) -> dict | None:
     )
     r.raise_for_status()
     return _pitchers_from_box(r.json())
+
+
+def _home_runs_from_plays(all_plays: list) -> dict:
+    """{"away": n, "home": n} home runs hit so far.
+
+    halfInning tells us who was batting: top = away, bottom = home.
+    """
+    out = {"away": 0, "home": 0}
+    for p in all_plays or []:
+        if (p.get("result") or {}).get("eventType") != "home_run":
+            continue
+        half = (p.get("about") or {}).get("halfInning")
+        out["away" if half == "top" else "home"] += 1
+    return out
+
+
+async def home_runs(game_pk: int) -> dict | None:
+    """Home runs per side. Field-filtered playByPlay — ~7 KB for a full game,
+    versus 487 KB unfiltered. Counting completed plays is reliable; watching
+    `currentPlay` would race the next batter and miss them."""
+    r = await _http().get(
+        f"{BASE}/v1/game/{game_pk}/playByPlay",
+        params={"fields": "allPlays,result,eventType,about,halfInning"},
+    )
+    r.raise_for_status()
+    return _home_runs_from_plays(r.json().get("allPlays"))
 
 
 def _season_stat(boxscore: dict, side: str, player_id, group: str, key: str):
@@ -315,9 +342,10 @@ async def live_game(game_pk: int) -> dict:
         "away": team("away"),
         "home": team("home"),
         "batting": off_side,
-        # both already in this payload — no extra calls on the heavy path
+        # all already in this payload — no extra calls on the heavy path
         "last_pitch": _pitch_from_play(live.get("plays", {}).get("currentPlay")),
         "pitchers": _pitchers_from_box(box),
+        "home_runs": _home_runs_from_plays(live.get("plays", {}).get("allPlays")),
         "batter": {
             "name": batter.get("fullName"),
             "ops": _season_stat(box, off_side, batter.get("id"), "batting", "ops"),

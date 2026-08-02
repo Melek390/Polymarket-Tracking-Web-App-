@@ -355,7 +355,8 @@ function ExpandPanel({ live, onAnalyze, matchup }) {
               {/* only the full feed carries season stats — don't claim a
                   pitcher has no ERA while the light state is still showing */}
               {live.pitcher.era ? (
-                <div style={{ color: T.sub }}>{live.pitcher.era} ERA</div>
+                // bold on client request — the number he checks most
+                <div style={{ color: T.ink, fontWeight: 700 }}>{live.pitcher.era} ERA</div>
               ) : live.full ? (
                 <div style={{ color: T.faint }}>no season ERA yet</div>
               ) : null}
@@ -399,6 +400,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const [hits, setHits] = useState(new Set()); // slugs currently alerting
   // slug -> [team abbrs that have just gone to the bullpen], until dismissed
   const [pitcherChange, setPitcherChange] = useState({});
+  // slug -> [team abbrs that have just gone deep], until dismissed
+  const [homeRun, setHomeRun] = useState({});
   const [dialogOpen, setDialogOpen] = useState(false); // global MLB alert dialog
   const [dialogRow, setDialogRow] = useState(null); // per-game alert dialog
   const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
@@ -430,6 +433,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   alertsRef.current = alerts;
   const matchRef = useRef({}); // slug -> { matched, acked }
   const pitcherRef = useRef({}); // gamePk -> last seen {away, home} counts
+  const homerRef = useRef({});   // same, for home runs
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
   const expandedRef = useRef(expanded);
@@ -479,28 +483,34 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
     setHits((prev) => { const n = new Set(prev); n.delete(slug); return n; });
   }
 
-  // Flag a game whose pitcher count went up since the last tick, so a change is
-  // visible in the list without expanding anything. Only an INCREASE counts, and
-  // the very first reading for a game is only recorded — otherwise every game
-  // would flag on page load just because we hadn't seen it before.
-  function detectPitcherChanges(liveMap) {
+  // Which teams' {away, home} counter went UP since the last tick, so an event
+  // is visible in the list without expanding anything. Only an INCREASE counts,
+  // and the very first reading for a game is merely recorded — otherwise every
+  // game would flag on page load just because we hadn't seen it before.
+  function risenTeams(liveMap, key, ref) {
     const flags = {};
     for (const r of rowsRef.current) {
       const live = liveMap[r.gamePk] ?? liveRef.current[r.gamePk];
-      const now = live?.pitchers;
+      const now = live?.[key];
       if (!now) continue;
-      const prev = pitcherRef.current[r.gamePk];
-      pitcherRef.current[r.gamePk] = now;
+      const prev = ref.current[r.gamePk];
+      ref.current[r.gamePk] = now;
       if (!prev) continue;
       const teams = [];
       if (now.away > prev.away) teams.push(live.away?.abbr ?? "Away");
       if (now.home > prev.home) teams.push(live.home?.abbr ?? "Home");
       if (teams.length) flags[r.slug] = teams;
     }
-    if (Object.keys(flags).length) setPitcherChange((prev) => ({ ...prev, ...flags }));
+    return flags;
   }
-  const dismissPitcher = (slug) =>
-    setPitcherChange((prev) => {
+  function detectEvents(liveMap) {
+    const pitchers = risenTeams(liveMap, "pitchers", pitcherRef);
+    if (Object.keys(pitchers).length) setPitcherChange((p) => ({ ...p, ...pitchers }));
+    const homers = risenTeams(liveMap, "home_runs", homerRef);
+    if (Object.keys(homers).length) setHomeRun((p) => ({ ...p, ...homers }));
+  }
+  const dismissFlag = (setter, slug) =>
+    setter((prev) => {
       const next = { ...prev };
       delete next[slug];
       return next;
@@ -579,7 +589,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
       });
       setLiveById((prev) => ({ ...prev, ...nextLive }));
       setPriceBySlug((prev) => ({ ...prev, ...nextPrice }));
-      detectPitcherChanges(nextLive);
+      detectEvents(nextLive);
       evaluate(nextLive, nextPrice);
     }
     tick();
@@ -767,22 +777,34 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                         {live.pitchers.home}
                       </div>
                     )}
-                    {pitcherChange[r.slug] && (
-                      <div style={{
+                    {/* inline event badges — spotted while scanning the list,
+                        each dismissable, no popup */}
+                    {[
+                      homeRun[r.slug] && {
+                        key: "hr", teams: homeRun[r.slug], bg: T.series[2],
+                        label: "HOME RUN", setter: setHomeRun,
+                      },
+                      pitcherChange[r.slug] && {
+                        key: "pc", teams: pitcherChange[r.slug], bg: T.series[1],
+                        label: "PITCHER CHANGED", setter: setPitcherChange,
+                      },
+                    ].filter(Boolean).map((f) => (
+                      <div key={f.key} style={{
                         display: "inline-flex", alignItems: "center", gap: 6, marginTop: 3,
+                        marginRight: 5,
                         fontFamily: T.ui, fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
-                        color: "#fff", background: T.series[1], borderRadius: 4, padding: "2px 6px",
+                        color: "#fff", background: f.bg, borderRadius: 4, padding: "2px 6px",
                       }}>
-                        PITCHER CHANGED · {pitcherChange[r.slug].join(" & ")}
+                        {f.teams.join(" & ")} {f.label}
                         <span
-                          onClick={() => dismissPitcher(r.slug)}
+                          onClick={() => dismissFlag(f.setter, r.slug)}
                           title="Dismiss"
                           style={{ cursor: "pointer", fontWeight: 700, opacity: 0.85 }}
                         >
                           ×
                         </span>
                       </div>
-                    )}
+                    ))}
                   </td>
                   <td style={{ ...td, whiteSpace: "nowrap",
                     color: warmup || isInningBreak(live) ? T.series[1] : isLive ? T.red : T.sub,

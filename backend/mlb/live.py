@@ -25,12 +25,14 @@ _live = {"at": 0.0, "games": []}      # cached list of in-progress games
 # a finished game keeps showing its last inning before flipping to "Final".
 LIVE_LIST_TTL = 10
 STATE_TTL = 4                         # a cached state is fresh enough for this long
-# Pitcher counts come from a ~8.5 KB boxscore rather than the 3 KB linescore, and
-# MLB only counts a reliever once he throws (1-2 min after the change is
-# announced), so refreshing this every cycle would cost bandwidth and buy nothing.
+# Bullpen usage (~8.5 KB boxscore) and home runs (~7 KB filtered playByPlay) are
+# both heavier than the 3 KB linescore and both change rarely, so they refresh on
+# their own slower cadence. MLB also only counts a reliever once he throws, 1-2
+# min after the change is announced, so a faster cycle would buy nothing.
 _pitchers: dict[int, dict] = {}       # gamePk -> {"away": n, "home": n}
-_pitchers_at: dict[int, float] = {}
-PITCHERS_TTL = 20
+_homers: dict[int, dict] = {}         # gamePk -> {"away": n, "home": n}
+_slow_at: dict[int, float] = {}       # gamePk -> when we last refreshed both
+SLOW_TTL = 20
 
 
 async def _refresh_schedule() -> None:
@@ -68,17 +70,24 @@ async def poll() -> None:
                 st["last_pitch"] = await client.last_pitch(g["game_pk"])
             except Exception as e:
                 log.debug("MLB last_pitch %s failed: %s", g["game_pk"], e)
-            # heavier, and changes at most a handful of times a game
+            # heavier, and both change at most a handful of times a game
             pk = g["game_pk"]
-            if time.monotonic() - _pitchers_at.get(pk, 0.0) >= PITCHERS_TTL:
+            if time.monotonic() - _slow_at.get(pk, 0.0) >= SLOW_TTL:
                 try:
                     used = await client.pitchers_used(pk)
                     if used:
                         _pitchers[pk] = used
-                    _pitchers_at[pk] = time.monotonic()
                 except Exception as e:
                     log.debug("MLB pitchers_used %s failed: %s", pk, e)
+                try:
+                    hrs = await client.home_runs(pk)
+                    if hrs is not None:
+                        _homers[pk] = hrs
+                except Exception as e:
+                    log.debug("MLB home_runs %s failed: %s", pk, e)
+                _slow_at[pk] = time.monotonic()
             st["pitchers"] = _pitchers.get(pk)
+            st["home_runs"] = _homers.get(pk)
             _state[g["game_pk"]] = st
             _state_at[g["game_pk"]] = time.monotonic()
         except Exception as e:
