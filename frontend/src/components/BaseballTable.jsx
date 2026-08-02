@@ -191,6 +191,20 @@ function Scoreboard({ live }) {
   );
 }
 
+// MLB hands us a streak CODE ("W3" / "L4"). Printed raw it read as a mystery
+// next to the L10 record, so spell it out.
+function streakText(code) {
+  const m = /^([WL])(\d+)$/i.exec(code || "");
+  if (!m) return null;
+  return `${m[1].toUpperCase() === "W" ? "Won" : "Lost"} ${m[2]} straight`;
+}
+
+// "4-6" -> "4W-6L", so it can't be mistaken for a score.
+function lastTenText(record) {
+  const m = /^(\d+)-(\d+)$/.exec(record || "");
+  return m ? `${m[1]}W-${m[2]}L` : record || null;
+}
+
 // Standings, season series and probable starters — the context that fills the
 // panel before first pitch, and sits beside the play feed once a game is on.
 function MatchupPanel({ m }) {
@@ -235,23 +249,29 @@ function MatchupPanel({ m }) {
   const side = (t) => (
     <div style={{ flex: 1, minWidth: 150 }}>
       <div style={{ fontWeight: 700, fontSize: 14 }}>{t.abbr}</div>
-      <div style={{ ...monoText, fontSize: 13, fontWeight: 700 }}>
+      <div style={{ ...monoText, fontSize: 13, fontWeight: 700 }} title="Wins-losses this season">
         {t.wins}-{t.losses}{" "}
-        <span style={{ color: T.sub, fontWeight: 400 }}>{t.pct}</span>
+        <span style={{ color: T.sub, fontWeight: 400 }} title="Win percentage">{t.pct}</span>
       </div>
       <div style={{ color: T.sub, fontSize: 11, marginTop: 2 }}>
         {t.division}
         {t.divisionRank ? ` · #${t.divisionRank}` : ""}
-        {t.gamesBack && t.gamesBack !== "-" ? ` · ${t.gamesBack} GB` : ""}
+        {t.gamesBack && t.gamesBack !== "-" ? ` · ${t.gamesBack} games back` : ""}
       </div>
+      {/* spelled out on client request — "L10 4-6 · L4 · +18" was unreadable */}
       <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 4 }}>
-        L10 {t.lastTen ?? "—"} · {t.streak ?? "—"} ·{" "}
-        <span style={{ color: t.runDiff > 0 ? T.green : t.runDiff < 0 ? T.red : T.sub }}>
+        Last 10: {lastTenText(t.lastTen) ?? "—"}
+        {streakText(t.streak) ? ` · ${streakText(t.streak)}` : ""}
+      </div>
+      <div style={{ ...monoText, fontSize: 11, color: T.sub }}>
+        Run differential{" "}
+        <span style={{ fontWeight: 700,
+          color: t.runDiff > 0 ? T.green : t.runDiff < 0 ? T.red : T.sub }}>
           {t.runDiff > 0 ? "+" : ""}{t.runDiff ?? "—"}
         </span>
       </div>
       <div style={{ ...monoText, fontSize: 11, color: T.faint }}>
-        home {t.homeRecord ?? "—"} · away {t.awayRecord ?? "—"}
+        Home {t.homeRecord ?? "—"} · Away {t.awayRecord ?? "—"}
       </div>
       {t.probable && (
         <div style={{ marginTop: 7, paddingTop: 6, borderTop: `1px solid ${T.border}` }}>
