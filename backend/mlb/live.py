@@ -52,9 +52,17 @@ async def poll() -> None:
     await _refresh_schedule()
     for g in _live["games"]:
         try:
-            _state[g["game_pk"]] = await client.linescore_state(
+            st = await client.linescore_state(
                 g["game_pk"], g["away"], g["home"], g["status"], g.get("detailed")
             )
+            # The linescore carries no pitch data, so the count alone can't show
+            # a foul. This is a field-filtered ~0.5 KB call — smaller than the
+            # linescore itself — and it is per LIVE game only.
+            try:
+                st["last_pitch"] = await client.last_pitch(g["game_pk"])
+            except Exception as e:
+                log.debug("MLB last_pitch %s failed: %s", g["game_pk"], e)
+            _state[g["game_pk"]] = st
             _state_at[g["game_pk"]] = time.monotonic()
         except Exception as e:
             log.warning("MLB live poll %s failed: %s", g["game_pk"], e)

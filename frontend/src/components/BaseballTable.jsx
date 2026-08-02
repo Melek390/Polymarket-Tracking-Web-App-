@@ -371,7 +371,12 @@ function ExpandPanel({ live, onAnalyze, matchup }) {
             </div>
             <div>
               <div style={{ color: T.sub, fontSize: 10, textTransform: "uppercase" }}>Count / Outs</div>
-              <div style={{ fontWeight: 600 }}>{live.balls}-{live.strikes}, {live.outs} out</div>
+              <div style={{ fontWeight: 600 }}>
+                {live.balls}-{live.strikes}, {live.outs} out
+                {live.last_pitch?.foul && (
+                  <span style={{ color: T.series[1], marginLeft: 8 }}>· foul</span>
+                )}
+              </div>
               <div style={{ marginTop: 6 }}><OutDots outs={live.outs} size={16} /></div>
               <div style={{ marginTop: 8 }}><Bases bases={live.bases} /></div>
             </div>
@@ -751,7 +756,20 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                       </span>
                     ) : "—"}
                   </td>
-                  <td style={center}>{inPlay ? `${live.balls}-${live.strikes}` : "—"}</td>
+                  <td style={center}>
+                    {inPlay ? (
+                      <>
+                        <div>{live.balls}-{live.strikes}</div>
+                        {/* a foul with two strikes leaves the count unchanged,
+                            so without this the row looks frozen mid at-bat */}
+                        {live.last_pitch?.foul && (
+                          <div style={{ fontSize: 10, fontWeight: 700, color: T.series[1] }}>
+                            FOUL
+                          </div>
+                        )}
+                      </>
+                    ) : "—"}
+                  </td>
                   <td style={center}>{inPlay ? <Bases bases={live.bases} /> : "—"}</td>
                   <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap",
                     // a highlighted row keeps its own colour, so the alert

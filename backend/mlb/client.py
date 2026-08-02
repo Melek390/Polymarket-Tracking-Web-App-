@@ -136,6 +136,8 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
         "away": team("away", away_name),
         "home": team("home", home_name),
         "batting": off_side,
+        # the linescore has no pitch data at all; the poller attaches this
+        "last_pitch": None,
         "batter": {"name": (offense.get("batter") or {}).get("fullName"), "ops": None},
         "pitcher": {"name": (defense.get("pitcher") or {}).get("fullName"), "era": None},
         "innings": [
@@ -146,6 +148,39 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
         ],
         "plays": [],  # play-by-play only comes from the full feed (live_game)
     }
+
+
+def _pitch_from_play(current: dict | None) -> dict | None:
+    """The most recent PITCH of the at-bat in progress.
+
+    The count alone cannot show a foul — a foul with two strikes leaves the
+    count exactly where it was — so the table needs the pitch result itself.
+    MLB spells fouls "Foul", "Foul Tip", "Foul Bunt", "Foul Pitchout".
+    """
+    for ev in reversed((current or {}).get("playEvents") or []):
+        if not ev.get("isPitch"):
+            continue  # pickoffs, substitutions, mound visits
+        desc = ((ev.get("details") or {}).get("description") or "").strip()
+        if not desc:
+            return None
+        return {"desc": desc, "foul": desc.lower().startswith("foul")}
+    return None
+
+
+async def last_pitch(game_pk: int) -> dict | None:
+    """Most recent pitch of the at-bat in progress.
+
+    Uses a FIELD-FILTERED playByPlay call: ~0.5 KB, smaller than the linescore
+    we already poll. The unfiltered playByPlay is 487 KB and feed/live is
+    704 KB — never poll either of those (see the July 26 feed-flood incidents).
+    """
+    r = await _http().get(
+        f"{BASE}/v1/game/{game_pk}/playByPlay",
+        params={"fields": "currentPlay,playEvents,details,description,isPitch,"
+                          "count,balls,strikes,outs"},
+    )
+    r.raise_for_status()
+    return _pitch_from_play(r.json().get("currentPlay"))
 
 
 def _season_stat(boxscore: dict, side: str, player_id, group: str, key: str):
@@ -248,6 +283,8 @@ async def live_game(game_pk: int) -> dict:
         "away": team("away"),
         "home": team("home"),
         "batting": off_side,
+        # already in this payload — no extra call needed on the heavy path
+        "last_pitch": _pitch_from_play(live.get("plays", {}).get("currentPlay")),
         "batter": {
             "name": batter.get("fullName"),
             "ops": _season_stat(box, off_side, batter.get("id"), "batting", "ops"),
