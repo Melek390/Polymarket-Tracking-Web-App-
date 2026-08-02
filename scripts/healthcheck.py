@@ -247,9 +247,27 @@ def check_jobs():
     for job in ("screener-cache", "mlb-live", "live-prices", "mlb-intervals"):
         record("PASS" if job in ids else "FAIL", f"job {job}",
                "scheduled" if job in ids else "MISSING")
+    # A poll-* job only exists while something is actually being collected, so
+    # "none scheduled" is only wrong if there IS an open tracked market. With
+    # the slate finished (every market resolved and untracked) or everything
+    # paused, having none is correct — failing regardless cried wolf every
+    # night and this is the gate we run before every deploy.
     pollers = [j for j in ids if j.startswith("poll-")]
-    record("PASS" if pollers else "FAIL", "collector poll jobs",
-           ", ".join(sorted(pollers)) if pollers else "no poll-* job scheduled")
+    if pollers:
+        record("PASS", "collector poll jobs", ", ".join(sorted(pollers)))
+        return
+    try:
+        markets, _ = get("/api/markets")
+        wanted = [m for m in markets if m.get("tracking") and not m.get("closed")]
+    except Exception as e:
+        record("FAIL", "collector poll jobs", f"no poll-* job, and /api/markets failed: {e}")
+        return
+    if wanted:
+        record("FAIL", "collector poll jobs",
+               f"{len(wanted)} open tracked market(s) but no poll-* job scheduled")
+    else:
+        record("PASS", "collector poll jobs",
+               "none needed — no open tracked market right now")
 
 
 def check_capacity():
