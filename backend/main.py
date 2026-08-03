@@ -13,10 +13,21 @@ from backend.collector import scheduler
 from backend.config.settings import settings
 
 
+# Two libraries log one INFO line per tick / per request, which on this app's
+# cadence (jobs every 1-3s, a CLOB batch every 2s) was 230k lines a day — 70% of
+# a journal that had grown to 897 MB on a 10 GB disk. WARNING keeps everything
+# diagnostic: apscheduler still reports "maximum number of running instances
+# reached", which is how the serial-poll overrun was found, and httpx still
+# reports failures.
+_QUIET_LOGGERS = ("apscheduler.executors.default", "apscheduler.scheduler", "httpx")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: create tables and start the polling jobs. Shutdown: stop them."""
     logging.basicConfig(level=settings.log_level)
+    for name in _QUIET_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
     scheduler.start()
     yield
     scheduler.stop()
