@@ -8,6 +8,7 @@ cache miss — never the 634 KB /feed/live — so a full slate of games can neve
 flood the single worker. The heavy feed is only ever used for the expand
 panel's season stats (ERA / OPS)."""
 
+import asyncio
 import logging
 import time
 from datetime import datetime, timedelta, timezone
@@ -33,6 +34,7 @@ _pitchers: dict[int, dict] = {}       # gamePk -> {"away": n, "home": n}
 _homers: dict[int, dict] = {}         # gamePk -> {"away": n, "home": n}
 _slow_at: dict[int, float] = {}       # gamePk -> when we last refreshed both
 SLOW_TTL = 20
+POLL_CONCURRENCY = 8       # games refreshed in parallel
 
 
 async def _refresh_schedule() -> None:
@@ -55,43 +57,59 @@ async def _refresh_schedule() -> None:
         _live["at"] = now
 
 
+async def _poll_game(g: dict) -> None:
+    """Refresh one live game. The linescore and the pitch go together every
+    cycle; the two heavier counters ride the slower SLOW_TTL cadence."""
+    pk = g["game_pk"]
+    slow_due = time.monotonic() - _slow_at.get(pk, 0.0) >= SLOW_TTL
+
+    # Everything this game needs, in flight at once rather than one after
+    # another — a 15-game slate at ~300 ms a call cannot afford to be serial.
+    jobs = [
+        client.linescore_state(pk, g["away"], g["home"], g["status"], g.get("detailed")),
+        client.last_pitch(pk),
+    ]
+    if slow_due:
+        jobs += [client.pitchers_used(pk), client.home_runs(pk)]
+    results = await asyncio.gather(*jobs, return_exceptions=True)
+
+    st = results[0]
+    if isinstance(st, Exception):
+        log.warning("MLB live poll %s failed: %s", pk, st)
+        return
+
+    pitch = results[1]
+    st["last_pitch"] = None if isinstance(pitch, Exception) else pitch
+    if slow_due:
+        used, hrs = results[2], results[3]
+        if not isinstance(used, Exception) and used:
+            _pitchers[pk] = used
+        if not isinstance(hrs, Exception) and hrs is not None:
+            _homers[pk] = hrs
+        _slow_at[pk] = time.monotonic()
+    st["pitchers"] = _pitchers.get(pk)
+    st["home_runs"] = _homers.get(pk)
+    _state[pk] = st
+    _state_at[pk] = time.monotonic()
+
+
 async def poll() -> None:
     """Refresh the cached state of every live game (called on a timer)."""
     await _refresh_schedule()
-    for g in _live["games"]:
-        try:
-            st = await client.linescore_state(
-                g["game_pk"], g["away"], g["home"], g["status"], g.get("detailed")
-            )
-            # The linescore carries no pitch data, so the count alone can't show
-            # a foul. This is a field-filtered ~0.5 KB call — smaller than the
-            # linescore itself — and it is per LIVE game only.
+    games = _live["games"]
+    if not games:
+        return
+    # Bounded so a full slate can't put 60 requests on the wire at once.
+    sem = asyncio.Semaphore(POLL_CONCURRENCY)
+
+    async def one(g):
+        async with sem:
             try:
-                st["last_pitch"] = await client.last_pitch(g["game_pk"])
+                await _poll_game(g)
             except Exception as e:
-                log.debug("MLB last_pitch %s failed: %s", g["game_pk"], e)
-            # heavier, and both change at most a handful of times a game
-            pk = g["game_pk"]
-            if time.monotonic() - _slow_at.get(pk, 0.0) >= SLOW_TTL:
-                try:
-                    used = await client.pitchers_used(pk)
-                    if used:
-                        _pitchers[pk] = used
-                except Exception as e:
-                    log.debug("MLB pitchers_used %s failed: %s", pk, e)
-                try:
-                    hrs = await client.home_runs(pk)
-                    if hrs is not None:
-                        _homers[pk] = hrs
-                except Exception as e:
-                    log.debug("MLB home_runs %s failed: %s", pk, e)
-                _slow_at[pk] = time.monotonic()
-            st["pitchers"] = _pitchers.get(pk)
-            st["home_runs"] = _homers.get(pk)
-            _state[g["game_pk"]] = st
-            _state_at[g["game_pk"]] = time.monotonic()
-        except Exception as e:
-            log.warning("MLB live poll %s failed: %s", g["game_pk"], e)
+                log.warning("MLB live poll %s failed: %s", g.get("game_pk"), e)
+
+    await asyncio.gather(*(one(g) for g in games))
 
 
 def cached(game_pk: int) -> dict | None:
