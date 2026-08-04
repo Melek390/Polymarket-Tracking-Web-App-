@@ -10,7 +10,7 @@ import HighlightPicker, { ClearHighlights } from "./HighlightPicker.jsx";
 import LivePrice from "./LivePrice.jsx";
 import Toasts, { useToasts } from "./Toasts.jsx";
 import ExpandPanel from "./baseball/ExpandPanel.jsx";
-import { Bases, OutDots } from "./baseball/widgets.jsx";
+import { Bases, HomeAwayTag, OutDots } from "./baseball/widgets.jsx";
 import { inningText, isFinished, isInningBreak, preGameLabel } from "./baseball/gameState.js";
 
 const POLL_MS = 2000; // fast live prices + state; backend caps each at ~2s
@@ -458,9 +458,10 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                   </td>
                   <td style={{ ...td, fontFamily: T.ui, whiteSpace: "nowrap" }}>
                     {battingTeam ? (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: "50%",
-                          background: live.batting === "away" ? T.series[2] : T.series[0] }} />
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+                        {/* replaces a bare coloured dot: the word carries the
+                            meaning, the colour just makes it scannable */}
+                        <HomeAwayTag side={live.batting} />
                         {battingTeam.name}
                       </span>
                     ) : "—"}

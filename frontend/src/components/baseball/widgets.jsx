@@ -1,5 +1,32 @@
 import { T } from "../../theme.js";
 
+// HOME / AWAY pill for the batting team, so the Batting column can be read on
+// its own without cross-referencing the "Away @ Home" game column.
+// Keeps the colours the old bare dot used (blue = home, purple = away) so the
+// mapping is unchanged — the word is now just spelled out. The label carries
+// the meaning, which is also why colour alone is never the only cue.
+const SIDE = {
+  home: { label: "HOME", bg: T.series[0] },
+  away: { label: "AWAY", bg: T.series[2] },
+};
+
+export function HomeAwayTag({ side }) {
+  const s = SIDE[side];
+  if (!s) return null;
+  return (
+    <span
+      title={side === "home" ? "Home team batting" : "Away team batting"}
+      style={{
+        fontFamily: T.ui, fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+        color: "#fff", background: s.bg, borderRadius: 4,
+        padding: "2px 6px", lineHeight: 1.4,
+      }}
+    >
+      {s.label}
+    </span>
+  );
+}
+
 // A small baseball diamond: filled when a runner is on the base.
 export function Bases({ bases }) {
   const dot = (on) => ({
