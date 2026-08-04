@@ -56,6 +56,12 @@ async def _team_standings() -> dict[int, dict]:
                     "division": divisions.get(div_id, ""),
                     "divisionRank": t.get("divisionRank"),
                     "gamesBack": t.get("gamesBack"),
+                    # Standing beyond the division — already in this response,
+                    # we were just dropping it. leagueRank is 1-15 within the
+                    # AL/NL, sportRank is 1-30 across all of MLB.
+                    "leagueRank": t.get("leagueRank"),
+                    "sportRank": t.get("sportRank"),
+                    "sportGamesBack": t.get("sportGamesBack"),
                     "streak": (t.get("streak") or {}).get("streakCode"),
                     "runDiff": t.get("runDifferential"),
                     "lastTen": split("lastTen"),

@@ -75,6 +75,13 @@ function Scoreboard({ live }) {
   );
 }
 
+// "NL East" -> "NL", so a league rank can name its league. Falls back to
+// "league" rather than guessing if MLB ever changes the division wording.
+function leagueOf(division) {
+  const m = /^(AL|NL)\b/.exec(division || "");
+  return m ? m[1] : "league";
+}
+
 // panel before first pitch, and sits beside the play feed once a game is on.
 function MatchupPanel({ m }) {
   const lbl = { color: T.sub, fontSize: 10, textTransform: "uppercase" };
@@ -127,6 +134,15 @@ function MatchupPanel({ m }) {
         {t.divisionRank ? ` · #${t.divisionRank}` : ""}
         {t.gamesBack && t.gamesBack !== "-" ? ` · ${t.gamesBack} games back` : ""}
       </div>
+      {/* standing beyond the division, on client request — division rank alone
+          hides that a #4 team can still be mid-pack league-wide */}
+      {(t.leagueRank || t.sportRank) && (
+        <div style={{ ...monoText, color: T.sub, fontSize: 11, marginTop: 1 }}>
+          {t.leagueRank ? `#${t.leagueRank} in the ${leagueOf(t.division)}` : ""}
+          {t.leagueRank && t.sportRank ? " · " : ""}
+          {t.sportRank ? `#${t.sportRank} in MLB` : ""}
+        </div>
+      )}
       {/* spelled out on client request — "L10 4-6 · L4 · +18" was unreadable */}
       <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 4 }}>
         Last 10: {lastTenText(t.lastTen) ?? "—"}
