@@ -162,7 +162,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const [hits, setHits] = useState(new Set());
   const [dialogOpen, setDialogOpen] = useState(false); // global sport alert
   const [alertRow, setAlertRow] = useState(null); // per-game alert
-  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
+  const { toasts, push: pushToast, dismiss: dismissToast, clear: clearToasts } = useToasts();
   const alertsRef = useRef(alerts);
   alertsRef.current = alerts;
   const livePricesRef = useRef(livePrices);
@@ -186,6 +186,17 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
     setData(null);
     setLeague(null);
     load();
+  }, [sport]);
+
+  // An alert belongs to the sport that raised it. Toasts live 40s and this view
+  // does NOT unmount when the sport changes, so without clearing them you arrive
+  // on Cricket still reading alerts about Soccer games — which reads as "my MLB
+  // alert is firing on every category". The matched-row state goes too, so a
+  // highlight can't survive into a sport it was never about.
+  useEffect(() => {
+    clearToasts();
+    matchRef.current = {};
+    setHits(new Set());
   }, [sport]);
 
   // auto-refresh pulls fresh prices on the chosen interval

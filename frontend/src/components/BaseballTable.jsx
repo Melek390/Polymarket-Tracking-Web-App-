@@ -12,6 +12,8 @@ import Toasts, { useToasts } from "./Toasts.jsx";
 import ExpandPanel from "./baseball/ExpandPanel.jsx";
 import { Bases, BattingTag, HomeAwayTag, OutDots } from "./baseball/widgets.jsx";
 import { inningText, isFinished, isInningBreak, preGameLabel } from "./baseball/gameState.js";
+import TeamTagsDialog, { TeamTag } from "./baseball/TeamTagsDialog.jsx";
+import { loadTeamTags, tagsFor, taggedTeamCount } from "../teamTags.js";
 
 const POLL_MS = 2000; // fast live prices + state; backend caps each at ~2s
 
@@ -53,6 +55,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const [analyze, setAnalyze] = useState(null); // {text, copied, busy}
   const [sort, setSort] = useState({ key: null, dir: "desc" }); // key: away|home|score|null
   const [matchups, setMatchups] = useState({}); // gamePk -> standings/series/probables
+  const [teamTags, setTeamTags] = useState(loadTeamTags); // the user's club labels
+  const [tagsOpen, setTagsOpen] = useState(false);
 
   // Build the paste-ready snapshot (MLB + Polymarket), copy it to the clipboard
   // and show it in a modal. It stays open until the user closes it; clicking
@@ -328,11 +332,16 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
         onEdit={() => setDialogOpen(true)}
         onClear={clearAlert}
       />
-      {highlightCount > 0 && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-          <ClearHighlights count={highlightCount} onClear={clearHighlights} />
-        </div>
-      )}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 8 }}>
+        <button
+          onClick={() => setTagsOpen(true)}
+          title="Label the clubs you follow so they stand out in the list"
+          style={{ ...btn.outline, fontSize: 12, padding: "6px 10px" }}
+        >
+          🏷 Team tags{taggedTeamCount(teamTags) ? ` (${taggedTeamCount(teamTags)})` : ""}
+        </button>
+        <ClearHighlights count={highlightCount} onClear={clearHighlights} />
+      </div>
       <div style={{ ...card, overflow: "hidden" }}>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -378,6 +387,15 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                 <td style={{ ...td, textAlign: "right" }}>
                   <div><LivePrice cents={price} color={color} /></div>
                   <div style={{ fontFamily: T.ui, fontSize: 11, color: T.sub }}>{team}</div>
+                  {(() => {
+                    const mine = tagsFor(teamTags, team);
+                    return mine.length ? (
+                      <div style={{ display: "flex", gap: 3, flexWrap: "wrap",
+                        justifyContent: "flex-end", marginTop: 2 }}>
+                        {mine.map((t) => <TeamTag key={t.id} tag={t} />)}
+                      </div>
+                    ) : null;
+                  })()}
                   {isBatting && <div style={{ marginTop: 3 }}><BattingTag /></div>}
                 </td>
               );
@@ -593,6 +611,14 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
           onSave={(a) => { saveKey(dialogRow.slug, a); setDialogRow(null); }}
           onClear={() => { clearKey(dialogRow.slug); setDialogRow(null); }}
           onClose={() => setDialogRow(null)}
+        />
+      )}
+
+      {tagsOpen && (
+        <TeamTagsDialog
+          state={teamTags}
+          onChange={setTeamTags}
+          onClose={() => setTagsOpen(false)}
         />
       )}
 

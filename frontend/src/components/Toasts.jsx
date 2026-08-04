@@ -21,6 +21,11 @@ export function useToasts(ttl = TOAST_MS) {
     [],
   );
 
+  // Drop everything at once. Alerts belong to the sport that raised them, and
+  // a toast outlives a sport switch by up to TOAST_MS — so without this you
+  // land on Cricket still reading alerts about Soccer games.
+  const clear = useCallback(() => setToasts([]), []);
+
   // drop expired ones
   useEffect(() => {
     if (!toasts.length) return;
@@ -31,7 +36,7 @@ export function useToasts(ttl = TOAST_MS) {
     return () => clearInterval(timer);
   }, [toasts.length, ttl]);
 
-  return { toasts, push, dismiss };
+  return { toasts, push, dismiss, clear };
 }
 
 export default function Toasts({ toasts, onDismiss }) {

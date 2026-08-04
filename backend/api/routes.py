@@ -135,6 +135,20 @@ async def mlb_analyze(game_pk: int):
         raise HTTPException(502, f"MLB API unreachable: {e}")
 
 
+@router.get("/mlb/teams")
+async def mlb_teams():
+    """Every MLB club, for the team-tag picker. Served from the in-process
+    cache client.team_abbreviations() already keeps, so this costs one upstream
+    call per restart. Not hardcoded on purpose — clubs do get renamed (the
+    Athletics move broke slug matching once already)."""
+    try:
+        abbr = await mlb.team_abbreviations()
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"MLB API unreachable: {e}")
+    return sorted(({"name": n, "abbr": a} for n, a in abbr.items()),
+                  key=lambda t: t["name"])
+
+
 @router.get("/mlb/matchup/{game_pk}")
 async def mlb_matchup(game_pk: int):
     """Standings, season series and probable starters — the context shown when

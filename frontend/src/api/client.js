@@ -152,6 +152,11 @@ export async function fetchMlbMatchup(gamePk) {
   return request(`/api/mlb/matchup/${gamePk}`);
 }
 
+// GET /api/mlb/teams — every club, for the team-tag picker. [{name, abbr}]
+export async function fetchMlbTeams() {
+  return request("/api/mlb/teams");
+}
+
 // GET /api/mlb/timeline?slug= — play-by-play (inning/pitcher/batter per ms) for
 // the price chart tooltip. {game_pk, plays:[{start,end,inning,half,pitcher,batter}]}
 export async function fetchMlbTimeline(slug) {
