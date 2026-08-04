@@ -480,9 +480,6 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                   <td style={{ ...td, fontFamily: T.ui, whiteSpace: "nowrap" }}>
                     {battingTeam ? (
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                        {/* replaces a bare coloured dot: the word carries the
-                            meaning, the colour just makes it scannable */}
-                        <HomeAwayTag side={live.batting} />
                         {/* During a break this column names the side coming up
                             NEXT, not one that is batting — without saying so it
                             reads as though they are at the plate already. */}
@@ -493,6 +490,9 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                           </span>
                         )}
                         {battingTeam.name}
+                        {/* the word carries the meaning, the colour makes it
+                            scannable; AFTER the name on client request */}
+                        <HomeAwayTag side={live.batting} />
                       </span>
                     ) : "—"}
                   </td>
