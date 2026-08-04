@@ -1,10 +1,28 @@
 import { T } from "../../theme.js";
 
-// HOME / AWAY pill for the batting team, so the Batting column can be read on
-// its own without cross-referencing the "Away @ Home" game column.
-// Keeps the colours the old bare dot used (blue = home, purple = away) so the
-// mapping is unchanged — the word is now just spelled out. The label carries
-// the meaning, which is also why colour alone is never the only cue.
+// The small label pills used across the baseball row. The WORD always carries
+// the meaning; colour only makes it scannable, so none of these depend on
+// colour alone being readable.
+function Pill({ label, bg, title }) {
+  return (
+    <span
+      title={title}
+      style={{
+        display: "inline-block",
+        fontFamily: T.ui, fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
+        color: "#fff", background: bg, borderRadius: 4,
+        padding: "2px 6px", lineHeight: 1.4,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+// HOME / AWAY for the batting team, so the Batting column can be read on its
+// own without cross-referencing the "Away @ Home" game column. Keeps the
+// colours the old bare dot used (blue = home, purple = away), so the mapping
+// the client already knows is unchanged — just spelled out.
 const SIDE = {
   home: { label: "HOME", bg: T.series[0] },
   away: { label: "AWAY", bg: T.series[2] },
@@ -13,18 +31,16 @@ const SIDE = {
 export function HomeAwayTag({ side }) {
   const s = SIDE[side];
   if (!s) return null;
-  return (
-    <span
-      title={side === "home" ? "Home team batting" : "Away team batting"}
-      style={{
-        fontFamily: T.ui, fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
-        color: "#fff", background: s.bg, borderRadius: 4,
-        padding: "2px 6px", lineHeight: 1.4,
-      }}
-    >
-      {s.label}
-    </span>
-  );
+  return <Pill label={s.label} bg={s.bg}
+    title={side === "home" ? "Home team batting" : "Away team batting"} />;
+}
+
+// Marks which of the two price columns is currently at bat. Deliberately
+// NEUTRAL dark: green and red are already spoken for in those columns (they
+// mark the favourite and the underdog), so a coloured pill there would read as
+// a price signal rather than a game state.
+export function BattingTag() {
+  return <Pill label="BATTING" bg={T.ink} title="This team is at bat" />;
 }
 
 // A small baseball diamond: filled when a runner is on the base.

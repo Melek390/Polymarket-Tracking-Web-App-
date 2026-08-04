@@ -10,7 +10,7 @@ import HighlightPicker, { ClearHighlights } from "./HighlightPicker.jsx";
 import LivePrice from "./LivePrice.jsx";
 import Toasts, { useToasts } from "./Toasts.jsx";
 import ExpandPanel from "./baseball/ExpandPanel.jsx";
-import { Bases, HomeAwayTag, OutDots } from "./baseball/widgets.jsx";
+import { Bases, BattingTag, HomeAwayTag, OutDots } from "./baseball/widgets.jsx";
 import { inningText, isFinished, isInningBreak, preGameLabel } from "./baseball/gameState.js";
 
 const POLL_MS = 2000; // fast live prices + state; backend caps each at ~2s
@@ -371,11 +371,14 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
               // MLB-designated home/away teams + prices (live CLOB mid overrides
               // the cached price); shared with the sort comparator via resolved()
               const { homeTeam, homePrice, awayTeam, awayPrice } = resolved(r);
-              // Home / Away columns: the team name under its win price
-              const priceCell = (team, price, color) => (
+              // Home / Away columns: the team name under its win price, and a
+              // BATTING pill on whichever side is at bat, so these columns can
+              // be read without glancing back at the Batting column
+              const priceCell = (team, price, color, isBatting) => (
                 <td style={{ ...td, textAlign: "right" }}>
                   <div><LivePrice cents={price} color={color} /></div>
                   <div style={{ fontFamily: T.ui, fontSize: 11, color: T.sub }}>{team}</div>
+                  {isBatting && <div style={{ marginTop: 3 }}><BattingTag /></div>}
                 </td>
               );
               const alerting = hits.has(r.slug);
@@ -469,8 +472,10 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                   <td style={td}>{score}</td>
                   {/* Away first, then Home — matches the "Away @ Home" game
                       column and the away-home score, so the columns line up */}
-                  {priceCell(awayTeam, awayPrice, priceColor(awayPrice, homePrice))}
-                  {priceCell(homeTeam, homePrice, priceColor(homePrice, awayPrice))}
+                  {priceCell(awayTeam, awayPrice, priceColor(awayPrice, homePrice),
+                    inPlay && live.batting === "away")}
+                  {priceCell(homeTeam, homePrice, priceColor(homePrice, awayPrice),
+                    inPlay && live.batting === "home")}
                   <td style={center}>
                     {inPlay ? (
                       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
