@@ -59,6 +59,18 @@ def _mid_cents(market: dict) -> float | None:
     """Midpoint of best bid/ask in cents — the probability Polymarket shows on
     a market page, so our number matches what the client compares against.
     Falls back to whichever side exists; None when nothing is offered."""
+    # A SETTLED market has no order book left: bestBid goes null and bestAsk is
+    # left as dust (0.01). Averaging that reported 1c on a market that actually
+    # resolved to 0, and with both sides null the price vanished from the row
+    # altogether once a game went Final. outcomePrices carries the settled
+    # result ("0"/"1"), so it is the truth once the market is closed.
+    if market.get("closed") or market.get("umaResolutionStatus") == "resolved":
+        settled = _json_list(market.get("outcomePrices"))
+        if settled:
+            try:
+                return round(float(settled[0]) * 100, 2)
+            except (TypeError, ValueError):
+                pass
     vals = [
         float(x)
         for x in (market.get("bestBid"), market.get("bestAsk"))

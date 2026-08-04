@@ -483,6 +483,15 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                         {/* replaces a bare coloured dot: the word carries the
                             meaning, the colour just makes it scannable */}
                         <HomeAwayTag side={live.batting} />
+                        {/* During a break this column names the side coming up
+                            NEXT, not one that is batting — without saying so it
+                            reads as though they are at the plate already. */}
+                        {isInningBreak(live) && (
+                          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
+                            color: T.series[1] }}>
+                            UP NEXT:
+                          </span>
+                        )}
                         {battingTeam.name}
                       </span>
                     ) : "—"}
