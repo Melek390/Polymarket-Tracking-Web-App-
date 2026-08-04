@@ -56,7 +56,9 @@ export default function TeamTagsDialog({ state, onChange, onClose }) {
           <button onClick={onClose} style={{ ...btn.ghost, fontSize: 22, lineHeight: 1, padding: "0 4px" }}>×</button>
         </div>
         <div style={{ fontSize: 12, color: T.sub, marginTop: 2 }}>
-          Label the clubs you follow — the tags show under the team name in the games list.
+          Step 1: create a tag. Step 2: click <strong>+ tag</strong> next to a club to
+          apply it — it then shows under that team's name in the games list. Creating a
+          tag applies it to nothing by itself.
         </div>
 
         {/* create */}
@@ -125,18 +127,21 @@ export default function TeamTagsDialog({ state, onChange, onClose }) {
                 </span>
                 {state.tags.map((t) => {
                   const on = mine.some((x) => x.id === t.id);
+                  // The off state must read as an ACTION ("+ add this"), not a
+                  // state — a plain grey label next to all 30 clubs read as
+                  // "this tag is saved on every team" the first time the
+                  // client created one.
                   return (
                     <button key={t.id} onClick={() => apply(toggleTeamTag(state, tm.name, t.id))}
-                      title={on ? "Remove this tag" : "Add this tag"}
+                      title={on ? `Remove "${t.label}" from ${tm.name}` : `Add "${t.label}" to ${tm.name}`}
                       style={{
                         fontFamily: T.ui, fontSize: 10, fontWeight: 700, cursor: "pointer",
                         borderRadius: 4, padding: "3px 7px",
-                        color: on ? "#fff" : T.sub,
+                        color: on ? "#fff" : T.faint,
                         background: on ? colorOf(t.color) : "transparent",
-                        border: `1px solid ${on ? colorOf(t.color) : T.border}`,
-                        opacity: on ? 1 : 0.75,
+                        border: on ? `1px solid ${colorOf(t.color)}` : `1px dashed ${T.border}`,
                       }}>
-                      {t.label}
+                      {on ? "✓ " : "+ "}{t.label}
                     </button>
                   );
                 })}
