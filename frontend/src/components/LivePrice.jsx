@@ -15,16 +15,29 @@ const fmtLive = (n) =>
 // value and the cell flashes green (up) / red (down) on every move, so you can
 // see prices ticking in real time without refreshing. Stable prices don't
 // flash — only actual changes do.
+// Flash only on a move of at least this much — half-cent jitter had the table
+// blinking constantly (client request). The NUMBER always tracks the real
+// price regardless; only the green/red attention flash is gated.
+const FLASH_MIN_CENTS = 1;
+
 export default function LivePrice({ cents, color, weight = 700 }) {
   const [flash, setFlash] = useState(null); // "up" | "down" | null
-  const prev = useRef(cents);
+  // price at the last flash — comparing against this (not the previous tick)
+  // means a slow drift of half-cent steps still flashes once it accumulates a
+  // full cent, instead of never flashing at all
+  const anchor = useRef(cents);
 
   useEffect(() => {
     if (cents == null) return;
-    if (prev.current != null && cents !== prev.current) {
-      setFlash(cents > prev.current ? "up" : "down");
+    if (anchor.current == null) {
+      anchor.current = cents;
+      return;
     }
-    prev.current = cents;
+    const delta = cents - anchor.current;
+    if (Math.abs(delta) >= FLASH_MIN_CENTS) {
+      setFlash(delta > 0 ? "up" : "down");
+      anchor.current = cents;
+    }
   }, [cents]);
 
   useEffect(() => {
