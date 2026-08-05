@@ -71,6 +71,25 @@ DECISIONS SETTLED (Aug 5, via the user):
    each cutoff. If high scores don't win more than low scores, the score gets
    dropped — it has to EARN its place. This comparison is the first deliverable.
 
+## EXECUTION REALISM (user raised Aug 5 — must be in the simulator)
+
+A naive backtest fills at the mid-price tick at the signal instant = algo
+fiction. Three corrections:
+1. REACTION DELAY param (executionDelaySeconds, default ~15-30s): fill at the
+   tick at signal+delay. Cheap — we have 1s ticks. Show 0s/15s/60s side by
+   side so the client sees what his speed costs.
+2. SPREAD: our ticks are MIDPOINTS (what Polymarket displays), but buys pay
+   the ASK and exits hit the BID. We did NOT store historical bid/ask, so add
+   slippageCentsPerSide (default 0.5-1c) charged on entry AND exit.
+3. TRUE FILLS where possible: data-api /trades?market= is the EXECUTED trade
+   tape (price+timestamp, verified working during V3 research). Best fill
+   model for backfill = first real trade at/after signal+delay. Mid-price
+   run = optimistic ceiling; trade-tape run = truth.
+GOING FORWARD: store bid+ask alongside mid for tracked games so future
+backtests record spreads instead of modelling them.
+(CLOB reminder from V2.md: /price?side=buy is the BEST BID; the ask is the
+sell-side quote. Do not confuse them again.)
+
 ## PROPOSED ARCHITECTURE (Aug 5, discussed with the user — not yet approved)
 
 NO new live MLB storage needed: statsapi replays any past game on demand via
