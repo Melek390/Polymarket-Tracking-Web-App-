@@ -1,5 +1,60 @@
 # V2 BACKTESTING MODE — client spec (Aug 5, 2026). NO CODE YET, NO DECISIONS.
 
+## STATUS: LAYOUT SHIPPED (Aug 5), STRATEGY NOT WIRED
+
+/backtesting is live behind a "Backtesting" nav button — design preview only,
+mock numbers, "Run backtest" disabled. Modular per the house rule:
+  views/Backtesting.jsx                      thin page
+  components/backtesting/StrategyCard.jsx    header row + expand
+  components/backtesting/StrategyStats.jsx   KPIs, equity, situation table
+  components/backtesting/ParamsDialog.jsx    hard filters / bounce / weights,
+                                             Restore defaults
+  api/backtestPreview.js                     mock data + DEFAULT_PARAMS
+Param edits are component-state only. When they become real they go SERVER-SIDE
+(presets shared, multi-window — see the Aug 5 localStorage lessons in V2.md).
+
+## THE STRATEGY IN PLAIN TERMS (for the client to confirm)
+
+You watch live MLB games. When a team falls behind, the market often panics
+and their price gets very cheap — sometimes cheaper than the real chance of a
+comeback. The idea:
+
+1. ONLY look at a game right after a half-inning ends, when the trailing
+   team's price is 25c or less and there are still enough innings left.
+   Everything else is ignored — no exceptions, no scoring.
+2. For the games that qualify, ask ten quick questions: how many innings
+   remain? how big is the deficit? does the trailing team bat last (home)?
+   are they in form? is the leading team's pitcher tired or wild? who is due
+   up? is the park hitter-friendly? is the market cheaper than history says
+   this spot deserves? have they shown any contact today? Each answer adds
+   points; the weights are adjustable and there is always a default to revert
+   to.
+3. A high total = the market is probably overreacting. You buy the trailing
+   team, and you sell as soon as the price bounces a few cents — you are NOT
+   betting they win the game, only that hope returns for a moment.
+4. The backtesting page replays this recipe over games the tracker has ALREADY
+   recorded (it stores second-by-second prices), so you can see the win rate
+   and P&L a set of parameters WOULD have produced — and which situations
+   (home teams, 1-run deficits, certain clubs) it actually wins in — before
+   risking anything.
+
+## TO CONFIRM WITH THE CLIENT BEFORE WIRING
+
+1. WIN DEFINITION (blocks everything): the bounce target and the give-up
+   horizon. Draft default in the UI: +5c within 4 half-innings. Also: does a
+   spot that never bounces count as a full loss at the entry price, or exit at
+   the horizon price?
+2. Hard gate: exact minimum innings left (UI draft: 4).
+3. Minimum checklist score that flags a spot (UI draft: 7 of ~14).
+4. Confirm the restructure he half-proposed: historical win expectancy vs
+   price becomes the BASE signal, checklist factors become adjustments.
+5. Stake model for P&L: flat $ per spot, or per-price sizing?
+6. Where live scores surface once wired (screener rows? alerts at score >= X?)
+   — the backtest page itself is only the lab.
+7. Data honesty: bullpen "warming" is not reliably in the API; scores will
+   treat it as unknown, not zero. He already accepted this — reconfirm.
+
+
 Captured verbatim-in-substance from the client. Awaiting direction on scope
 and priorities before anything is built. Read V1.md + V2.md first.
 

@@ -35,6 +35,7 @@ export default function Header({ collectorRunning, refreshing, onRefresh, onNavi
             ["Dashboard", "/"],
             ["Screener", "/screener"],
             ["Accounts", "/accounts_tracker"],
+            ["Backtesting", "/backtesting"],
           ].map(([name, href]) => {
             // Dashboard owns "/" and the market history pages under it; the
             // others match their own prefix.

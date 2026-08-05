@@ -64,6 +64,7 @@ app.include_router(router)
 @app.get("/screener/{sport}")
 @app.get("/market/{market_id}")
 @app.get("/accounts_tracker")
+@app.get("/backtesting")
 def spa_page(sport: str = "", market_id: int = 0):
     """Serve index.html for the app's own page routes."""
     return FileResponse("frontend/dist/index.html")

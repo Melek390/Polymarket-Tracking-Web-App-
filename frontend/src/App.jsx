@@ -4,6 +4,7 @@ import Dashboard from "./views/Dashboard.jsx";
 import MarketHistory from "./views/MarketHistory.jsx";
 import Screener from "./views/Screener.jsx";
 import AccountsTracker from "./views/AccountsTracker.jsx";
+import Backtesting from "./views/Backtesting.jsx";
 import {
   deleteMarket,
   fetchDashboard,
@@ -22,6 +23,7 @@ function parseRoute() {
   const path = window.location.pathname;
   const params = new URLSearchParams(window.location.search);
   if (path === "/accounts_tracker") return { view: "accounts", params };
+  if (path === "/backtesting") return { view: "backtesting", params };
   const screener = path.match(/^\/screener(?:\/([a-z]+))?$/);
   if (screener) return { view: "screener", sport: screener[1] || "soccer", params };
   const match = path.match(/^\/market\/(\d+)$/);
@@ -149,6 +151,8 @@ export default function App() {
       <div style={{ zoom: scale }}>
       {route.view === "accounts" ? (
         <AccountsTracker />
+      ) : route.view === "backtesting" ? (
+        <Backtesting />
       ) : route.view === "screener" ? (
         <Screener
           sport={route.sport}
