@@ -51,7 +51,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const [homeRun, setHomeRun] = useState({});
   const [dialogOpen, setDialogOpen] = useState(false); // global MLB alert dialog
   const [dialogRow, setDialogRow] = useState(null); // per-game alert dialog
-  const { toasts, push: pushToast, dismiss: dismissToast } = useToasts();
+  const { toasts, push: pushToast, dismiss: dismissToast, clear: clearToasts } = useToasts();
   const [analyze, setAnalyze] = useState(null); // {text, copied, busy}
   const [sort, setSort] = useState({ key: null, dir: "desc" }); // key: away|home|score|null
   const [matchups, setMatchups] = useState({}); // gamePk -> standings/series/probables
@@ -105,9 +105,29 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
     persistAlerts(next);
     matchRef.current = {};
     setHits(new Set());
+    // Turning an alert off must SILENCE it. Toasts live 40s, so without this
+    // the ones already raised sat on screen after "Turn off" — which reads as
+    // "I turned it off and it still gave me alert".
+    clearToasts();
   }
   const saveAlert = (a) => saveKey(SPORT, a); // global
   const clearAlert = () => clearKey(SPORT);
+
+  // Another window of the app keeps its own copy of the alerts, loaded at
+  // mount. Without listening for storage events, turning an alert off in one
+  // window left every other window alerting FOREVER — the client runs two
+  // screens, so this is a real path, not a corner case.
+  useEffect(() => {
+    const sync = (e) => {
+      if (e.key !== "screenerAlerts") return;
+      setAlerts(loadAlerts());
+      matchRef.current = {};
+      setHits(new Set());
+      clearToasts();
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
 
   // Row highlights: the user's own colour marks, kept in the browser. Read
   // fresh from storage on write so the screener's other table can't clobber

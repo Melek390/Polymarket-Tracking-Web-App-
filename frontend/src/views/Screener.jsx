@@ -245,9 +245,23 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
     persistAlerts(nextA);
     matchRef.current = {};
     setHits(new Set());
+    clearToasts(); // silence what was already raised, not just future fires
   }
   const saveAlert = (a) => saveKey(sport, a); // global (the AlertBar)
   const clearAlert = () => clearKey(sport);
+
+  // Keep other windows of the app in sync — see BaseballTable for the story.
+  useEffect(() => {
+    const sync = (e) => {
+      if (e.key !== "screenerAlerts") return;
+      setAlerts(loadAlerts());
+      matchRef.current = {};
+      setHits(new Set());
+      clearToasts();
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
 
   // Row highlights: the user's own colour marks, kept in the browser. Read
   // fresh from storage on write so the baseball table can't clobber them.
