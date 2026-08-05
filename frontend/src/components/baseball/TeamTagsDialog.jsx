@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { T, card, monoText, btn } from "../../theme.js";
 import { fetchMlbTeams } from "../../api/client.js";
 import {
-  TAG_COLORS, addTag, colorOf, persistTeamTags, removeTag, tagsFor, toggleTeamTag,
+  TAG_COLORS, addTag, colorOf, loadTeamTags, persistTeamTags, removeTag, tagsFor, toggleTeamTag,
 } from "../../teamTags.js";
 
 // Small coloured label. Exported because the table renders these under each
@@ -30,7 +30,15 @@ export default function TeamTagsDialog({ state, onChange, onClose }) {
     fetchMlbTeams().then(setTeams).catch(() => setTeams([]));
   }, []);
 
-  const apply = (next) => { onChange(next); persistTeamTags(next); };
+  // Apply a TRANSFORM to what is on disk right now, never to this window's
+  // in-memory copy. A second window holds the tags it loaded at mount; writing
+  // that stale copy back wholesale erased tags created since — which is how
+  // "the tag I added yesterday is gone today" happened.
+  const apply = (fn) => {
+    const next = fn(loadTeamTags());
+    onChange(next);
+    persistTeamTags(next);
+  };
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (teams || []).filter((t) => !q || t.name.toLowerCase().includes(q)
@@ -67,7 +75,7 @@ export default function TeamTagsDialog({ state, onChange, onClose }) {
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && label.trim()) { apply(addTag(state, label, color)); setLabel(""); }
+              if (e.key === "Enter" && label.trim()) { apply((cur) => addTag(cur, label, color)); setLabel(""); }
             }}
             placeholder="New tag name…"
             style={{ ...field, flex: 1, minWidth: 180 }}
@@ -79,7 +87,7 @@ export default function TeamTagsDialog({ state, onChange, onClose }) {
                 border: c.key === color ? `2px solid ${T.ink}` : "1px solid rgba(0,0,0,0.12)" }} />
           ))}
           <button
-            onClick={() => { if (label.trim()) { apply(addTag(state, label, color)); setLabel(""); } }}
+            onClick={() => { if (label.trim()) { apply((cur) => addTag(cur, label, color)); setLabel(""); } }}
             disabled={!label.trim()}
             style={{ ...btn.green, fontSize: 13, padding: "9px 16px" }}
           >
@@ -97,7 +105,7 @@ export default function TeamTagsDialog({ state, onChange, onClose }) {
                   border: `1px solid ${T.border}`, borderRadius: 999, padding: "3px 6px 3px 8px",
                 }}>
                   <TeamTag tag={t} />
-                  <button onClick={() => apply(removeTag(state, t.id))} title="Delete this tag"
+                  <button onClick={() => apply((cur) => removeTag(cur, t.id))} title="Delete this tag"
                     style={{ ...btn.ghost, fontSize: 13, padding: "0 3px", color: T.faint }}>✕</button>
                 </span>
               ))}
@@ -132,7 +140,7 @@ export default function TeamTagsDialog({ state, onChange, onClose }) {
                   // "this tag is saved on every team" the first time the
                   // client created one.
                   return (
-                    <button key={t.id} onClick={() => apply(toggleTeamTag(state, tm.name, t.id))}
+                    <button key={t.id} onClick={() => apply((cur) => toggleTeamTag(cur, tm.name, t.id))}
                       title={on ? `Remove "${t.label}" from ${tm.name}` : `Add "${t.label}" to ${tm.name}`}
                       style={{
                         fontFamily: T.ui, fontSize: 10, fontWeight: 700, cursor: "pointer",

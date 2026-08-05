@@ -253,11 +253,14 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   // Keep other windows of the app in sync — see BaseballTable for the story.
   useEffect(() => {
     const sync = (e) => {
-      if (e.key !== "screenerAlerts") return;
-      setAlerts(loadAlerts());
-      matchRef.current = {};
-      setHits(new Set());
-      clearToasts();
+      if (e.key === "screenerAlerts") {
+        setAlerts(loadAlerts());
+        matchRef.current = {};
+        setHits(new Set());
+        clearToasts();
+      } else if (e.key === "screenerHighlights") {
+        setHighlights(loadHighlights());
+      }
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);

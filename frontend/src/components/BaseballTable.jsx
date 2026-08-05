@@ -115,17 +115,22 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const saveAlert = (a) => saveKey(SPORT, a); // global
   const clearAlert = () => clearKey(SPORT);
 
-  // Another window of the app keeps its own copy of the alerts, loaded at
+  // Another window of the app keeps its own copy of this state, loaded at
   // mount. Without listening for storage events, turning an alert off in one
   // window left every other window alerting FOREVER — the client runs two
   // screens, so this is a real path, not a corner case.
   useEffect(() => {
     const sync = (e) => {
-      if (e.key !== "screenerAlerts") return;
-      setAlerts(loadAlerts());
-      matchRef.current = {};
-      setHits(new Set());
-      clearToasts();
+      if (e.key === "screenerAlerts") {
+        setAlerts(loadAlerts());
+        matchRef.current = {};
+        setHits(new Set());
+        clearToasts();
+      } else if (e.key === "mlbTeamTags") {
+        setTeamTags(loadTeamTags()); // tags edited in another window show here
+      } else if (e.key === "screenerHighlights") {
+        setHighlights(loadHighlights());
+      }
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
