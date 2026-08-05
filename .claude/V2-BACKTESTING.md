@@ -40,6 +40,18 @@ comeback. The idea:
 
 ## USER DIRECTION (Aug 5) — parked, NOT started
 
+DECISIONS SETTLED (Aug 5, via the user):
+- SCORE CAP FIXED AT 14 (weights sum to 14, not "roughly 10"). Thresholds are
+  expressed against /14 so they stay comparable. If weights are ever edited,
+  the cap changes with them — flag that in the UI when it happens.
+- Hard filters first: reconfirmed. One miss = no score, no bet.
+- Wild pitcher via API: reconfirmed feasible; bullpen warming stays "unknown".
+- Price-vs-history weighting: DO NOT re-weight on opinion — the backtest
+  itself is the investigation (do cheap-vs-history spots win more?).
+- Team/situation learning: from our own collected corpus.
+- VM disk upgrade approved in principle by the user (long-open item).
+
+
 - Corpus = TRACKED games only (where tick data exists). For those, pull the
   matching MLB game data and STORE IT IN OUR DB (backend). Untracked games
   stay out; the Track click becomes the gateway that collects BOTH ticks and
