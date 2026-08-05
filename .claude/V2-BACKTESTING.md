@@ -71,6 +71,22 @@ DECISIONS SETTLED (Aug 5, via the user):
    each cutoff. If high scores don't win more than low scores, the score gets
    dropped — it has to EARN its place. This comparison is the first deliverable.
 
+## CORPUS AUDIT (Aug 6) — day-one backtest has 116 games
+
+Read-only audit of the production DB + MLB replay:
+- 116 distinct tracked MLB games (May 9 -> Aug 2), 116/116 with tick data,
+  none under 5,000 ticks, 4.2M MLB price points total.
+- Resolution: 5s before Aug 1 (1s-while-live change), 1s after. Both fine for
+  bounce detection.
+- MLB replay VERIFIED on the OLDEST corpus game (gamePk 824766): every play
+  carries about.endTime; mid-game ?timecode= linescore AND boxscore both
+  serve. Replay reach is no longer a risk.
+- GOTCHA FOUND: mlb-tb-bos-2026-05-09 was postponed and PLAYED JULY 17 (654k
+  ticks from weeks of pre-game tracking). The backfill must key on PLAY
+  TIMESTAMPS, never slug dates — postponements then handle themselves.
+- Still untested: data-api /trades?market= historical depth for the trade-tape
+  fill model — check during the build.
+
 ## EXECUTION REALISM (user raised Aug 5 — must be in the simulator)
 
 A naive backtest fills at the mid-price tick at the signal instant = algo
