@@ -71,7 +71,23 @@ DECISIONS SETTLED (Aug 5, via the user):
    each cutoff. If high scores don't win more than low scores, the score gets
    dropped — it has to EARN its place. This comparison is the first deliverable.
 
-## CORPUS AUDIT (Aug 6) — day-one backtest has 116 games
+## CORPUS AUDIT (Aug 6) — 116 games, BUT split by cadence (user caught this)
+
+Tick SPACING audit (counts alone lie):
+- 42 GOLD games: live-collected, median gap <=10s (5s pre-Aug-1, 1s after),
+  dense span median 7.5h. Full-fidelity backtest incl. delay modelling.
+- 74 SILVER games: median gap ~59s = 1-MINUTE BARS. These were tracked AFTER
+  the game ended; the Aug 1 settled-market backfill pulls CLOB history, which
+  arrives as 1-min bars. Usable for minute-scale win-rate stats; blurs fills,
+  misses short spikes, sub-minute delay modelling meaningless.
+RULES THAT FOLLOW:
+- The backtest must TAG every result gold/silver, never silently mix.
+- UPGRADE PATH for silver: data-api /trades?market= (executed trade tape,
+  trade-level timestamps) — if it reaches back to those dates, silver gets
+  promoted. Still untested.
+- TELL THE CLIENT: track BEFORE first pitch -> gold; post-hoc -> silver.
+
+## CORPUS AUDIT DETAIL — day-one backtest has 116 games
 
 Read-only audit of the production DB + MLB replay:
 - 116 distinct tracked MLB games (May 9 -> Aug 2), 116/116 with tick data,
