@@ -87,6 +87,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   rowsRef.current = rows;
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
+  // gamePks probed once for a final score (see the poll filter)
+  const probedRef = useRef(new Set());
 
   // Alerts live in one flat map: keyed by SPORT for the global MLB alert, and
   // by the match slug for a per-game alert. A game fires if EITHER matches.
@@ -242,7 +244,19 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
           if (st === "Final") return false; // finished — stop polling (keeps its final score cached)
           if (st === "Live") return true;
           if (curExpanded.has(r.gamePk)) return true;
-          return r.kickoff && now - r.kickoff < 5 * 3600e3 && r.kickoff - now < 30 * 60e3;
+          if (r.kickoff && now - r.kickoff < 5 * 3600e3 && r.kickoff - now < 30 * 60e3) return true;
+          // Older games get ONE probe so their final score survives a page
+          // reload — the backend keeps yesterday's schedule too, the browser
+          // just never asked. Once the answer is Final the branch above stops
+          // any re-polling; probedRef stops retry loops for games the backend
+          // can't resolve (the July 26 feed flood was exactly such a cycle).
+          if (st === undefined && r.kickoff
+              && now - r.kickoff >= 5 * 3600e3 && now - r.kickoff < 26 * 3600e3
+              && !probedRef.current.has(r.gamePk)) {
+            probedRef.current.add(r.gamePk);
+            return true;
+          }
+          return false;
         });
 
       // expanded rows fetch the full feed (ERA/OPS); the rest read the light cache
@@ -393,7 +407,11 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
               // back to Polymarket's away-first order (r.home = away).
               const away = live?.away.name ?? r.home;
               const home = live?.home.name ?? r.away;
-              const score = inPlay
+              // A finished game KEEPS its score — it used to blank to "—" the
+              // moment the status flipped to Final, even though the runs were
+              // right there in the cached state (the expand panel still showed
+              // them, which is how the client caught it).
+              const score = inPlay || live?.status === "Final"
                 ? `${live.away.runs ?? 0}-${live.home.runs ?? 0}` : "—";
               const battingTeam = inPlay
                 ? (live.batting === "away" ? live.away : live.home) : null;
