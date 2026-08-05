@@ -45,6 +45,15 @@ export function inningText(live, kickoff) {
   return `${arrow} ${half} ${n}`;
 }
 
+// The break text WITHOUT the "· break" suffix, for the table's Inning column —
+// there it renders on two lines ("End of Bot 4" over "(break)") because the
+// one-liner was the widest thing in the column and the client wants the
+// horizontal space back. The expand panel keeps the single-line form.
+export function breakText(live) {
+  const n = live?.inning ?? "";
+  return live?.inning_state === "Middle" ? `End of Top ${n}` : `End of Bot ${n}`;
+}
+
 // Live event feed — the last few completed plays, newest big on top, so a run,
 // home run or out is obvious the moment it happens.
 // The column ALWAYS renders while a game is live, even with nothing to show:

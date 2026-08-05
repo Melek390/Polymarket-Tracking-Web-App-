@@ -11,7 +11,7 @@ import LivePrice from "./LivePrice.jsx";
 import Toasts, { useToasts } from "./Toasts.jsx";
 import ExpandPanel from "./baseball/ExpandPanel.jsx";
 import { Bases, BattingTag, HomeAwayTag, OutDots } from "./baseball/widgets.jsx";
-import { inningText, isFinished, isInningBreak, preGameLabel } from "./baseball/gameState.js";
+import { breakText, inningText, isFinished, isInningBreak, preGameLabel } from "./baseball/gameState.js";
 import TeamTagsDialog, { TeamTag } from "./baseball/TeamTagsDialog.jsx";
 import { loadTeamTags, tagsFor, taggedTeamCount } from "../teamTags.js";
 
@@ -513,7 +513,15 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                   <td style={{ ...td, whiteSpace: "nowrap",
                     color: warmup || isInningBreak(live) ? T.series[1] : isLive ? T.red : T.sub,
                     fontWeight: warmup || isInningBreak(live) ? 700 : undefined }}>
-                    {isInningBreak(live) && "⏸ "}{inningText(live, r.kickoff)}
+                    {isInningBreak(live) ? (
+                      /* two lines on client request — the one-line
+                         "End of Bot 4 · break" was the widest thing in
+                         this column and forced horizontal scrolling */
+                      <>
+                        <div>⏸ {breakText(live)}</div>
+                        <div style={{ fontSize: 10, fontWeight: 400 }}>(break)</div>
+                      </>
+                    ) : inningText(live, r.kickoff)}
                   </td>
                   <td style={{ ...td, fontFamily: T.ui, whiteSpace: "nowrap" }}>
                     {battingTeam ? (
