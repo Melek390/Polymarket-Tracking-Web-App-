@@ -38,6 +38,39 @@ comeback. The idea:
    (home teams, 1-run deficits, certain clubs) it actually wins in — before
    risking anything.
 
+## PROPOSED ARCHITECTURE (Aug 5, discussed with the user — not yet approved)
+
+NO new live MLB storage needed: statsapi replays any past game on demand via
+?timecode= (proven all week). The scarce asset is OUR OWN 1s ticks — they only
+exist for TRACKED markets (~100+ MLB games so far) and fine history that was
+never recorded is unrecoverable (CLOB history is 1-10min bars, too coarse for
+bounce detection).
+
+TWO-PHASE DESIGN:
+1. BACKFILL (slow, once + nightly append): per tracked MLB game — resolve
+   gamePk -> playByPlay (fields) -> half-inning ends -> hard gate -> RAW
+   checklist factors at that moment (timecode boxscore etc) -> entry price
+   from ticks -> PRICE PATH afterwards (max price within next 1..6
+   half-innings). All into a new server-side `backtest_spots` table.
+2. RUN (instant): every "Run backtest" is arithmetic over backtest_spots.
+   Weights applied to stored RAW FACTORS at query time (weight tweaks rescore
+   history free); bounce definition applied to the stored PRICE PATH at query
+   time — so the client can COMPARE win definitions instead of picking one
+   blind. This partially dissolves confirm-item #1.
+
+STATIC ONE-TIMERS: win-expectancy table derived from Retrosheet (bases always
+empty -> tiny: inning x half x deficit x home/away), 30-row park-factor table.
+
+STORAGE DECISION FOR THE USER/CLIENT: auto-track all MLB moneylines so the
+corpus compounds daily without manual Track clicks (~tens of MB/day, 1s only
+while live). This forces the long-open DISK RESIZE TO 20G — package them.
+
+BUILD ORDER: resize+auto-track -> spots schema+backfill -> WE/park tables ->
+/api/backtest/run -> swap the UI mock -> only then the live scorer/alerts
+reusing the same scoring function.
+RISK TO CHECK before relying: how far back ?timecode= serves feed/live
+(verified days-old only; test a months-old gamePk).
+
 ## TO CONFIRM WITH THE CLIENT BEFORE WIRING
 
 1. WIN DEFINITION (blocks everything): the bounce target and the give-up
