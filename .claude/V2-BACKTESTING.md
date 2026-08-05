@@ -45,7 +45,13 @@ comeback. The idea:
    spot that never bounces count as a full loss at the entry price, or exit at
    the horizon price?
 2. Hard gate: exact minimum innings left (UI draft: 4).
-3. Minimum checklist score that flags a spot (UI draft: 7 of ~14).
+3. Score threshold — CLARIFIED Aug 5: the client NEVER gave one. His spec has
+   hard rules + a scoring system but no "enter at score >= X"; he appears to
+   enter on judgment once the hard rules pass. The UI's "score >= 7" is OUR
+   placeholder. The sharper question for him: is the score a TRIGGER
+   (auto-flag above a line -> alerts) or a DECISION AID (ranked list, he
+   decides)? Either way the right cutoff is something the backtest should
+   DISCOVER (win rate at 5+/6+/7+/8+), not something he must guess up front.
 4. Confirm the restructure he half-proposed: historical win expectancy vs
    price becomes the BASE signal, checklist factors become adjustments.
 5. Stake model for P&L: flat $ per spot, or per-price sizing?
