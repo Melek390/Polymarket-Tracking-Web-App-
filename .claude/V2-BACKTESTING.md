@@ -38,6 +38,27 @@ comeback. The idea:
    (home teams, 1-run deficits, certain clubs) it actually wins in — before
    risking anything.
 
+## USER DIRECTION (Aug 5) — parked, NOT started
+
+- Corpus = TRACKED games only (where tick data exists). For those, pull the
+  matching MLB game data and STORE IT IN OUR DB (backend). Untracked games
+  stay out; the Track click becomes the gateway that collects BOTH ticks and
+  MLB data. NO blanket auto-tracking (supersedes that part of the
+  architecture note below).
+
+## THE TWO CLARIFICATIONS THAT SETTLED THE DESIGN (user asked, Aug 5)
+
+1. WHAT STRATEGY does the backtest bet? HIS OWN, made mechanical: at each
+   half-inning end passing the hard rules, pretend-buy the trailing team at
+   the tick price of that moment; win if the recorded prices touch the bounce
+   target within the horizon, else loss per the exit rule. Sum across games.
+2. WHY SCORES if entry is 3 hard rules? The rules alone fire on almost every
+   losing team; he currently filters by eye (tired pitcher? good team? who's
+   up?). The checklist IS that eyeballing written down — his own 10 factors.
+   The backtest runs BOTH variants side by side: rules-only vs rules+score at
+   each cutoff. If high scores don't win more than low scores, the score gets
+   dropped — it has to EARN its place. This comparison is the first deliverable.
+
 ## PROPOSED ARCHITECTURE (Aug 5, discussed with the user — not yet approved)
 
 NO new live MLB storage needed: statsapi replays any past game on demand via
