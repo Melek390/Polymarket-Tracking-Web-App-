@@ -50,10 +50,16 @@ async def _value(wallet: str) -> float | None:
 
 def _redeems_as_sells(activity: list[dict]) -> list[dict]:
     """REDEEM events become $1 exits with no fee (winner held to the end).
-    Missing them makes every held winner look like an open position forever."""
+    Missing them makes every held winner look like an open position forever.
+
+    GOTCHA (found reconciling against a real profile, Aug 6): REDEEM rows
+    carry an EMPTY `asset` — redemption happens at the condition level — so
+    they are keyed by (conditionId, outcome) and resolved to the bought token
+    in matched(). Zero-size redeems (the losing side being cleaned up) are
+    skipped: they close nothing and rendered as "Redeemed 0"."""
     out = []
     for a in activity:
-        if a.get("type") != "REDEEM":
+        if a.get("type") != "REDEEM" or float(a.get("size") or 0) <= 0:
             continue
         out.append({
             "tx": a.get("transactionHash") or "", "asset": a.get("asset") or "",
@@ -72,7 +78,14 @@ async def matched(acct: dict) -> tuple[list[dict], dict[str, dict], list[dict]]:
     dead = {p["asset"] for p in positions
             if float(p.get("curPrice") or 0) == 0 and not p.get("redeemable")}
     redeems = _redeems_as_sells(await dataapi.fetch_activity(acct["wallet"], 500))
-    fills = sorted(store.fills_for(acct["id"]) + redeems, key=lambda f: (f["ts"], f.get("id", 0)))
+    stored = store.fills_for(acct["id"])
+    # resolve each redeem's empty asset to the token that was actually bought
+    by_market = {(f["condition_id"], f["outcome"]): f["asset"]
+                 for f in stored if f["side"] == "BUY"}
+    for r in redeems:
+        r["asset"] = r["asset"] or by_market.get((r["condition_id"], r["outcome"]), "")
+    redeems = [r for r in redeems if r["asset"]]  # unmatchable without a buy
+    fills = sorted(stored + redeems, key=lambda f: (f["ts"], f.get("id", 0)))
     closed, open_trips = engine.match(fills, dead)
     return closed, open_trips, positions
 
@@ -132,6 +145,9 @@ async def closed_rows(acct: dict) -> list[dict]:
 
 async def activity_rows(acct: dict) -> list[dict]:
     acts = await dataapi.fetch_activity(acct["wallet"], 40)
+    # zero-size redeems are the worthless side being cleaned up — noise
+    acts = [a for a in acts
+            if not (a.get("type") == "REDEEM" and float(a.get("size") or 0) <= 0)]
     return [{
         "ts": int(a.get("timestamp") or 0),
         "type": a.get("type"),
