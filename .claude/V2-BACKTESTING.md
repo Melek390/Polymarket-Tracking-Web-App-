@@ -124,6 +124,10 @@ fiction. Three corrections:
    tape (price+timestamp, verified working during V3 research). Best fill
    model for backfill = first real trade at/after signal+delay. Mid-price
    run = optimistic ceiling; trade-tape run = truth.
+4. FEES (verified Aug 6, see V3.md for the schedule): sports takers pay
+   shares x 0.05 x p x (1-p) PER LEG (~4% of stake at 20c); MAKERS PAY ZERO.
+   The simulator needs a maker/taker flag per leg — taker-both-ways vs
+   maker-exit is 35% vs 16% of profit on his typical scalp.
 GOING FORWARD: store bid+ask alongside mid for tracked games so future
 backtests record spreads instead of modelling them.
 (CLOB reminder from V2.md: /price?side=buy is the BEST BID; the ask is the
