@@ -759,7 +759,7 @@ export default function AccountsTracker() {
                                   return (
                                     <div style={{ minWidth: 250 }}>
                                       <div style={{ ...label, fontSize: 10 }}>After your last trade</div>
-                                      <div style={{ ...monoText, fontSize: 15, fontWeight: 700, color: M.resolvedWin }}>
+                                      <div style={{ ...monoText, fontSize: 15, fontWeight: 700, color: M.green }}>
                                         resolved at 100¢
                                       </div>
                                       <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>
@@ -789,7 +789,7 @@ export default function AccountsTracker() {
                                         return (
                                           <>
                                             <div style={{ ...monoText, fontSize: 15, fontWeight: 700,
-                                              color: early ? M.red : M.green }}>
+                                              color: M.green }}>
                                               peaked at {fmtCents(pk.peak_cents)}
                                             </div>
                                             <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>
@@ -803,7 +803,7 @@ export default function AccountsTracker() {
                                       const rescue = pk.peak_cents / 100 * r.shares;
                                       return (
                                         <>
-                                          <div style={{ ...monoText, fontSize: 15, fontWeight: 700, color: M.resolved }}>
+                                          <div style={{ ...monoText, fontSize: 15, fontWeight: 700, color: M.green }}>
                                             peaked at {fmtCents(pk.peak_cents)} before dying
                                           </div>
                                           <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>
