@@ -1,6 +1,13 @@
 # V2 BACKTESTING MODE — client spec (Aug 5, 2026). NO CODE YET, NO DECISIONS.
 
-## STATUS: LAYOUT SHIPPED (Aug 5), STRATEGY NOT WIRED
+## STATUS: ON HOLD (Aug 6) — gathering data. LAYOUT SHIPPED, STRATEGY NOT WIRED
+
+User decision Aug 6: hold the backtesting build while the gold corpus grows
+(42 live-tick games today; every game tracked BEFORE first pitch adds one).
+Disk is resized (30G, 22G free) so collection can run for months. Remind the
+client to track game-day slates ahead of first pitch. Resume from the
+PROPOSED ARCHITECTURE section; the trade-tape depth check is still the first
+build task.
 
 /backtesting is live behind a "Backtesting" nav button — design preview only,
 mock numbers, "Run backtest" disabled. Modular per the house rule:
