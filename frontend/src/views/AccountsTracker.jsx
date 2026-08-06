@@ -132,6 +132,7 @@ export default function AccountsTracker() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [openRow, setOpenRow] = useState(null); // expanded row key
+  const [actShown, setActShown] = useState(60); // activity rows revealed
 
   async function loadAccounts(selectId) {
     try {
@@ -161,7 +162,7 @@ export default function AccountsTracker() {
       setLoading(false);
     }
   }
-  useEffect(() => { loadData(current); }, [current]);
+  useEffect(() => { loadData(current); setActShown(60); }, [current]);
 
   async function addAccount() {
     if (!newInput.trim()) return;
@@ -493,7 +494,8 @@ export default function AccountsTracker() {
           )}
 
           {/* ---------------- RECENT ACTIVITY ---------------- */}
-          <Section title="RECENT ACTIVITY" count={`last ${activity.length}`}>
+          <Section title="RECENT ACTIVITY"
+            count={`showing ${Math.min(actShown, activity.length)} of ${activity.length}`}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
@@ -502,7 +504,7 @@ export default function AccountsTracker() {
                 </tr>
               </thead>
               <tbody>
-                {activity.map((a, i) => {
+                {activity.slice(0, actShown).map((a, i) => {
                   const verb = { TRADE: a.side === "BUY" ? "Bought" : "Sold",
                                  REDEEM: "Redeemed", MERGE: "Merged" }[a.type] || a.type;
                   const color = a.type === "REDEEM" ? T.series[2]
@@ -525,6 +527,14 @@ export default function AccountsTracker() {
             </table>
             {activity.length === 0 && (
               <div style={{ padding: "20px 16px", fontSize: 13, color: T.faint }}>No recent activity.</div>
+            )}
+            {actShown < activity.length && (
+              <div style={{ padding: "10px 16px", borderTop: `1px solid ${T.border}` }}>
+                <button onClick={() => setActShown((n) => n + 120)}
+                  style={{ ...btn.outline, fontSize: 13, padding: "8px 16px" }}>
+                  Show more ({activity.length - actShown} older)
+                </button>
+              </div>
             )}
           </Section>
         </>

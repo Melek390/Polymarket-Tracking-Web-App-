@@ -153,7 +153,7 @@ async def closed_rows(acct: dict) -> list[dict]:
 
 
 async def activity_rows(acct: dict) -> list[dict]:
-    acts = await dataapi.fetch_activity(acct["wallet"], 40)
+    acts = await dataapi.fetch_activity(acct["wallet"], 500)  # the API's max page
     # zero-size redeems are the worthless side being cleaned up — noise
     acts = [a for a in acts
             if not (a.get("type") == "REDEEM" and float(a.get("size") or 0) <= 0)]
