@@ -132,3 +132,12 @@ def toggle_tag(acct_id: int, asset: str, tag: str) -> bool:
             "INSERT INTO trader_tags (account_id, asset, tag) VALUES (?,?,?)",
             (acct_id, asset, tag))
         return True
+
+
+def all_tags(acct_id: int) -> list[str]:
+    """Every distinct tag this account has ever used — the custom vocabulary
+    shown alongside the fixed list (client item 6)."""
+    with get_db() as conn:
+        return [r["tag"] for r in conn.execute(
+            "SELECT DISTINCT tag FROM trader_tags WHERE account_id=? ORDER BY tag",
+            (acct_id,))]

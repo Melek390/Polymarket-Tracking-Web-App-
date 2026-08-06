@@ -3,7 +3,7 @@ import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtCents, fmtTimestamp, fmtClock, TZ_LABEL } from "../utils.js";
 import {
   traderList, traderAdd, traderDelete, traderSummary, traderOpen,
-  traderClosed, traderActivity, traderTagToggle, traderPeak,
+  traderClosed, traderActivity, traderTagToggle, traderPeak, traderTagVocab,
 } from "../api/client.js";
 import { playSound } from "../alerts.js";
 import Toasts, { useToasts } from "../components/Toasts.jsx";
@@ -38,6 +38,25 @@ const usd = (n) =>
   `${n < 0 ? "−" : ""}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const pnlColor = (n) => (n > 0 ? M.green : n < 0 ? M.red : T.sub);
 const cents = (p01) => fmtCents(Math.round(p01 * 1000) / 10); // 0..1 -> cents, 1dp
+
+// the app speaks Ottawa/Eastern everywhere (utils.js) — day windows follow it
+const etDay = (ms) =>
+  new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+
+const PERIODS = [
+  ["today", "Today"], ["yesterday", "Yesterday"], ["7d", "Last 7 days"], ["all", "All time"],
+];
+
+function inPeriod(period, tsSec) {
+  if (period === "all") return true;
+  const ms = tsSec * 1000;
+  const now = Date.now();
+  if (period === "7d") return ms >= now - 7 * 86_400_000;
+  const day = etDay(ms);
+  if (period === "today") return day === etDay(now);
+  if (period === "yesterday") return day === etDay(now - 86_400_000);
+  return true;
+}
 
 function hold(seconds) {
   if (seconds == null) return "—";
@@ -103,11 +122,20 @@ function Stat({ title, value, sub, color }) {
   );
 }
 
-// tag chips with toggling — the same control on open and closed rows
-function TagEditor({ tags, onToggle }) {
+// tag chips with toggling — the same control on open and closed rows.
+// vocab = the fixed list plus every custom tag the account has created;
+// the input creates a new tag by applying it to this row (client item 6).
+function TagEditor({ tags, vocab, onToggle }) {
+  const [draft, setDraft] = useState("");
+  const create = () => {
+    const name = draft.trim();
+    if (!name) return;
+    onToggle(name);
+    setDraft("");
+  };
   return (
-    <span style={{ display: "inline-flex", gap: 5, flexWrap: "wrap" }}>
-      {TAGS.map((t) => {
+    <span style={{ display: "inline-flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+      {vocab.map((t) => {
         const on = tags.includes(t);
         return (
           <button key={t} onClick={() => onToggle(t)}
@@ -123,6 +151,19 @@ function TagEditor({ tags, onToggle }) {
           </button>
         );
       })}
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && create()}
+        placeholder="new tag…"
+        style={{ ...monoText, fontSize: 11, padding: "3px 7px", width: 90,
+          border: `1px dashed ${T.border}`, borderRadius: 4, color: T.ink }}
+      />
+      <button onClick={create} disabled={!draft.trim()}
+        title="Create this tag and apply it to this trade"
+        style={{ ...btn.outline, fontSize: 11, padding: "3px 8px" }}>
+        + add
+      </button>
     </span>
   );
 }
@@ -177,6 +218,8 @@ export default function AccountsTracker() {
   const [actShown, setActShown] = useState(60); // activity rows revealed
   const [peaks, setPeaks] = useState({}); // asset|ts -> {peak_cents, source} | "loading" | null
   const [priceAlerts, setPriceAlerts] = useState(loadPriceAlerts);
+  const [customTags, setCustomTags] = useState([]);
+  const [period, setPeriod] = useState("all");
   const { toasts, push: pushToast, dismiss: dismissToast, clear: clearToasts } = useToasts();
   const accountsRef = useRef(null);
   const priceAlertsRef = useRef(priceAlerts);
@@ -203,10 +246,11 @@ export default function AccountsTracker() {
     setLoading(true);
     setError(null);
     try {
-      const [s, o, c, a] = await Promise.all([
+      const [s, o, c, a, v] = await Promise.all([
         traderSummary(id), traderOpen(id), traderClosed(id), traderActivity(id),
+        traderTagVocab(id),
       ]);
-      setSummary(s); setOpen(o); setClosed(c); setActivity(a);
+      setSummary(s); setOpen(o); setClosed(c); setActivity(a); setCustomTags(v);
     } catch (e) {
       setError(`Could not load account data: ${e.message}`);
     } finally {
@@ -318,8 +362,9 @@ export default function AccountsTracker() {
   async function toggleTag(asset, tag) {
     await traderTagToggle(current, asset, tag);
     // refresh only the tag-bearing lists
-    const [o, c] = await Promise.all([traderOpen(current), traderClosed(current)]);
-    setOpen(o); setClosed(c);
+    const [o, c, v] = await Promise.all([
+      traderOpen(current), traderClosed(current), traderTagVocab(current)]);
+    setOpen(o); setClosed(c); setCustomTags(v);
   }
 
   const hit = (title, slug) => {
@@ -334,9 +379,31 @@ export default function AccountsTracker() {
     return true;
   };
 
+  const tagVocab = useMemo(
+    () => [...TAGS, ...customTags.filter((t) => !TAGS.includes(t))],
+    [customTags]);
+
+  // stats for the selected window, from the closed trips we already hold —
+  // portfolio value / unrealized / open describe RIGHT NOW and stay live
+  const windowed = useMemo(() => {
+    if (period === "all" || !summary) return null;
+    const rows = closed.filter((c) => inPeriod(period, c.closed_ts));
+    const wins = rows.filter((c) => c.win).length;
+    const holds = rows.map((c) => c.hold_s);
+    return {
+      realized: rows.reduce((a, c) => a + c.net, 0),
+      fees: rows.reduce((a, c) => a + c.fees, 0),
+      wins,
+      count: rows.length,
+      winRate: rows.length ? wins / rows.length : null,
+      avgHold: holds.length ? holds.reduce((a, b) => a + b, 0) / holds.length : null,
+    };
+  }, [period, closed, summary]);
+
   const openShown = open.filter((r) => hit(r.title, r.event_slug));
   const closedShown = closed
     .filter((r) => hit(r.title, r.event_slug) && inRange(r.closed_ts))
+    .filter((r) => inPeriod(period, r.closed_ts))
     .filter((r) => result === "all" || (result === "win") === r.win);
   const categories = useMemo(() => {
     const set = new Set([...open, ...closed].map((r) => categoryOf(r.event_slug)));
@@ -419,22 +486,45 @@ export default function AccountsTracker() {
 
       {summary && !loading && (
         <>
+          {/* period selector — windows the closed-trade stats and table */}
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: T.sub }}>Stats for:</span>
+            {PERIODS.map(([k, lab]) => (
+              <button key={k} onClick={() => setPeriod(k)} style={chip(period === k)}>{lab}</button>
+            ))}
+            {period !== "all" && (
+              <span style={{ fontSize: 11, color: T.faint }}>
+                portfolio value, unrealized and open positions always show right now
+              </span>
+            )}
+          </div>
+
           {/* stat cards */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Stat title="Portfolio value"
               value={summary.portfolio_value != null ? usd(summary.portfolio_value) : "—"} />
-            <Stat title="Realized P/L" value={usd(summary.realized_pnl)}
-              color={pnlColor(summary.realized_pnl)} sub="closed trades, net of fees" />
+            <Stat title="Realized P/L"
+              value={usd(windowed ? windowed.realized : summary.realized_pnl)}
+              color={pnlColor(windowed ? windowed.realized : summary.realized_pnl)}
+              sub={windowed ? "closed in this window, net of fees" : "closed trades, net of fees"} />
             <Stat title="Unrealized P/L" value={usd(summary.unrealized_pnl)}
               color={pnlColor(summary.unrealized_pnl)} sub="open positions" />
-            <Stat title="Total P/L" value={usd(summary.total_pnl)} color={pnlColor(summary.total_pnl)} />
+            <Stat title="Total P/L"
+              value={usd(windowed ? windowed.realized + summary.unrealized_pnl : summary.total_pnl)}
+              color={pnlColor(windowed ? windowed.realized + summary.unrealized_pnl : summary.total_pnl)}
+              sub={windowed ? "window realized + current unrealized" : undefined} />
             <Stat title="Win rate"
-              value={summary.win_rate != null ? `${(summary.win_rate * 100).toFixed(1)}%` : "—"}
-              sub={summary.closed_count ? `${summary.wins} of ${summary.closed_count} closed` : "no closed trades yet"} />
+              value={(windowed ? windowed.winRate : summary.win_rate) != null
+                ? `${((windowed ? windowed.winRate : summary.win_rate) * 100).toFixed(1)}%` : "—"}
+              sub={(windowed ? windowed.count : summary.closed_count)
+                ? `${windowed ? windowed.wins : summary.wins} of ${windowed ? windowed.count : summary.closed_count} closed`
+                : "no closed trades"} />
             <Stat title="Open" value={summary.open_count} />
-            <Stat title="Closed" value={summary.closed_count} />
-            <Stat title="Avg hold" value={hold(summary.avg_hold_s)} />
-            <Stat title="Fees paid" value={usd(summary.fees_paid)} sub="takers only — makers are free" />
+            <Stat title="Closed" value={windowed ? windowed.count : summary.closed_count} />
+            <Stat title="Avg hold" value={hold(windowed ? windowed.avgHold : summary.avg_hold_s)} />
+            <Stat title="Fees paid"
+              value={usd(windowed ? windowed.fees : summary.fees_paid)}
+              sub="takers only — makers are free" />
           </div>
 
           {/* filters */}
@@ -567,7 +657,8 @@ export default function AccountsTracker() {
                               </div>
                               <div style={{ flex: 1, minWidth: 260 }}>
                                 <div style={{ ...label, fontSize: 10, marginBottom: 6 }}>Tags (saved on this position)</div>
-                                <TagEditor tags={r.tags} onToggle={(t) => toggleTag(r.asset, t)} />
+                                <TagEditor tags={r.tags} vocab={tagVocab}
+                                  onToggle={(t) => toggleTag(r.asset, t)} />
                               </div>
                             </div>
                           </td>
@@ -742,7 +833,8 @@ export default function AccountsTracker() {
                               </div>
                               <div style={{ flex: 1, minWidth: 260 }}>
                                 <div style={{ ...label, fontSize: 10, marginBottom: 6 }}>Tags</div>
-                                <TagEditor tags={r.tags} onToggle={(t) => toggleTag(r.asset, t)} />
+                                <TagEditor tags={r.tags} vocab={tagVocab}
+                                  onToggle={(t) => toggleTag(r.asset, t)} />
                               </div>
                             </div>
                           </td>

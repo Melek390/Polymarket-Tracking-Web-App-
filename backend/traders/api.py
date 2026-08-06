@@ -106,6 +106,13 @@ async def activity(acct_id: int):
         raise HTTPException(502, f"Polymarket unreachable: {e}")
 
 
+@router.get("/{acct_id}/tags")
+async def tag_vocab(acct_id: int):
+    """Distinct tags the account uses — merged with the fixed list client-side."""
+    _account_or_404(acct_id)
+    return store.all_tags(acct_id)
+
+
 @router.post("/{acct_id}/tags")
 async def toggle_tag(acct_id: int, body: TagToggle):
     _account_or_404(acct_id)

@@ -243,3 +243,8 @@ export async function traderTagToggle(id, asset, tag) {
 export async function traderPeak(asset, afterTs) {
   return request(`/api/traders/peak?asset=${encodeURIComponent(asset)}&after_ts=${afterTs}`);
 }
+
+// GET /api/traders/{id}/tags — the account's custom tag vocabulary
+export async function traderTagVocab(id) {
+  return request(`/api/traders/${id}/tags`);
+}
