@@ -238,3 +238,8 @@ export async function traderTagToggle(id, asset, tag) {
     body: JSON.stringify({ asset, tag }),
   });
 }
+
+// GET /api/traders/peak — max price after a moment (sold-too-early check)
+export async function traderPeak(asset, afterTs) {
+  return request(`/api/traders/peak?asset=${encodeURIComponent(asset)}&after_ts=${afterTs}`);
+}

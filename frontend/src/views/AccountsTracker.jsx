@@ -3,7 +3,7 @@ import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtCents, fmtTimestamp, fmtClock, TZ_LABEL } from "../utils.js";
 import {
   traderList, traderAdd, traderDelete, traderSummary, traderOpen,
-  traderClosed, traderActivity, traderTagToggle,
+  traderClosed, traderActivity, traderTagToggle, traderPeak,
 } from "../api/client.js";
 
 // Accounts tracker — LIVE data from backend/traders (win = net > $0 after
@@ -134,6 +134,7 @@ export default function AccountsTracker() {
   const [to, setTo] = useState("");
   const [openRow, setOpenRow] = useState(null); // expanded row key
   const [actShown, setActShown] = useState(60); // activity rows revealed
+  const [peaks, setPeaks] = useState({}); // asset|ts -> {peak_cents, source} | "loading" | null
 
   async function loadAccounts(selectId) {
     try {
@@ -213,6 +214,17 @@ export default function AccountsTracker() {
     const set = new Set([...open, ...closed].map((r) => categoryOf(r.event_slug)));
     return [...set].sort();
   }, [open, closed]);
+
+  // the "did I sell too early?" number, fetched once per expanded closed row
+  function loadPeak(r) {
+    if (r.close_reason === "resolved_won") return; // it hit $1, nothing to fetch
+    const key = `${r.asset}|${r.closed_ts}`;
+    if (peaks[key] !== undefined) return;
+    setPeaks((p) => ({ ...p, [key]: "loading" }));
+    traderPeak(r.asset, r.closed_ts)
+      .then((d) => setPeaks((p) => ({ ...p, [key]: d && d.peak_cents != null ? d : null })))
+      .catch(() => setPeaks((p) => ({ ...p, [key]: null })));
+  }
 
   const expandBtn = (key) => (
     <button onClick={() => setOpenRow(openRow === key ? null : key)}
@@ -454,7 +466,8 @@ export default function AccountsTracker() {
                         // win, red for a loss — readable at scroll speed
                         background: r.win ? "rgba(14,159,110,0.07)" : "rgba(214,69,69,0.07)" }}>
                         <td style={{ ...td, textAlign: "center",
-                          boxShadow: `inset 4px 0 0 ${r.win ? T.green : T.red}` }}>{expandBtn(key)}</td>
+                          boxShadow: `inset 4px 0 0 ${r.win ? T.green : T.red}` }}
+                          onClick={() => loadPeak(r)}>{expandBtn(key)}</td>
                         <td style={{ ...td, color: T.sub, whiteSpace: "nowrap" }}>
                           {fmtTimestamp(r.closed_ts * 1000)}
                         </td>
@@ -497,6 +510,80 @@ export default function AccountsTracker() {
                             <div style={{ padding: "12px 16px", background: T.soft,
                               borderTop: `1px solid ${T.border}`,
                               display: "flex", gap: 34, flexWrap: "wrap" }}>
+                              {(() => {
+                                // phrased by how the trip actually ended:
+                                // sold -> did it climb after the exit?
+                                // rode to zero -> where could he have bailed?
+                                // held to the win -> nothing to fetch, it hit $1
+                                if (r.close_reason === "resolved_won") {
+                                  return (
+                                    <div style={{ minWidth: 250 }}>
+                                      <div style={{ ...label, fontSize: 10 }}>After your last trade</div>
+                                      <div style={{ ...monoText, fontSize: 15, fontWeight: 700, color: T.green }}>
+                                        resolved at 100¢
+                                      </div>
+                                      <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>
+                                        held to the end — nothing left behind
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                const pk = peaks[`${r.asset}|${r.closed_ts}`];
+                                const sold = r.close_reason === "sold";
+                                const sellC = r.avg_sell * 100;
+                                return (
+                                  <div style={{ minWidth: 250 }}>
+                                    <div style={{ ...label, fontSize: 10 }}>
+                                      {sold ? "After you sold" : "After your last trade"}
+                                    </div>
+                                    {pk === "loading" && (
+                                      <div style={{ fontSize: 12, color: T.faint }}>checking the price history…</div>
+                                    )}
+                                    {pk === null && (
+                                      <div style={{ fontSize: 12, color: T.faint }}>no price data after this trade</div>
+                                    )}
+                                    {pk && pk !== "loading" && (() => {
+                                      if (sold) {
+                                        const left = (pk.peak_cents - sellC) / 100 * r.shares;
+                                        const early = pk.peak_cents > sellC + 0.05;
+                                        return (
+                                          <>
+                                            <div style={{ ...monoText, fontSize: 15, fontWeight: 700,
+                                              color: early ? T.red : T.green }}>
+                                              peaked at {fmtCents(pk.peak_cents)}
+                                            </div>
+                                            <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>
+                                              {early
+                                                ? `sold ${fmtCents(pk.peak_cents - sellC)} early — ${usd(left)} left on the table`
+                                                : "it never went higher — good exit"}
+                                            </div>
+                                          </>
+                                        );
+                                      }
+                                      const rescue = pk.peak_cents / 100 * r.shares;
+                                      return (
+                                        <>
+                                          <div style={{ ...monoText, fontSize: 15, fontWeight: 700, color: T.red }}>
+                                            peaked at {fmtCents(pk.peak_cents)} before dying
+                                          </div>
+                                          <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>
+                                            {pk.peak_cents > 0.5
+                                              ? `never sold — an exit at the peak would have recovered ${usd(rescue)}`
+                                              : "never sold — there was no exit worth taking"}
+                                          </div>
+                                        </>
+                                      );
+                                    })()}
+                                    {pk && pk !== "loading" && (
+                                      <div style={{ fontSize: 10, color: T.faint, marginTop: 2 }}>
+                                        {pk.source === "tracker"
+                                          ? "from our own second-by-second data"
+                                          : "from Polymarket history (1–10 min bars)"}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                               <div>
                                 <div style={{ ...label, fontSize: 10 }}>Held for</div>
                                 <div style={{ ...monoText, fontSize: 15, fontWeight: 700 }}>{hold(r.hold_s)}</div>

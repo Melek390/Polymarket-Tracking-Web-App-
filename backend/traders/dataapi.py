@@ -116,3 +116,14 @@ async def fetch_resolution(condition_id: str) -> dict | None:
         "winners": {str(t.get("outcome") or "").lower(): bool(t.get("winner"))
                     for t in m.get("tokens", [])},
     }
+
+
+async def fetch_price_history(token_id: str) -> list[dict]:
+    """Full price history for a CLOB token: [{"t": epoch_s, "p": 0..1}, ...].
+    interval=max is the only form that works for settled markets (V2.md) —
+    resolution is ~1-min bars for the last day, ~10-min beyond."""
+    r = await _http().get(f"{CLOB}/prices-history",
+                          params={"market": token_id, "interval": "max", "fidelity": 1})
+    if r.status_code != 200:
+        return []
+    return r.json().get("history", []) or []

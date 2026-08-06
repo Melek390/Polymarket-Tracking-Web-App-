@@ -111,3 +111,13 @@ async def toggle_tag(acct_id: int, body: TagToggle):
     _account_or_404(acct_id)
     added = store.toggle_tag(acct_id, body.asset, body.tag.strip())
     return {"added": added}
+
+
+@router.get("/peak")
+async def peak(asset: str, after_ts: int):
+    """Max price a token reached after a timestamp (the sold-too-early check).
+    Lazy — called when a closed row is expanded, cached forever server-side."""
+    try:
+        return await service.peak_after(asset, after_ts) or {}
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"Polymarket unreachable: {e}")

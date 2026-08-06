@@ -7,6 +7,7 @@ seconds (one uvicorn worker, so a module dict IS the cache)."""
 import asyncio
 import time
 
+from backend.database.db import get_db
 from backend.traders import dataapi, engine, fees, store
 
 SYNC_MIN_S = 120     # a wallet is re-synced at most this often
@@ -142,8 +143,16 @@ async def matched(acct: dict) -> tuple[list[dict], dict[str, dict], list[dict]]:
     return closed, open_trips, positions
 
 
+def _alive(positions: list[dict]) -> list[dict]:
+    """Positions that are still really open. A curPrice-0 holding has been
+    counted as a REALIZED loss by the engine — leaving it here too would show
+    it in both tables and double-count it in Total P/L."""
+    return [p for p in positions if float(p.get("curPrice") or 0) > 0]
+
+
 async def summary(acct: dict) -> dict:
     closed, _open_trips, positions = await matched(acct)
+    positions = _alive(positions)
     unrealized = sum(float(p.get("cashPnl") or 0) for p in positions)
     realized = sum(c["net"] for c in closed)
     wins = sum(1 for c in closed if c["win"])
@@ -170,7 +179,7 @@ async def open_rows(acct: dict) -> list[dict]:
     _closed, _trips, positions = await matched(acct)
     tags = store.tags_for(acct["id"])
     rows = []
-    for p in positions:
+    for p in _alive(positions):
         rows.append({
             "asset": p.get("asset"),
             "title": p.get("title"),
@@ -212,3 +221,41 @@ async def activity_rows(acct: dict) -> list[dict]:
         "size": float(a.get("size") or 0),
         "price": float(a.get("price") or 0),
     } for a in acts]
+
+
+# (asset, after_ts) -> result. A resolved market's history is immutable, so
+# this caches forever; bounded by how many closed rows he actually expands.
+_peak_cache: dict[tuple[str, int], dict | None] = {}
+
+
+def _peak_from_our_ticks(token_id: str, after_ts: int) -> dict | None:
+    """Our own collector's ticks (1s live MLB / 5s), if we tracked the market.
+    Better resolution than anything Polymarket serves back (V3.md, limitation
+    3) — which is exactly why it is checked first."""
+    iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(after_ts))
+    with get_db() as conn:
+        o = conn.execute("SELECT id FROM outcomes WHERE token_id=?", (token_id,)).fetchone()
+        if not o:
+            return None
+        row = conn.execute(
+            "SELECT MAX(price) AS peak FROM ticks WHERE outcome_id=? AND ts>?",
+            (o["id"], iso)).fetchone()
+        if not row or row["peak"] is None:
+            return None
+        return {"peak_cents": round(float(row["peak"]), 1), "source": "tracker"}
+
+
+async def peak_after(token_id: str, after_ts: int) -> dict | None:
+    """The highest price a token reached AFTER a moment — the client's
+    "did I sell too early?" number. None when no data exists either side."""
+    key = (token_id, after_ts)
+    if key in _peak_cache:
+        return _peak_cache[key]
+    result = _peak_from_our_ticks(token_id, after_ts)
+    if result is None:
+        hist = await dataapi.fetch_price_history(token_id)
+        later = [h["p"] for h in hist if int(h.get("t") or 0) > after_ts]
+        if later:
+            result = {"peak_cents": round(max(later) * 100, 1), "source": "polymarket"}
+    _peak_cache[key] = result
+    return result
