@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtCents, fmtTimestamp, fmtClock, TZ_LABEL } from "../utils.js";
 import {
   traderList, traderAdd, traderDelete, traderSummary, traderOpen,
   traderClosed, traderActivity, traderTagToggle, traderPeak,
 } from "../api/client.js";
+import { playSound } from "../alerts.js";
+import Toasts, { useToasts } from "../components/Toasts.jsx";
+import {
+  alertKey, alertSummaryText, loadLastSeen, loadPriceAlerts, setLastSeen, setPriceAlert,
+} from "../traderAlerts.js";
 
 // Accounts tracker — LIVE data from backend/traders (win = net > $0 after
 // fees; fees exact per fill via maker/taker detection; tags sit on the round
@@ -49,6 +54,30 @@ const td = { ...monoText, fontSize: 13, padding: "9px 12px", verticalAlign: "top
 const rightTh = { ...th, textAlign: "right" };
 const rightTd = { ...td, textAlign: "right" };
 const chip = (active) => ({ ...(active ? btn.primary : btn.outline), fontSize: 12, padding: "6px 12px" });
+
+// Price-target editor for one open position: notify at/above and/or at/below.
+function AlertEditor({ existing, onSave }) {
+  const [above, setAbove] = useState(existing?.above ?? "");
+  const [below, setBelow] = useState(existing?.below ?? "");
+  const num = { ...monoText, fontSize: 12, padding: "5px 8px", width: 70,
+    border: `1px solid ${T.border}`, borderRadius: 6, color: T.ink };
+  return (
+    <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <span style={{ fontSize: 11, color: T.sub }}>notify at ≥</span>
+      <input type="number" value={above} min={0} max={100} step={0.5}
+        onChange={(e) => setAbove(e.target.value)} placeholder="¢" style={num} />
+      <span style={{ fontSize: 11, color: T.sub }}>or ≤</span>
+      <input type="number" value={below} min={0} max={100} step={0.5}
+        onChange={(e) => setBelow(e.target.value)} placeholder="¢" style={num} />
+      <button onClick={() => onSave(above === "" ? null : Number(above), below === "" ? null : Number(below))}
+        style={{ ...btn.primary, fontSize: 11, padding: "5px 10px" }}>Save</button>
+      {existing && (
+        <button onClick={() => onSave(null, null)}
+          style={{ ...btn.ghost, fontSize: 11, padding: "5px 8px", color: T.red }}>Remove</button>
+      )}
+    </span>
+  );
+}
 
 function Stat({ title, value, sub, color }) {
   return (
@@ -135,11 +164,19 @@ export default function AccountsTracker() {
   const [openRow, setOpenRow] = useState(null); // expanded row key
   const [actShown, setActShown] = useState(60); // activity rows revealed
   const [peaks, setPeaks] = useState({}); // asset|ts -> {peak_cents, source} | "loading" | null
+  const [priceAlerts, setPriceAlerts] = useState(loadPriceAlerts);
+  const { toasts, push: pushToast, dismiss: dismissToast, clear: clearToasts } = useToasts();
+  const accountsRef = useRef(null);
+  const priceAlertsRef = useRef(priceAlerts);
+  priceAlertsRef.current = priceAlerts;
+  const firedRef = useRef({});   // "acct|asset|dir" -> true while condition holds
+  const seenReadyRef = useRef({}); // acctId -> watermark initialised this session
 
   async function loadAccounts(selectId) {
     try {
       const list = await traderList();
       setAccounts(list);
+      accountsRef.current = list;
       const id = selectId ?? current ?? list[0]?.id ?? null;
       setCurrent(list.some((a) => a.id === id) ? id : list[0]?.id ?? null);
     } catch (e) {
@@ -165,6 +202,85 @@ export default function AccountsTracker() {
     }
   }
   useEffect(() => { loadData(current); setActShown(60); }, [current]);
+
+  // Alert watcher: every 45s (tab visible only) check each account for
+  // (a) positions crossing a saved price target, (b) NEW trades/redeems since
+  // the last watermark. Server caches keep this at one upstream call per
+  // account per interval no matter how many windows are open; the storage
+  // listener below keeps windows honest with each other.
+  useEffect(() => {
+    let stop = false;
+    async function tick() {
+      if (document.visibilityState !== "visible") return;
+      const accts = accountsRef.current || [];
+      for (const a of accts) {
+        // --- price targets ---
+        const hasAlert = Object.keys(priceAlertsRef.current)
+          .some((k) => k.startsWith(`${a.id}|`));
+        if (hasAlert) {
+          try {
+            const rows = await traderOpen(a.id);
+            if (stop) return;
+            if (a.id === current) setOpen(rows); // freshen the visible table
+            for (const r of rows) {
+              const al = priceAlertsRef.current[alertKey(a.id, r.asset)];
+              if (!al) continue;
+              const cur = r.cur_price * 100;
+              for (const [dir, hit] of [
+                ["above", al.above != null && cur >= al.above],
+                ["below", al.below != null && cur <= al.below],
+              ]) {
+                const fk = `${a.id}|${r.asset}|${dir}`;
+                if (hit && !firedRef.current[fk]) {
+                  firedRef.current[fk] = true;
+                  playSound("price");
+                  pushToast(`${a.label}: ${r.title} — ${r.outcome} is ${cents(r.cur_price)} (target ${dir} ${dir === "above" ? al.above : al.below}¢)`);
+                } else if (!hit) {
+                  firedRef.current[fk] = false; // re-arm once it leaves the zone
+                }
+              }
+            }
+          } catch { /* transient — next tick retries */ }
+        }
+        // --- entry / exit notifications ---
+        try {
+          const acts = await traderActivity(a.id);
+          if (stop) return;
+          const newest = acts.length ? acts[0].ts : 0;
+          if (!seenReadyRef.current[a.id]) {
+            // first look this session: set the watermark silently so a page
+            // load never floods with history
+            seenReadyRef.current[a.id] = true;
+            if (!(loadLastSeen()[a.id] > 0)) setLastSeen(a.id, newest);
+            continue;
+          }
+          const since = loadLastSeen()[a.id] || 0;
+          const fresh = acts.filter((x) => x.ts > since && (x.type === "TRADE" || x.type === "REDEEM"));
+          if (fresh.length) {
+            playSound("situation");
+            for (const x of fresh.slice(0, 3)) {
+              const verb = x.type === "REDEEM" ? "redeemed" : x.side === "BUY" ? "entered" : "exited";
+              pushToast(`${a.label} ${verb}: ${Math.round(x.size).toLocaleString("en-US")} ${x.outcome} (${x.title})${x.type === "TRADE" ? ` @ ${cents(x.price)}` : ""}`);
+            }
+            if (fresh.length > 3) pushToast(`${a.label}: …and ${fresh.length - 3} more new trades`);
+            setLastSeen(a.id, newest);
+          }
+        } catch { /* transient */ }
+      }
+    }
+    tick();
+    const id = setInterval(tick, 45_000);
+    return () => { stop = true; clearInterval(id); };
+  }, []);
+
+  // other windows editing alerts (same class of bug as V2.md Aug 5)
+  useEffect(() => {
+    const sync = (e) => {
+      if (e.key === "traderPriceAlerts") setPriceAlerts(loadPriceAlerts());
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
 
   async function addAccount() {
     if (!newInput.trim()) return;
@@ -394,6 +510,10 @@ export default function AccountsTracker() {
                         <td style={{ ...td, textAlign: "center",
                           boxShadow: `inset 4px 0 0 ${r.pnl > 0 ? T.green : r.pnl < 0 ? T.red : T.border}` }}>{expandBtn(key)}</td>
                         <td style={{ ...td, fontFamily: T.ui, fontWeight: 500, maxWidth: 320 }}>
+                          {priceAlerts[alertKey(current, r.asset)] && (
+                            <span title={`Alert: ${alertSummaryText(priceAlerts[alertKey(current, r.asset)])}`}
+                              style={{ marginRight: 5 }}>🔔</span>
+                          )}
                           {r.title}
                           <div style={{ fontSize: 11, color: T.faint }}>{categoryOf(r.event_slug)}</div>
                           <TagPills tags={r.tags} />
@@ -419,9 +539,24 @@ export default function AccountsTracker() {
                         <tr key={`${key}-x`}>
                           <td colSpan={11} style={{ padding: 0 }}>
                             <div style={{ padding: "12px 16px", background: T.soft,
-                              borderTop: `1px solid ${T.border}` }}>
-                              <div style={{ ...label, fontSize: 10, marginBottom: 6 }}>Tags (saved on this position)</div>
-                              <TagEditor tags={r.tags} onToggle={(t) => toggleTag(r.asset, t)} />
+                              borderTop: `1px solid ${T.border}`,
+                              display: "flex", gap: 34, flexWrap: "wrap" }}>
+                              <div>
+                                <div style={{ ...label, fontSize: 10, marginBottom: 6 }}>
+                                  Price alert{priceAlerts[alertKey(current, r.asset)]
+                                    ? ` — ${alertSummaryText(priceAlerts[alertKey(current, r.asset)])}` : ""}
+                                </div>
+                                <AlertEditor
+                                  key={alertKey(current, r.asset)}
+                                  existing={priceAlerts[alertKey(current, r.asset)]}
+                                  onSave={(above, below) =>
+                                    setPriceAlerts(setPriceAlert(current, r.asset, above, below, r.title))}
+                                />
+                              </div>
+                              <div style={{ flex: 1, minWidth: 260 }}>
+                                <div style={{ ...label, fontSize: 10, marginBottom: 6 }}>Tags (saved on this position)</div>
+                                <TagEditor tags={r.tags} onToggle={(t) => toggleTag(r.asset, t)} />
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -659,6 +794,8 @@ export default function AccountsTracker() {
           </Section>
         </>
       )}
+
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
     </main>
   );
 }

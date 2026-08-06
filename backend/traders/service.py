@@ -19,6 +19,11 @@ _val_cache: dict[str, tuple[float, float | None]] = {}
 # immutable, so it caches forever; open/unknown retries after RES_TTL_S.
 _res_cache: dict[str, tuple[float, dict | None]] = {}
 RES_TTL_S = 600
+# the accounts page polls every account's activity for entry/exit alerts;
+# this cache keeps that at one upstream call per wallet per TTL, however many
+# windows are open (house rule: browser polling never fans out)
+_act_cache: dict[str, tuple[float, list[dict]]] = {}
+ACT_TTL_S = 30
 
 
 async def sync_account(acct: dict, force: bool = False) -> int:
@@ -208,7 +213,12 @@ async def closed_rows(acct: dict) -> list[dict]:
 
 
 async def activity_rows(acct: dict) -> list[dict]:
-    acts = await dataapi.fetch_activity(acct["wallet"], 500)  # the API's max page
+    hit = _act_cache.get(acct["wallet"])
+    if hit and time.monotonic() - hit[0] < ACT_TTL_S:
+        acts = hit[1]
+    else:
+        acts = await dataapi.fetch_activity(acct["wallet"], 500)  # the API's max page
+        _act_cache[acct["wallet"]] = (time.monotonic(), acts)
     # zero-size redeems are the worthless side being cleaned up — noise
     acts = [a for a in acts
             if not (a.get("type") == "REDEEM" and float(a.get("size") or 0) <= 0)]
