@@ -40,10 +40,16 @@ async def _positions(wallet: str) -> list[dict]:
 
 
 async def _value(wallet: str) -> float | None:
+    """Portfolio value, or None if /value is having a moment — it is the
+    flakiest data-api endpoint (hung from the VM while /trades answered in
+    0.2s) and must never take the whole summary down with it."""
     hit = _val_cache.get(wallet)
     if hit and time.monotonic() - hit[0] < POS_TTL_S:
         return hit[1]
-    v = await dataapi.fetch_value(wallet)
+    try:
+        v = await dataapi.fetch_value(wallet)
+    except Exception:
+        v = None
     _val_cache[wallet] = (time.monotonic(), v)
     return v
 
@@ -96,8 +102,11 @@ async def summary(acct: dict) -> dict:
     realized = sum(c["net"] for c in closed)
     wins = sum(1 for c in closed if c["win"])
     holds = [c["hold_s"] for c in closed]
+    value = await _value(acct["wallet"])
+    if value is None:  # fall back to the positions we already have
+        value = round(sum(float(p.get("currentValue") or 0) for p in positions), 2)
     return {
-        "portfolio_value": await _value(acct["wallet"]),
+        "portfolio_value": value,
         "unrealized_pnl": round(unrealized, 2),
         "realized_pnl": round(realized, 2),
         "total_pnl": round(realized + unrealized, 2),
