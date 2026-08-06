@@ -7,6 +7,7 @@ import {
 } from "../api/client.js";
 import { playSound } from "../alerts.js";
 import Toasts, { useToasts } from "../components/Toasts.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import {
   alertKey, alertSummaryText, loadLastSeen, loadPriceAlerts, setLastSeen, setPriceAlert,
 } from "../traderAlerts.js";
@@ -220,6 +221,7 @@ export default function AccountsTracker() {
   const [priceAlerts, setPriceAlerts] = useState(loadPriceAlerts);
   const [customTags, setCustomTags] = useState([]);
   const [period, setPeriod] = useState("all");
+  const [removing, setRemoving] = useState(null); // account pending delete confirmation
   const { toasts, push: pushToast, dismiss: dismissToast, clear: clearToasts } = useToasts();
   const accountsRef = useRef(null);
   const priceAlertsRef = useRef(priceAlerts);
@@ -354,7 +356,6 @@ export default function AccountsTracker() {
   }
 
   async function removeAccount(id) {
-    if (!window.confirm("Remove this account and its stored history?")) return;
     await traderDelete(id);
     await loadAccounts(null);
   }
@@ -471,7 +472,7 @@ export default function AccountsTracker() {
             <button onClick={() => setCurrent(a.id)} style={chip(current === a.id)} title={a.wallet}>
               {a.label}
             </button>
-            <button onClick={() => removeAccount(a.id)} title="Remove account"
+            <button onClick={() => setRemoving(a)} title="Remove account"
               style={{ ...btn.ghost, fontSize: 12, padding: "0 4px", color: T.faint }}>✕</button>
           </span>
         ))}
@@ -898,6 +899,21 @@ export default function AccountsTracker() {
             )}
           </Section>
         </>
+      )}
+
+      {removing && (
+        <ConfirmDialog
+          title={`Remove “${removing.label}”?`}
+          message="This deletes the account from the tracker along with its stored fill history and tags."
+          detail="Fills older than Polymarket's 10,000-trade window cannot be re-downloaded if you add it back."
+          confirmLabel="Remove account"
+          onConfirm={async () => {
+            const id = removing.id;
+            setRemoving(null);
+            await removeAccount(id);
+          }}
+          onCancel={() => setRemoving(null)}
+        />
       )}
 
       <Toasts toasts={toasts} onDismiss={dismissToast} />
