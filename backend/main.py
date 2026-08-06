@@ -9,6 +9,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.routes import router
+from backend.traders.api import router as traders_router
+from backend.traders import store as traders_store
 from backend.collector import scheduler
 from backend.config.settings import settings
 
@@ -28,6 +30,7 @@ async def lifespan(app: FastAPI):
     logging.basicConfig(level=settings.log_level)
     for name in _QUIET_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
+    traders_store.init()
     scheduler.start()
     yield
     scheduler.stop()
@@ -56,6 +59,7 @@ async def cache_headers(request, call_next):
 
 # JSON API under /api/... (see backend/api/routes.py)
 app.include_router(router)
+app.include_router(traders_router)
 
 
 # The frontend uses real paths (not hashes), so a page opened directly at

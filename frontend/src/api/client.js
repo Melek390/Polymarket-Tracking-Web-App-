@@ -196,3 +196,45 @@ export function exportCsvFor(market) {
   a.download = "";
   a.click();
 }
+
+// --- accounts tracker (backend/traders) ------------------------------------
+
+export async function traderList() {
+  return request("/api/traders");
+}
+
+export async function traderAdd(input, label = "") {
+  return request("/api/traders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ input, label }),
+  });
+}
+
+export async function traderDelete(id) {
+  return request(`/api/traders/${id}`, { method: "DELETE" });
+}
+
+export async function traderSummary(id) {
+  return request(`/api/traders/${id}/summary`);
+}
+
+export async function traderOpen(id) {
+  return request(`/api/traders/${id}/open`);
+}
+
+export async function traderClosed(id) {
+  return request(`/api/traders/${id}/closed`);
+}
+
+export async function traderActivity(id) {
+  return request(`/api/traders/${id}/activity`);
+}
+
+export async function traderTagToggle(id, asset, tag) {
+  return request(`/api/traders/${id}/tags`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ asset, tag }),
+  });
+}
