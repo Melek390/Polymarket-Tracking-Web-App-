@@ -4,9 +4,10 @@ The client's settled rules (V3.md):
 - WIN  = the round trip netted > $0 AFTER fees. Lost money = loss.
 - FEES are in every number.
 - A REDEEM is an exit at $1 (winner held to resolution), fee 0.
-- A position the market resolved against him closes at $0 — riding to zero is
-  a loss, not a forever-open position. Resolution comes from /positions
-  (a dead holding shows curPrice 0).
+- A resolved residual closes at its final price: 0 = rode to zero (a loss),
+  1 = an old winner redeemed beyond the activity window (a win). Resolution
+  comes from /positions (curPrice 0) and, for holdings Polymarket has already
+  dropped from /positions, from the CLOB's winner flags.
 """
 
 EPS = 0.01  # shares: below this a position counts as fully exited
@@ -16,6 +17,7 @@ def _new_trip(f: dict) -> dict:
     return {
         "asset": f["asset"], "title": f["title"], "slug": f["slug"],
         "event_slug": f["event_slug"], "outcome": f["outcome"],
+        "condition_id": f["condition_id"],
         "open_ts": f["ts"], "last_ts": f["ts"],
         "buy_qty": 0.0, "buy_cost": 0.0, "sell_qty": 0.0, "proceeds": 0.0,
         "fees": 0.0, "buys": 0, "sells": 0,
@@ -45,11 +47,13 @@ def _close(trip: dict, reason: str) -> dict:
     }
 
 
-def match(fills: list[dict], dead_assets: set[str]) -> tuple[list[dict], dict[str, dict]]:
+def match(fills: list[dict], resolutions: dict[str, float]) -> tuple[list[dict], dict[str, dict]]:
     """(closed round trips, still-open trips by asset).
 
-    fills must be in time order. A SELL with no open trip (bought beyond the
-    API's 10k window) is skipped — we can't price a cost basis we never saw.
+    fills must be in time order. resolutions maps asset -> final price for
+    markets known to be resolved; residual shares close at that price.
+    A SELL with no open trip (bought beyond the API's 10k window) is skipped —
+    we can't price a cost basis we never saw.
     """
     open_trips: dict[str, dict] = {}
     closed: list[dict] = []
@@ -79,10 +83,15 @@ def match(fills: list[dict], dead_assets: set[str]) -> tuple[list[dict], dict[st
                 closed.append(_close(trip, "sold"))
                 del open_trips[f["asset"]]
 
-    # residuals the market resolved against him: close at $0 (a loss, per rule)
-    for asset in [a for a in open_trips if a in dead_assets]:
+    # residuals on resolved markets close at the final price
+    for asset in [a for a in open_trips if a in resolutions]:
         trip = open_trips.pop(asset)
-        closed.append(_close(trip, "resolved_zero"))
+        final = resolutions[asset]
+        left = trip["buy_qty"] - trip["sell_qty"]
+        if left > 0:
+            trip["proceeds"] += left * final
+            trip["sell_qty"] += left
+        closed.append(_close(trip, "resolved_zero" if final <= 0 else "resolved_won"))
 
     closed.sort(key=lambda c: -c["closed_ts"])
     return closed, open_trips

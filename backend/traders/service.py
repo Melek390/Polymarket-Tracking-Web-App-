@@ -4,6 +4,7 @@ House rules honoured: sync is throttled so browser polling can never fan out
 to Polymarket per request, and live positions are cached in-process for a few
 seconds (one uvicorn worker, so a module dict IS the cache)."""
 
+import asyncio
 import time
 
 from backend.traders import dataapi, engine, fees, store
@@ -13,6 +14,10 @@ POS_TTL_S = 20       # live positions/value cache
 
 _pos_cache: dict[str, tuple[float, list[dict]]] = {}
 _val_cache: dict[str, tuple[float, float | None]] = {}
+# condition_id -> (cached_at, resolution|None). A CLOSED resolution is
+# immutable, so it caches forever; open/unknown retries after RES_TTL_S.
+_res_cache: dict[str, tuple[float, dict | None]] = {}
+RES_TTL_S = 600
 
 
 async def sync_account(acct: dict, force: bool = False) -> int:
@@ -78,11 +83,33 @@ def _redeems_as_sells(activity: list[dict]) -> list[dict]:
     return out
 
 
+async def _resolve_many(condition_ids: set[str]) -> dict[str, dict | None]:
+    """CLOB resolutions with a forever-cache for closed markets and bounded
+    concurrency — the first pass over an account can need hundreds."""
+    now = time.monotonic()
+    todo = [c for c in condition_ids
+            if c not in _res_cache
+            or (not (_res_cache[c][1] and _res_cache[c][1]["closed"])
+                and now - _res_cache[c][0] > RES_TTL_S)]
+    if todo:
+        sem = asyncio.Semaphore(8)
+
+        async def one(cid):
+            async with sem:
+                try:
+                    _res_cache[cid] = (time.monotonic(), await dataapi.fetch_resolution(cid))
+                except Exception:
+                    _res_cache[cid] = (time.monotonic(), None)
+        await asyncio.gather(*(one(c) for c in todo))
+    return {c: _res_cache.get(c, (0, None))[1] for c in condition_ids}
+
+
 async def matched(acct: dict) -> tuple[list[dict], dict[str, dict], list[dict]]:
     """(closed trips, open trips, live position rows) for one account."""
     positions = await _positions(acct["wallet"])
-    dead = {p["asset"] for p in positions
-            if float(p.get("curPrice") or 0) == 0 and not p.get("redeemable")}
+    # a holding still listed but priced at zero is a resolved loss
+    resolutions = {p["asset"]: 0.0 for p in positions
+                   if float(p.get("curPrice") or 0) == 0}
     redeems = _redeems_as_sells(await dataapi.fetch_activity(acct["wallet"], 500))
     stored = store.fills_for(acct["id"])
     # resolve each redeem's empty asset to the token that was actually bought
@@ -92,7 +119,26 @@ async def matched(acct: dict) -> tuple[list[dict], dict[str, dict], list[dict]]:
         r["asset"] = r["asset"] or by_market.get((r["condition_id"], r["outcome"]), "")
     redeems = [r for r in redeems if r["asset"]]  # unmatchable without a buy
     fills = sorted(stored + redeems, key=lambda f: (f["ts"], f.get("id", 0)))
-    closed, open_trips = engine.match(fills, dead)
+    closed, open_trips = engine.match(fills, resolutions)
+
+    # GHOSTS: net-long trips whose asset Polymarket no longer lists at all.
+    # Resolved-lost holdings are dropped from /positions after a while, which
+    # silently hid every ride-to-zero loss (454 on the client's test account).
+    # The CLOB's winner flags say how those markets actually ended.
+    pos_assets = {p["asset"] for p in positions}
+    ghosts = {a: t for a, t in open_trips.items()
+              if a not in pos_assets and t["buy_qty"] - t["sell_qty"] > engine.EPS}
+    if ghosts:
+        infos = await _resolve_many({t["condition_id"] for t in ghosts.values()})
+        extra = {}
+        for a, t in ghosts.items():
+            info = infos.get(t["condition_id"])
+            if info and info["closed"]:
+                won = info["winners"].get((t["outcome"] or "").lower())
+                if won is not None:
+                    extra[a] = 1.0 if won else 0.0
+        if extra:
+            closed, open_trips = engine.match(fills, {**resolutions, **extra})
     return closed, open_trips, positions
 
 

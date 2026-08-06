@@ -6,6 +6,7 @@ July 27 event-loop stall (see V2.md)."""
 import httpx
 
 BASE = "https://data-api.polymarket.com"
+CLOB = "https://clob.polymarket.com"
 TIMEOUT = 15.0
 PAGE = 500
 MAX_OFFSET = 10_000  # hard server cap: offset=20000 -> HTTP 400
@@ -97,3 +98,21 @@ async def fetch_value(wallet: str) -> float | None:
     if isinstance(d, list) and d:
         return float(d[0].get("value") or 0)
     return None
+
+
+async def fetch_resolution(condition_id: str) -> dict | None:
+    """How a market resolved, from the CLOB: closed flag + per-outcome winner.
+
+    This is the source of truth for positions that VANISH from /positions —
+    Polymarket drops resolved-lost holdings from the public API after a while,
+    which made ride-to-zero losses look like forever-open positions (found on
+    the client's own testing account: 454 of them)."""
+    r = await _http().get(f"{CLOB}/markets/{condition_id}")
+    if r.status_code != 200:
+        return None
+    m = r.json()
+    return {
+        "closed": bool(m.get("closed")),
+        "winners": {str(t.get("outcome") or "").lower(): bool(t.get("winner"))
+                    for t in m.get("tokens", [])},
+    }

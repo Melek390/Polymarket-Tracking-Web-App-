@@ -444,6 +444,9 @@ export default function AccountsTracker() {
                             {r.close_reason === "resolved_zero" && (
                               <span style={{ color: T.red, fontWeight: 700 }}> · resolved at 0</span>
                             )}
+                            {r.close_reason === "resolved_won" && (
+                              <span style={{ color: T.green, fontWeight: 700 }}> · won at resolution</span>
+                            )}
                           </div>
                           <TagPills tags={r.tags} />
                         </td>
