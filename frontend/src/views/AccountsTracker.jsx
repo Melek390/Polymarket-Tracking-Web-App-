@@ -22,9 +22,21 @@ const TAGS = [
   "Bottom Innings", "Favorite", "Underdog", "AFG",
 ];
 
+// Muted palette for this page only: the theme's saturated colours over the
+// tinted rows read too bright (client request). Rows keep their backgrounds;
+// text and accents calm down.
+const M = {
+  green: "#2F7A59", red: "#A85751",
+  winBg: "rgba(47,122,89,0.07)", lossBg: "rgba(168,87,81,0.07)",
+  accent: "#64748B",       // averaged down and similar notes
+  resolved: "#9A6B67",     // "resolved at 0"
+  resolvedWin: "#5F8A72",  // "won at resolution"
+  tag: "#5B6B8C",
+};
+
 const usd = (n) =>
   `${n < 0 ? "−" : ""}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const pnlColor = (n) => (n > 0 ? T.green : n < 0 ? T.red : T.sub);
+const pnlColor = (n) => (n > 0 ? M.green : n < 0 ? M.red : T.sub);
 const cents = (p01) => fmtCents(Math.round(p01 * 1000) / 10); // 0..1 -> cents, 1dp
 
 function hold(seconds) {
@@ -121,7 +133,7 @@ function TagPills({ tags }) {
     <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>
       {tags.map((t) => (
         <span key={t} style={{ fontFamily: T.ui, fontSize: 9, fontWeight: 700,
-          color: "#fff", background: T.series[0], borderRadius: 4, padding: "1px 5px" }}>
+          color: "#fff", background: M.tag, borderRadius: 4, padding: "1px 5px" }}>
           {t}
         </span>
       ))}
@@ -451,8 +463,8 @@ export default function AccountsTracker() {
                   <button key={k} onClick={() => setResult(k)}
                     style={{
                       ...chip(result === k),
-                      ...(result === k && k === "win" ? { background: T.green, borderColor: T.green } : {}),
-                      ...(result === k && k === "loss" ? { background: T.red, borderColor: T.red } : {}),
+                      ...(result === k && k === "win" ? { background: M.green, borderColor: M.green } : {}),
+                      ...(result === k && k === "loss" ? { background: M.red, borderColor: M.red } : {}),
                     }}>
                     {lab}
                   </button>
@@ -508,7 +520,7 @@ export default function AccountsTracker() {
                     return [
                       <tr key={key} style={{ borderTop: `1px solid ${T.border}` }}>
                         <td style={{ ...td, textAlign: "center",
-                          boxShadow: `inset 4px 0 0 ${r.pnl > 0 ? T.green : r.pnl < 0 ? T.red : T.border}` }}>{expandBtn(key)}</td>
+                          boxShadow: `inset 4px 0 0 ${r.pnl > 0 ? M.green : r.pnl < 0 ? M.red : T.border}` }}>{expandBtn(key)}</td>
                         <td style={{ ...td, fontFamily: T.ui, fontWeight: 500, maxWidth: 320 }}>
                           {priceAlerts[alertKey(current, r.asset)] && (
                             <span title={`Alert: ${alertSummaryText(priceAlerts[alertKey(current, r.asset)])}`}
@@ -521,7 +533,7 @@ export default function AccountsTracker() {
                         <td style={{ ...td, fontFamily: T.ui }}>{r.outcome}</td>
                         <td style={rightTd}>{cents(r.avg_price)}</td>
                         <td style={{ ...rightTd, fontWeight: 700,
-                          color: r.cur_price > r.avg_price ? T.green : r.cur_price < r.avg_price ? T.red : T.ink }}>
+                          color: r.cur_price > r.avg_price ? M.green : r.cur_price < r.avg_price ? M.red : T.ink }}>
                           {cents(r.cur_price)}
                         </td>
                         <td style={rightTd}>{Math.round(r.shares).toLocaleString("en-US")}</td>
@@ -531,7 +543,7 @@ export default function AccountsTracker() {
                         <td style={{ ...rightTd, color: pnlColor(r.pnl) }}>
                           {r.pct_pnl > 0 ? "+" : ""}{r.pct_pnl.toFixed(1)}%
                         </td>
-                        <td style={{ ...td, fontFamily: T.ui, color: r.redeemable ? T.green : T.sub }}>
+                        <td style={{ ...td, fontFamily: T.ui, color: r.redeemable ? M.green : T.sub }}>
                           {r.redeemable ? "Redeemable" : "Open"}
                         </td>
                       </tr>,
@@ -599,31 +611,32 @@ export default function AccountsTracker() {
                       <tr key={key} style={{ borderTop: `1px solid ${T.border}`,
                         // a closed trade wears its outcome: green tint for a
                         // win, red for a loss — readable at scroll speed
-                        background: r.win ? "rgba(14,159,110,0.07)" : "rgba(214,69,69,0.07)" }}>
+                        background: r.win ? M.winBg : M.lossBg }}>
                         <td style={{ ...td, textAlign: "center",
-                          boxShadow: `inset 4px 0 0 ${r.win ? T.green : T.red}` }}
+                          boxShadow: `inset 4px 0 0 ${r.win ? M.green : M.red}` }}
                           onClick={() => loadPeak(r)}>{expandBtn(key)}</td>
                         <td style={{ ...td, color: T.sub, whiteSpace: "nowrap" }}>
                           {fmtTimestamp(r.closed_ts * 1000)}
                         </td>
                         <td style={{ ...td, fontFamily: T.ui, fontWeight: 500, maxWidth: 300 }}>
                           <span style={{ fontFamily: T.ui, fontSize: 9, fontWeight: 800,
-                            letterSpacing: 0.5, color: "#fff", borderRadius: 4,
-                            padding: "1px 6px", marginRight: 6, verticalAlign: "middle",
-                            background: r.win ? T.green : T.red }}>
+                            letterSpacing: 0.5, borderRadius: 4,
+                            padding: "0 6px", marginRight: 6, verticalAlign: "middle",
+                            color: r.win ? M.green : M.red, background: "transparent",
+                            border: `1px solid ${r.win ? M.green : M.red}` }}>
                             {r.win ? "WIN" : "LOSS"}
                           </span>
                           {r.title}
                           <div style={{ fontSize: 11, color: T.faint }}>
                             {r.outcome} · {categoryOf(r.event_slug)}
                             {r.averaged_down && (
-                              <span style={{ color: T.series[2], fontWeight: 700 }}> · averaged down</span>
+                              <span style={{ color: M.accent, fontWeight: 600 }}> · averaged down</span>
                             )}
                             {r.close_reason === "resolved_zero" && (
-                              <span style={{ color: T.red, fontWeight: 700 }}> · resolved at 0</span>
+                              <span style={{ color: M.resolved, fontWeight: 600 }}> · resolved at 0</span>
                             )}
                             {r.close_reason === "resolved_won" && (
-                              <span style={{ color: T.green, fontWeight: 700 }}> · won at resolution</span>
+                              <span style={{ color: M.resolvedWin, fontWeight: 600 }}> · won at resolution</span>
                             )}
                           </div>
                           <TagPills tags={r.tags} />
@@ -654,7 +667,7 @@ export default function AccountsTracker() {
                                   return (
                                     <div style={{ minWidth: 250 }}>
                                       <div style={{ ...label, fontSize: 10 }}>After your last trade</div>
-                                      <div style={{ ...monoText, fontSize: 15, fontWeight: 700, color: T.green }}>
+                                      <div style={{ ...monoText, fontSize: 15, fontWeight: 700, color: M.resolvedWin }}>
                                         resolved at 100¢
                                       </div>
                                       <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>
@@ -684,7 +697,7 @@ export default function AccountsTracker() {
                                         return (
                                           <>
                                             <div style={{ ...monoText, fontSize: 15, fontWeight: 700,
-                                              color: early ? T.red : T.green }}>
+                                              color: early ? M.red : M.green }}>
                                               peaked at {fmtCents(pk.peak_cents)}
                                             </div>
                                             <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>
@@ -698,7 +711,7 @@ export default function AccountsTracker() {
                                       const rescue = pk.peak_cents / 100 * r.shares;
                                       return (
                                         <>
-                                          <div style={{ ...monoText, fontSize: 15, fontWeight: 700, color: T.red }}>
+                                          <div style={{ ...monoText, fontSize: 15, fontWeight: 700, color: M.resolved }}>
                                             peaked at {fmtCents(pk.peak_cents)} before dying
                                           </div>
                                           <div style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>
