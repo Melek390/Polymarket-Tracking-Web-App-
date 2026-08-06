@@ -128,6 +128,7 @@ export default function AccountsTracker() {
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all"); // all | open | closed
+  const [result, setResult] = useState("all"); // all | win | loss (closed table)
   const [category, setCategory] = useState(null);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -205,7 +206,9 @@ export default function AccountsTracker() {
   };
 
   const openShown = open.filter((r) => hit(r.title, r.event_slug));
-  const closedShown = closed.filter((r) => hit(r.title, r.event_slug) && inRange(r.closed_ts));
+  const closedShown = closed
+    .filter((r) => hit(r.title, r.event_slug) && inRange(r.closed_ts))
+    .filter((r) => result === "all" || (result === "win") === r.win);
   const categories = useMemo(() => {
     const set = new Set([...open, ...closed].map((r) => categoryOf(r.event_slug)));
     return [...set].sort();
@@ -314,6 +317,21 @@ export default function AccountsTracker() {
               </div>
             </div>
             <div>
+              <div style={{ fontSize: 12, color: T.sub, marginBottom: 5 }}>Result</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[["all", "All"], ["win", "Wins"], ["loss", "Losses"]].map(([k, lab]) => (
+                  <button key={k} onClick={() => setResult(k)}
+                    style={{
+                      ...chip(result === k),
+                      ...(result === k && k === "win" ? { background: T.green, borderColor: T.green } : {}),
+                      ...(result === k && k === "loss" ? { background: T.red, borderColor: T.red } : {}),
+                    }}>
+                    {lab}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
               <div style={{ fontSize: 12, color: T.sub, marginBottom: 5 }}>Category</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <button onClick={() => setCategory(null)} style={chip(category === null)}>All</button>
@@ -361,7 +379,8 @@ export default function AccountsTracker() {
                     const key = `o-${r.asset}`;
                     return [
                       <tr key={key} style={{ borderTop: `1px solid ${T.border}` }}>
-                        <td style={{ ...td, textAlign: "center" }}>{expandBtn(key)}</td>
+                        <td style={{ ...td, textAlign: "center",
+                          boxShadow: `inset 4px 0 0 ${r.pnl > 0 ? T.green : r.pnl < 0 ? T.red : T.border}` }}>{expandBtn(key)}</td>
                         <td style={{ ...td, fontFamily: T.ui, fontWeight: 500, maxWidth: 320 }}>
                           {r.title}
                           <div style={{ fontSize: 11, color: T.faint }}>{categoryOf(r.event_slug)}</div>
@@ -407,7 +426,8 @@ export default function AccountsTracker() {
 
           {/* ---------------- CLOSED TRADES ---------------- */}
           {status !== "open" && (
-            <Section title="CLOSED TRADES" count={`${closedShown.length} shown · newest first`}>
+            <Section title="CLOSED TRADES"
+              count={`${closedShown.length} shown · ${closedShown.filter((r) => r.win).length} won · ${closedShown.filter((r) => !r.win).length} lost · newest first`}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
@@ -429,12 +449,22 @@ export default function AccountsTracker() {
                     const key = `c-${r.asset}-${r.closed_ts}`;
                     const roi = r.cost ? r.net / r.cost : 0;
                     return [
-                      <tr key={key} style={{ borderTop: `1px solid ${T.border}` }}>
-                        <td style={{ ...td, textAlign: "center" }}>{expandBtn(key)}</td>
+                      <tr key={key} style={{ borderTop: `1px solid ${T.border}`,
+                        // a closed trade wears its outcome: green tint for a
+                        // win, red for a loss — readable at scroll speed
+                        background: r.win ? "rgba(14,159,110,0.07)" : "rgba(214,69,69,0.07)" }}>
+                        <td style={{ ...td, textAlign: "center",
+                          boxShadow: `inset 4px 0 0 ${r.win ? T.green : T.red}` }}>{expandBtn(key)}</td>
                         <td style={{ ...td, color: T.sub, whiteSpace: "nowrap" }}>
                           {fmtTimestamp(r.closed_ts * 1000)}
                         </td>
                         <td style={{ ...td, fontFamily: T.ui, fontWeight: 500, maxWidth: 300 }}>
+                          <span style={{ fontFamily: T.ui, fontSize: 9, fontWeight: 800,
+                            letterSpacing: 0.5, color: "#fff", borderRadius: 4,
+                            padding: "1px 6px", marginRight: 6, verticalAlign: "middle",
+                            background: r.win ? T.green : T.red }}>
+                            {r.win ? "WIN" : "LOSS"}
+                          </span>
                           {r.title}
                           <div style={{ fontSize: 11, color: T.faint }}>
                             {r.outcome} · {categoryOf(r.event_slug)}
