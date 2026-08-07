@@ -9,7 +9,8 @@ import { playSound } from "../alerts.js";
 import Toasts, { useToasts } from "../components/Toasts.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import {
-  alertKey, alertSummaryText, loadLastSeen, loadPriceAlerts, setLastSeen, setPriceAlert,
+  alertKey, alertSummaryText, loadLastSeen, loadMuted, loadPriceAlerts,
+  setLastSeen, setPriceAlert, toggleMuted,
 } from "../traderAlerts.js";
 import { hiddenKey, loadHidden, toggleHidden } from "../traderHidden.js";
 
@@ -226,6 +227,7 @@ export default function AccountsTracker() {
   const [removing, setRemoving] = useState(null); // account pending delete confirmation
   const [hiddenRows, setHiddenRows] = useState(loadHidden);
   const [showHidden, setShowHidden] = useState(false); // reveal hidden rows (dimmed)
+  const [muted, setMuted] = useState(loadMuted); // acctId -> alerts off
   const { toasts, push: pushToast, dismiss: dismissToast, clear: clearToasts } = useToasts();
   const accountsRef = useRef(null);
   const priceAlertsRef = useRef(priceAlerts);
@@ -276,6 +278,9 @@ export default function AccountsTracker() {
       if (document.visibilityState !== "visible") return;
       const accts = accountsRef.current || [];
       for (const a of accts) {
+        // muted account: no alerts of any kind (he follows his own wallets —
+        // trades made on another machine came right back at him as alerts)
+        if (loadMuted()[a.id]) continue;
         // --- price targets ---
         const hasAlert = Object.keys(priceAlertsRef.current)
           .some((k) => k.startsWith(`${a.id}|`));
@@ -340,6 +345,7 @@ export default function AccountsTracker() {
     const sync = (e) => {
       if (e.key === "traderPriceAlerts") setPriceAlerts(loadPriceAlerts());
       if (e.key === "traderHiddenRows") setHiddenRows(loadHidden());
+      if (e.key === "traderAlertMute") setMuted(loadMuted());
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
@@ -461,11 +467,16 @@ export default function AccountsTracker() {
     </button>
   );
 
+  // visible on every row (client: "make hide/unhide prominent, easy to spot")
   const hideBtn = (rowKey) => (
     <button onClick={() => hideToggle(rowKey)}
       title={isHidden(rowKey) ? "Show this row again" : "Hide this row from the table (nothing is deleted)"}
-      style={{ ...btn.ghost, fontSize: 11, padding: "3px 8px", color: T.sub }}>
-      {isHidden(rowKey) ? "👁 Unhide row" : "🚫 Hide row"}
+      style={{ ...btn.outline, fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+        padding: "3px 9px", whiteSpace: "nowrap",
+        color: isHidden(rowKey) ? "#fff" : M.red,
+        background: isHidden(rowKey) ? M.green : "transparent",
+        borderColor: isHidden(rowKey) ? M.green : M.red }}>
+      {isHidden(rowKey) ? "UNHIDE" : "HIDE"}
     </button>
   );
 
@@ -536,6 +547,14 @@ export default function AccountsTracker() {
             <a href={`https://polymarket.com/profile/${a.wallet}`} target="_blank" rel="noreferrer"
               title="Open this profile on Polymarket"
               style={{ ...linkChip, fontSize: 12, padding: "3px 6px" }}>↗</a>
+            <button onClick={() => setMuted({ ...toggleMuted(a.id) })}
+              title={muted[a.id]
+                ? "Alerts are OFF for this account — click to turn back on"
+                : "Alerts are ON for this account — click to mute (entry/exit and price alerts)"}
+              style={{ ...btn.ghost, fontSize: 13, padding: "0 4px",
+                opacity: muted[a.id] ? 0.55 : 1 }}>
+              {muted[a.id] ? "🔕" : "🔔"}
+            </button>
             <button onClick={() => setRemoving(a)} title="Remove account"
               style={{ ...btn.ghost, fontSize: 12, padding: "0 4px", color: T.faint }}>✕</button>
           </span>
@@ -676,6 +695,7 @@ export default function AccountsTracker() {
                     <th style={rightTh}>P/L</th>
                     <th style={rightTh}>ROI</th>
                     <th style={th}>Status</th>
+                    <th style={{ ...th, width: 56 }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -713,10 +733,11 @@ export default function AccountsTracker() {
                         <td style={{ ...td, fontFamily: T.ui, color: r.redeemable ? M.green : T.sub }}>
                           {r.redeemable ? "Redeemable" : "Open"}
                         </td>
+                        <td style={{ ...td, textAlign: "center" }}>{hideBtn(openHideKey(r))}</td>
                       </tr>,
                       openRow === key && (
                         <tr key={`${key}-x`}>
-                          <td colSpan={12} style={{ padding: 0 }}>
+                          <td colSpan={13} style={{ padding: 0 }}>
                             <div style={{ padding: "12px 16px", background: T.soft,
                               borderTop: `1px solid ${T.border}`,
                               display: "flex", gap: 34, flexWrap: "wrap" }}>
@@ -771,6 +792,7 @@ export default function AccountsTracker() {
                           : "—"}
                       </td>
                       <td style={td} />
+                      <td style={td} />
                     </tr>
                   </tfoot>
                 )}
@@ -809,6 +831,7 @@ export default function AccountsTracker() {
                     <th style={rightTh}>Fees</th>
                     <th style={rightTh}>P/L</th>
                     <th style={rightTh}>ROI</th>
+                    <th style={{ ...th, width: 56 }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -867,10 +890,11 @@ export default function AccountsTracker() {
                         <td style={{ ...rightTd, color: pnlColor(gross) }}>
                           {roi > 0 ? "+" : ""}{(roi * 100).toFixed(1)}%
                         </td>
+                        <td style={{ ...td, textAlign: "center" }}>{hideBtn(closedHideKey(r))}</td>
                       </tr>,
                       openRow === key && (
                         <tr key={`${key}-x`}>
-                          <td colSpan={11} style={{ padding: 0 }}>
+                          <td colSpan={12} style={{ padding: 0 }}>
                             <div style={{ padding: "12px 16px", background: T.soft,
                               borderTop: `1px solid ${T.border}`,
                               display: "flex", gap: 34, flexWrap: "wrap" }}>

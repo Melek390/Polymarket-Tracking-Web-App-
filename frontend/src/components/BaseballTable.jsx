@@ -14,6 +14,7 @@ import { Bases, BattingTag, HomeAwayTag, OutDots } from "./baseball/widgets.jsx"
 import { breakText, inningText, isFinished, isInningBreak, preGameLabel } from "./baseball/gameState.js";
 import TeamTagsDialog, { TeamTag } from "./baseball/TeamTagsDialog.jsx";
 import { loadTeamTags, tagsFor, taggedTeamCount } from "../teamTags.js";
+import { loadScreenerHidden, toggleScreenerHidden } from "../screenerHidden.js";
 
 const POLL_MS = 2000; // fast live prices + state; backend caps each at ~2s
 
@@ -57,6 +58,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const [matchups, setMatchups] = useState({}); // gamePk -> standings/series/probables
   const [teamTags, setTeamTags] = useState(loadTeamTags); // the user's club labels
   const [tagsOpen, setTagsOpen] = useState(false);
+  const [hidden, setHidden] = useState(loadScreenerHidden); // slug -> hidden
+  const [showHidden, setShowHidden] = useState(false); // reveal hidden (dimmed)
 
   // Build the paste-ready snapshot (MLB + Polymarket), copy it to the clipboard
   // and show it in a modal. It stays open until the user closes it; clicking
@@ -130,6 +133,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
         setTeamTags(loadTeamTags()); // tags edited in another window show here
       } else if (e.key === "screenerHighlights") {
         setHighlights(loadHighlights());
+      } else if (e.key === "screenerHiddenRows") {
+        setHidden(loadScreenerHidden());
       }
     };
     window.addEventListener("storage", sync);
@@ -328,9 +333,22 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
     if (!r.kickoff) return "soon";
     return r.kickoff > nowMs ? "soon" : "over";
   }
-  const displayRows = statuses.length === 0
+  const statusRows = statuses.length === 0
     ? rows
     : rows.filter((r) => statuses.includes(rowStatus(r)));
+  const hiddenN = statusRows.filter((r) => hidden[r.slug]).length;
+  const displayRows = showHidden ? statusRows : statusRows.filter((r) => !hidden[r.slug]);
+  const rowHideBtn = (slug) => (
+    <button onClick={() => setHidden({ ...toggleScreenerHidden(slug) })}
+      title={hidden[slug] ? "Show this game again" : "Hide this game from the list (nothing is deleted)"}
+      style={{ ...btn.outline, fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+        padding: "3px 9px", whiteSpace: "nowrap",
+        color: hidden[slug] ? "#fff" : T.red,
+        background: hidden[slug] ? T.green : "transparent",
+        borderColor: hidden[slug] ? T.green : T.red }}>
+      {hidden[slug] ? "UNHIDE" : "HIDE"}
+    </button>
+  );
 
   // Resolve a row's MLB-designated home/away teams + prices (shared by the row
   // render and the sort comparator, so they always agree).
@@ -380,6 +398,12 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
         onClear={clearAlert}
       />
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 8 }}>
+        {(hiddenN > 0 || showHidden) && (
+          <button onClick={() => setShowHidden((s) => !s)}
+            style={{ ...btn.outline, fontSize: 12, padding: "6px 10px", fontWeight: 700 }}>
+            {showHidden ? "Conceal hidden games" : `👁 ${hiddenN} hidden — show`}
+          </button>
+        )}
         <button
           onClick={() => setTagsOpen(true)}
           title="Label the clubs you follow so they stand out in the list"
@@ -463,8 +487,9 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                     // The alert stays obvious via the bell and the amber stripe
                     // down the right edge.
                     background: hl ? hl.bg : alerting ? "#FEF3C7" : undefined,
+                    opacity: hidden[r.slug] ? 0.45 : 1,
                   }}
-                >
+>
                   <td style={{ ...center, boxShadow: hl ? `inset 4px 0 0 ${hl.dot}` : undefined }}>
                     <button
                       onClick={() => toggle(r.gamePk)}
@@ -627,7 +652,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                       style={{ ...btn.outline, fontSize: 12, padding: "5px 9px", textDecoration: "none" }}
                     >
                       Web ↗
-                    </a>
+                    </a>{" "}
+                    {rowHideBtn(r.slug)}
                   </td>
                 </tr>,
                 open && (

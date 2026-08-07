@@ -51,3 +51,24 @@ export function alertSummaryText(a) {
   if (a.below != null) bits.push(`≤ ${a.below}¢`);
   return bits.join(" or ");
 }
+
+// Per-account mute (client request, Aug 7): he follows his own wallets, so
+// every trade he makes on another machine came back at him as an alert.
+// Muted accounts fire NO alerts — neither entry/exit toasts nor price alerts.
+const MUTE_KEY = "traderAlertMute"; // { acctId: true }
+
+export function loadMuted() {
+  try {
+    return JSON.parse(localStorage.getItem(MUTE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function toggleMuted(acctId) {
+  const all = loadMuted();
+  if (all[acctId]) delete all[acctId];
+  else all[acctId] = true;
+  localStorage.setItem(MUTE_KEY, JSON.stringify(all));
+  return all;
+}

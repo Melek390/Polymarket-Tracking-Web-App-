@@ -11,6 +11,7 @@ import Toasts, { useToasts } from "../components/Toasts.jsx";
 import HighlightPicker, { ClearHighlights } from "../components/HighlightPicker.jsx";
 import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
 import { loadHighlights, persistHighlights, highlightColor } from "../highlights.js";
+import { loadScreenerHidden, toggleScreenerHidden } from "../screenerHidden.js";
 
 // key = the sport param sent to the API
 const SPORTS = [
@@ -159,6 +160,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const [livePrices, setLivePrices] = useState({}); // slug -> fresh CLOB asks
   const [alerts, setAlerts] = useState(loadAlerts);
   const [highlights, setHighlights] = useState(loadHighlights); // slug -> colour key
+  const [hidden, setHidden] = useState(loadScreenerHidden); // slug -> hidden
+  const [showHidden, setShowHidden] = useState(false); // reveal hidden (dimmed)
   const [hits, setHits] = useState(new Set());
   const [dialogOpen, setDialogOpen] = useState(false); // global sport alert
   const [alertRow, setAlertRow] = useState(null); // per-game alert
@@ -260,6 +263,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
         clearToasts();
       } else if (e.key === "screenerHighlights") {
         setHighlights(loadHighlights());
+      } else if (e.key === "screenerHiddenRows") {
+        setHidden(loadScreenerHidden());
       }
     };
     window.addEventListener("storage", sync);
@@ -448,9 +453,22 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
 
   // soccer is the only 3-way sport; hide the Draw column for the rest
   const hasDraw = rows.some((m) => m.drawPrice != null);
-  const visible = rows
+  const visibleBase = rows
     .filter((m) => matchesFilters(m, applied, league, search))
-    .filter((m) => statusOk(m.kickoff))
+    .filter((m) => statusOk(m.kickoff));
+  const hiddenN = visibleBase.filter((m) => hidden[m.slug]).length;
+  const rowHideBtn = (slug) => (
+    <button onClick={() => setHidden({ ...toggleScreenerHidden(slug) })}
+      title={hidden[slug] ? "Show this match again" : "Hide this match from the list (nothing is deleted)"}
+      style={{ ...btn.outline, fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+        padding: "3px 9px", whiteSpace: "nowrap",
+        color: hidden[slug] ? "#fff" : T.red,
+        background: hidden[slug] ? T.green : "transparent",
+        borderColor: hidden[slug] ? T.green : T.red }}>
+      {hidden[slug] ? "UNHIDE" : "HIDE"}
+    </button>
+  );
+  const visible = (showHidden ? visibleBase : visibleBase.filter((m) => !hidden[m.slug]))
     .sort((a, b) => {
       const dir = sort.dir === "asc" ? 1 : -1;
       if (sort.key === "match") return dir * a.home.localeCompare(b.home);
@@ -750,6 +768,12 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
           {rows.length} matches
         </span>
         <span style={{ flex: 1 }} />
+        {(hiddenN > 0 || showHidden) && (
+          <button onClick={() => setShowHidden((s) => !s)}
+            style={{ ...btn.outline, fontSize: 12, padding: "6px 10px", fontWeight: 700 }}>
+            {showHidden ? "Conceal hidden matches" : `👁 ${hiddenN} hidden — show`}
+          </button>
+        )}
         <ClearHighlights
           count={visible.filter((m) => highlights[m.slug]).length}
           onClear={() => {
@@ -826,7 +850,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                     // The user's colour WINS — a matching alert used to override
                     // it, which made highlighting an alerting row look broken.
                     // The alert keeps its bell and gets an amber right edge.
-                    background: hl ? hl.bg : hits.has(m.slug) ? "#FEF3C7" : undefined }}>
+                    background: hl ? hl.bg : hits.has(m.slug) ? "#FEF3C7" : undefined,
+                    opacity: hidden[m.slug] ? 0.45 : 1 }}>
                   <td style={{ ...td, fontFamily: T.ui, fontWeight: 500,
                     boxShadow: hl ? `inset 4px 0 0 ${hl.dot}` : undefined }}>
                     {hits.has(m.slug) && (
@@ -932,7 +957,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                       style={{ ...btn.outline, fontSize: 12, padding: "6px 10px", textDecoration: "none" }}
                     >
                       Web ↗
-                    </a>
+                    </a>{" "}
+                    {rowHideBtn(m.slug)}
                   </td>
                 </tr>
                 );
