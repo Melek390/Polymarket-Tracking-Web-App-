@@ -469,10 +469,18 @@ export default function AccountsTracker() {
     </button>
   );
 
+  // blue chip so the jump-to-Polymarket arrows stand out (client request)
+  const linkChip = {
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    background: "#3B82F6", color: "#fff", borderRadius: 4,
+    fontSize: 11, fontWeight: 700, lineHeight: 1, padding: "3px 5px",
+    textDecoration: "none", verticalAlign: "middle",
+  };
+
   const betLink = (slug) => slug && (
     <a href={`https://polymarket.com/event/${slug}`} target="_blank" rel="noreferrer"
       title="Open this bet on Polymarket"
-      style={{ marginLeft: 6, fontSize: 11, textDecoration: "none", color: T.sub }}>↗</a>
+      style={{ ...linkChip, marginLeft: 6 }}>↗</a>
   );
 
   const expandBtn = (key) => (
@@ -527,7 +535,7 @@ export default function AccountsTracker() {
             </button>
             <a href={`https://polymarket.com/profile/${a.wallet}`} target="_blank" rel="noreferrer"
               title="Open this profile on Polymarket"
-              style={{ fontSize: 12, textDecoration: "none", color: T.sub }}>↗</a>
+              style={{ ...linkChip, fontSize: 12, padding: "3px 6px" }}>↗</a>
             <button onClick={() => setRemoving(a)} title="Remove account"
               style={{ ...btn.ghost, fontSize: 12, padding: "0 4px", color: T.faint }}>✕</button>
           </span>
