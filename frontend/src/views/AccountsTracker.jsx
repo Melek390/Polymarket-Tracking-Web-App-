@@ -543,7 +543,10 @@ export default function AccountsTracker() {
             <Stat title="Avg hold" value={hold(windowed ? windowed.avgHold : summary.avg_hold_s)} />
             <Stat title="Fees paid"
               value={usd(windowed ? windowed.fees : summary.fees_paid)}
-              sub="takers only — makers are free" />
+              sub={summary.taker_volume > 0
+                ? `${(summary.fees_all_fills / summary.taker_volume * 100).toFixed(1)}% of ${usd(summary.taker_volume)} `
+                  + "traded — charged per trade, not on profit; makers pay zero"
+                : "takers only — makers are free"} />
           </div>
 
           {/* filters */}

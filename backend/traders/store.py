@@ -122,6 +122,21 @@ def fills_for(acct_id: int) -> list[dict]:
             (acct_id,))]
 
 
+def volume_for(acct_id: int) -> dict:
+    """Lifetime traded volume — the number fees are actually a percentage of.
+    Shown beside the fee card so "34% of my profit!?" reads as the ~1.3% of
+    turnover it really is."""
+    with get_db() as conn:
+        r = conn.execute(
+            """SELECT COUNT(*) AS fills,
+                      COALESCE(SUM(price * size), 0) AS volume,
+                      COALESCE(SUM(CASE WHEN role='taker' THEN price * size END), 0) AS taker_volume,
+                      COALESCE(SUM(fee), 0) AS fees
+               FROM trader_fills WHERE account_id=?""", (acct_id,)).fetchone()
+        return {"fills": r["fills"], "volume": r["volume"],
+                "taker_volume": r["taker_volume"], "fees": r["fees"]}
+
+
 def tags_for(acct_id: int) -> dict[str, list[str]]:
     out: dict[str, list[str]] = {}
     with get_db() as conn:

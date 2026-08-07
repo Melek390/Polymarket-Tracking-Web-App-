@@ -176,7 +176,12 @@ async def summary(acct: dict) -> dict:
     value = await _value(acct["wallet"])
     if value is None:  # fall back to the positions we already have
         value = round(sum(float(p.get("currentValue") or 0) for p in positions), 2)
+    vol = store.volume_for(acct["id"])
     return {
+        "volume_traded": round(vol["volume"], 2),
+        "taker_volume": round(vol["taker_volume"], 2),
+        "fees_all_fills": round(vol["fees"], 2),
+        "fill_count": vol["fills"],
         "portfolio_value": value,
         "unrealized_pnl": round(unrealized, 2),
         "realized_pnl": round(realized, 2),
