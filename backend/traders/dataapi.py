@@ -113,7 +113,9 @@ async def fetch_activity(wallet: str, limit: int = 60) -> list[dict]:
 
 
 async def fetch_value(wallet: str) -> float | None:
-    r = await _http().get(f"{BASE}/value", params={"user": wallet})
+    # /value is the flakiest endpoint here and it's merely cosmetic (summary
+    # falls back to summing positions) — never let it hold a page for 15s
+    r = await _http().get(f"{BASE}/value", params={"user": wallet}, timeout=3.0)
     r.raise_for_status()
     d = r.json()
     if isinstance(d, list) and d:

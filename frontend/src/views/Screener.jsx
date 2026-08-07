@@ -135,8 +135,13 @@ function matchesFilters(m, f, league, search) {
   return inDateRange(m.kickoff, f);
 }
 
+// Session cache (module scope): the screener refetched from zero on every
+// visit and sport switch, flashing "Loading markets…" each time. The last
+// response paints instantly and refreshes underneath.
+const sportCache = {};
+
 export default function Screener({ sport, onSport, onTracked, markets = [] }) {
-  const [data, setData] = useState(null); // {rows, leagues, updatedAt}
+  const [data, setData] = useState(() => sportCache[sport] ?? null); // {rows, leagues, updatedAt}
   const [error, setError] = useState(null);
   const [league, setLeague] = useState(null); // one league, null = all
   const [search, setSearch] = useState(""); // team or league text, filters live
@@ -177,16 +182,19 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
 
   async function load() {
     try {
-      setData(await fetchScreener(sport));
+      const d = await fetchScreener(sport);
+      sportCache[sport] = d;
+      setData(d);
       setError(null);
     } catch (e) {
       setError(`Could not load markets: ${e.message}`);
     }
   }
 
-  // reload whenever the sport changes; clear the league since the list differs
+  // reload whenever the sport changes; clear the league since the list differs.
+  // A cached response paints immediately, the fetch replaces it underneath.
   useEffect(() => {
-    setData(null);
+    setData(sportCache[sport] ?? null);
     setLeague(null);
     load();
   }, [sport]);

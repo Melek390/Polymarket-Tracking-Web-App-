@@ -27,6 +27,10 @@ RES_TTL_S = 600
 # windows are open (house rule: browser polling never fans out)
 _act_cache: dict[str, tuple[float, list[dict]]] = {}
 ACT_TTL_S = 30
+# memo for matched(): summary/open/closed arrive together from one page load
+_match_cache: dict[int, tuple[float, tuple]] = {}
+_match_locks: dict[int, asyncio.Lock] = {}
+MATCH_TTL_S = 10
 
 
 async def sync_account(acct: dict, force: bool = False) -> int:
@@ -46,6 +50,7 @@ async def sync_account(acct: dict, force: bool = False) -> int:
     added = store.insert_fills(acct["id"], fills)
     store.update_fees(acct["id"], fills)  # heal rows stored under old rates
     store.touch_sync(acct["id"])
+    _match_cache.pop(acct["id"], None)  # fresh fills must show immediately
     return added
 
 
@@ -174,7 +179,26 @@ async def _resolve_many(condition_ids: set[str]) -> dict[str, dict | None]:
 
 
 async def matched(acct: dict) -> tuple[list[dict], dict[str, dict], list[dict]]:
-    """(closed trips, open trips, live position rows) for one account."""
+    """(closed trips, open trips, live position rows) for one account.
+
+    Memoized for a few seconds: one page load asks for summary, open rows and
+    closed rows CONCURRENTLY, and each used to re-run the whole pipeline
+    (fills + redeems + matching + ghost resolution). The in-flight lock also
+    collapses those three parallel calls into a single computation."""
+    hit = _match_cache.get(acct["id"])
+    if hit and time.monotonic() - hit[0] < MATCH_TTL_S:
+        return hit[1]
+    lock = _match_locks.setdefault(acct["id"], asyncio.Lock())
+    async with lock:
+        hit = _match_cache.get(acct["id"])  # a parallel caller may have filled it
+        if hit and time.monotonic() - hit[0] < MATCH_TTL_S:
+            return hit[1]
+        result = await _matched_uncached(acct)
+        _match_cache[acct["id"]] = (time.monotonic(), result)
+        return result
+
+
+async def _matched_uncached(acct: dict) -> tuple[list[dict], dict[str, dict], list[dict]]:
     positions = await _positions(acct["wallet"])
     # a holding still listed but priced at zero is a resolved loss
     resolutions = {p["asset"]: 0.0 for p in positions

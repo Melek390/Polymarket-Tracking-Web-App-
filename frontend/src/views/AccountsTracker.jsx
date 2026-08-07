@@ -200,13 +200,18 @@ function Section({ title, count, extra, children }) {
   );
 }
 
+// Session cache (module scope, survives view unmounts): switching to another
+// tab and back used to refetch everything from zero — seconds of "Loading…"
+// each time. Now the last data renders instantly and refreshes underneath.
+const memo = { accounts: null, current: null, byId: {} };
+
 export default function AccountsTracker() {
-  const [accounts, setAccounts] = useState(null); // null = loading
-  const [current, setCurrent] = useState(null);   // account id
-  const [summary, setSummary] = useState(null);
-  const [open, setOpen] = useState([]);
-  const [closed, setClosed] = useState([]);
-  const [activity, setActivity] = useState([]);
+  const [accounts, setAccounts] = useState(() => memo.accounts); // null = loading
+  const [current, setCurrent] = useState(() => memo.current);    // account id
+  const [summary, setSummary] = useState(() => memo.byId[memo.current]?.summary ?? null);
+  const [open, setOpen] = useState(() => memo.byId[memo.current]?.open ?? []);
+  const [closed, setClosed] = useState(() => memo.byId[memo.current]?.closed ?? []);
+  const [activity, setActivity] = useState(() => memo.byId[memo.current]?.activity ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [newInput, setNewInput] = useState("");
@@ -222,7 +227,7 @@ export default function AccountsTracker() {
   const [actShown, setActShown] = useState(60); // activity rows revealed
   const [peaks, setPeaks] = useState({}); // asset|ts -> {peak_cents, source} | "loading" | null
   const [priceAlerts, setPriceAlerts] = useState(loadPriceAlerts);
-  const [customTags, setCustomTags] = useState([]);
+  const [customTags, setCustomTags] = useState(() => memo.byId[memo.current]?.customTags ?? []);
   const [period, setPeriod] = useState("all");
   const [removing, setRemoving] = useState(null); // account pending delete confirmation
   const [hiddenRows, setHiddenRows] = useState(loadHidden);
@@ -235,10 +240,13 @@ export default function AccountsTracker() {
   const firedRef = useRef({});   // "acct|asset|dir" -> true while condition holds
   const seenReadyRef = useRef({}); // acctId -> watermark initialised this session
 
+  accountsRef.current = accountsRef.current ?? memo.accounts;
+
   async function loadAccounts(selectId) {
     try {
       const list = await traderList();
       setAccounts(list);
+      memo.accounts = list;
       accountsRef.current = list;
       const id = selectId ?? current ?? list[0]?.id ?? null;
       setCurrent(list.some((a) => a.id === id) ? id : list[0]?.id ?? null);
@@ -251,21 +259,30 @@ export default function AccountsTracker() {
 
   async function loadData(id) {
     if (id == null) { setSummary(null); setOpen([]); setClosed([]); setActivity([]); return; }
-    setLoading(true);
+    const cached = memo.byId[id];
+    if (cached) {
+      // stale-while-revalidate: paint the last known data now, refresh below
+      setSummary(cached.summary); setOpen(cached.open); setClosed(cached.closed);
+      setActivity(cached.activity); setCustomTags(cached.customTags);
+    } else {
+      setLoading(true);
+    }
     setError(null);
     try {
       const [s, o, c, a, v] = await Promise.all([
         traderSummary(id), traderOpen(id), traderClosed(id), traderActivity(id),
         traderTagVocab(id),
       ]);
+      memo.byId[id] = { summary: s, open: o, closed: c, activity: a, customTags: v };
       setSummary(s); setOpen(o); setClosed(c); setActivity(a); setCustomTags(v);
     } catch (e) {
-      setError(`Could not load account data: ${e.message}`);
+      // with stale data on screen a transient failure is not worth a banner
+      if (!cached) setError(`Could not load account data: ${e.message}`);
     } finally {
       setLoading(false);
     }
   }
-  useEffect(() => { loadData(current); setActShown(60); }, [current]);
+  useEffect(() => { memo.current = current; loadData(current); setActShown(60); }, [current]);
 
   // Alert watcher: every 45s (tab visible only) check each account for
   // (a) positions crossing a saved price target, (b) NEW trades/redeems since
@@ -368,6 +385,7 @@ export default function AccountsTracker() {
 
   async function removeAccount(id) {
     await traderDelete(id);
+    delete memo.byId[id];
     await loadAccounts(null);
   }
 
@@ -377,6 +395,7 @@ export default function AccountsTracker() {
     const [o, c, v] = await Promise.all([
       traderOpen(current), traderClosed(current), traderTagVocab(current)]);
     setOpen(o); setClosed(c); setCustomTags(v);
+    if (memo.byId[current]) Object.assign(memo.byId[current], { open: o, closed: c, customTags: v });
   }
 
   const hit = (title, slug) => {
