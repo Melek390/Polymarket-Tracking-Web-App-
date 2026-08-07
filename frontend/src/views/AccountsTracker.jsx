@@ -402,6 +402,15 @@ export default function AccountsTracker() {
   }, [period, closed, summary]);
 
   const openShown = open.filter((r) => hit(r.title, r.event_slug));
+  // totals row under the open table (client item 8) — follows the filters;
+  // potential profit = shares × $1 − cost (redeems are fee-free, item 9)
+  const openTotals = {
+    shares: openShown.reduce((a, r) => a + r.shares, 0),
+    cost: openShown.reduce((a, r) => a + r.cost, 0),
+    value: openShown.reduce((a, r) => a + r.value, 0),
+    pnl: openShown.reduce((a, r) => a + r.pnl, 0),
+    potential: openShown.reduce((a, r) => a + (r.shares - r.cost), 0),
+  };
   const closedShown = closed
     .filter((r) => hit(r.title, r.event_slug) && inRange(r.closed_ts))
     .filter((r) => inPeriod(period, r.closed_ts))
@@ -600,6 +609,9 @@ export default function AccountsTracker() {
                     <th style={rightTh}>Shares</th>
                     <th style={rightTh}>Cost</th>
                     <th style={rightTh}>Value</th>
+                    <th style={rightTh} title="What you pocket if this bet resolves your way: shares × $1 − cost">
+                      Potential profit
+                    </th>
                     <th style={rightTh}>P/L</th>
                     <th style={rightTh}>ROI</th>
                     <th style={th}>Status</th>
@@ -630,6 +642,7 @@ export default function AccountsTracker() {
                         <td style={rightTd}>{Math.round(r.shares).toLocaleString("en-US")}</td>
                         <td style={rightTd}>{usd(r.cost)}</td>
                         <td style={rightTd}>{usd(r.value)}</td>
+                        <td style={{ ...rightTd, color: M.green }}>{usd(r.shares - r.cost)}</td>
                         <td style={{ ...rightTd, fontWeight: 700, color: pnlColor(r.pnl) }}>{usd(r.pnl)}</td>
                         <td style={{ ...rightTd, color: pnlColor(r.pnl) }}>
                           {r.pct_pnl > 0 ? "+" : ""}{r.pct_pnl.toFixed(1)}%
@@ -640,7 +653,7 @@ export default function AccountsTracker() {
                       </tr>,
                       openRow === key && (
                         <tr key={`${key}-x`}>
-                          <td colSpan={11} style={{ padding: 0 }}>
+                          <td colSpan={12} style={{ padding: 0 }}>
                             <div style={{ padding: "12px 16px", background: T.soft,
                               borderTop: `1px solid ${T.border}`,
                               display: "flex", gap: 34, flexWrap: "wrap" }}>
@@ -668,7 +681,45 @@ export default function AccountsTracker() {
                     ];
                   })}
                 </tbody>
+                {openShown.length > 0 && (
+                  <tfoot>
+                    {/* the glance row (client item 8) — sums follow the filters */}
+                    <tr style={{ borderTop: `2px solid ${T.border}`, background: T.soft }}>
+                      <td style={td} />
+                      <td style={{ ...td, fontFamily: T.ui, fontWeight: 700 }}>
+                        Total — {openShown.length} position{openShown.length === 1 ? "" : "s"}
+                      </td>
+                      <td style={td} />
+                      <td style={rightTd} />
+                      <td style={rightTd} />
+                      <td style={{ ...rightTd, fontWeight: 700 }}>
+                        {Math.round(openTotals.shares).toLocaleString("en-US")}
+                      </td>
+                      <td style={{ ...rightTd, fontWeight: 700 }}>{usd(openTotals.cost)}</td>
+                      <td style={{ ...rightTd, fontWeight: 700 }}>{usd(openTotals.value)}</td>
+                      <td style={{ ...rightTd, fontWeight: 700, color: M.green }}>{usd(openTotals.potential)}</td>
+                      <td style={{ ...rightTd, fontWeight: 700, color: pnlColor(openTotals.pnl) }}>
+                        {usd(openTotals.pnl)}
+                      </td>
+                      <td style={{ ...rightTd, color: pnlColor(openTotals.pnl) }}>
+                        {openTotals.cost
+                          ? `${openTotals.pnl > 0 ? "+" : ""}${(openTotals.pnl / openTotals.cost * 100).toFixed(1)}%`
+                          : "—"}
+                      </td>
+                      <td style={td} />
+                    </tr>
+                  </tfoot>
+                )}
               </table>
+              {openShown.length > 0 && (
+                <div style={{ padding: "8px 16px", fontSize: 12, color: T.sub,
+                  borderTop: `1px solid ${T.border}` }}>
+                  If every open bet wins you collect{" "}
+                  <b style={{ color: M.green }}>{usd(openTotals.shares)}</b>{" "}
+                  (a profit of <b style={{ color: M.green }}>{usd(openTotals.potential)}</b>) —
+                  if they all lose, the <b style={{ color: M.red }}>{usd(openTotals.cost)}</b> invested is gone.
+                </div>
+              )}
               {openShown.length === 0 && (
                 <div style={{ padding: "20px 16px", fontSize: 13, color: T.faint }}>No open positions match.</div>
               )}
