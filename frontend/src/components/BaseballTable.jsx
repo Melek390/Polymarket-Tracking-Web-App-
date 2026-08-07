@@ -167,7 +167,12 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
     const flags = {};
     for (const r of rowsRef.current) {
       const live = liveMap[r.gamePk] ?? liveRef.current[r.gamePk];
-      const now = live?.[key];
+      // Only a LIVE game can have events. MLB posts the announced starter
+      // into the boxscore hours before first pitch, so a pre-game row's
+      // pitcher count "rises" 0 -> 1 when lineups drop — that painted an
+      // orange PITCHER CHANGED badge on a game 4-5h away (client, Aug 7).
+      if (!live || live.status !== "Live") continue;
+      const now = live[key];
       if (!now) continue;
       const prev = ref.current[r.gamePk];
       ref.current[r.gamePk] = now;
