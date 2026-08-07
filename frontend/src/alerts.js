@@ -122,10 +122,14 @@ export function isOver(ctx) {
   return /postponed|cancel/i.test(live.game_state || "");
 }
 
-// ctx: { prices: {home, away, draw}, live: <MLB live state | null>, over: bool }
+// ctx: { prices, live: <MLB live state | null>, over: bool, notStarted: bool }
 export function matches(alert, ctx) {
   if (!alert) return false;
   if (isOver(ctx)) return false;
+  // A game that hasn't started must not fire either: pre-game odds sit under
+  // price thresholds for hours (client caught an "orange alert" 4-5h before
+  // first pitch, Aug 7). Callers that know their schedule pass notStarted.
+  if (ctx.notStarted) return false;
   const { prices, live } = ctx;
   const isLive = live && live.status === "Live";
   const wantsSituation =

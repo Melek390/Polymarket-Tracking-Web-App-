@@ -211,7 +211,10 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
       const lp = priceMap[r.slug] ?? priceRef.current[r.slug];
       const prices = { home: lp?.home ?? r.homePrice, away: lp?.away ?? r.awayPrice, draw: null };
       const over = isFinished(live, r.kickoff);
-      const hit = rowAlerts.find((a) => matches(a, { prices, live, over }));
+      // Preview (incl. warmup) or a kickoff still in the future = not started
+      const notStarted = live ? live.status === "Preview"
+        : (r.kickoff ? r.kickoff > Date.now() : false);
+      const hit = rowAlerts.find((a) => matches(a, { prices, live, over, notStarted }));
       const m = !!hit;
       if (m && !st.matched && !st.acked) {
         const reason = matchReason(hit, prices, live);

@@ -300,9 +300,13 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
         away: lp.away ?? m.awayPrice,
         draw: lp.draw ?? m.drawPrice,
       };
-      // a finished match's prices are pinned, so it must never alert
-      const over = matchStatus(m.kickoff) === "over";
-      const hit = rowAlerts.find((a) => matches(a, { prices, live: null, over }));
+      // a finished match's prices are pinned, so it must never alert — and a
+      // match that hasn't kicked off must not either (pre-game odds sit under
+      // price thresholds for hours; client caught it on MLB, Aug 7)
+      const status = matchStatus(m.kickoff);
+      const hit = rowAlerts.find((a) => matches(a, {
+        prices, live: null, over: status === "over", notStarted: status === "soon",
+      }));
       if (hit) {
         if (!st.matched && !st.acked) {
           const reason = matchReason(hit, prices, null);
