@@ -11,6 +11,7 @@ import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import {
   alertKey, alertSummaryText, loadLastSeen, loadPriceAlerts, setLastSeen, setPriceAlert,
 } from "../traderAlerts.js";
+import { hiddenKey, loadHidden, toggleHidden } from "../traderHidden.js";
 
 // Accounts tracker — LIVE data from backend/traders (win = net > $0 after
 // fees; fees exact per fill via maker/taker detection; tags sit on the round
@@ -183,12 +184,13 @@ function TagPills({ tags }) {
   );
 }
 
-function Section({ title, count, children }) {
+function Section({ title, count, extra, children }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, margin: "4px 0 8px" }}>
         <span style={{ ...label, fontSize: 12, letterSpacing: 0.8 }}>{title}</span>
         <span style={{ fontSize: 12, color: T.faint }}>{count}</span>
+        {extra}
       </div>
       <div style={{ ...card, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>{children}</div>
@@ -222,6 +224,8 @@ export default function AccountsTracker() {
   const [customTags, setCustomTags] = useState([]);
   const [period, setPeriod] = useState("all");
   const [removing, setRemoving] = useState(null); // account pending delete confirmation
+  const [hiddenRows, setHiddenRows] = useState(loadHidden);
+  const [showHidden, setShowHidden] = useState(false); // reveal hidden rows (dimmed)
   const { toasts, push: pushToast, dismiss: dismissToast, clear: clearToasts } = useToasts();
   const accountsRef = useRef(null);
   const priceAlertsRef = useRef(priceAlerts);
@@ -335,6 +339,7 @@ export default function AccountsTracker() {
   useEffect(() => {
     const sync = (e) => {
       if (e.key === "traderPriceAlerts") setPriceAlerts(loadPriceAlerts());
+      if (e.key === "traderHiddenRows") setHiddenRows(loadHidden());
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
@@ -408,7 +413,16 @@ export default function AccountsTracker() {
   const realizedNet = windowed ? windowed.realized : (summary ? summary.realized_pnl : 0);
   const realizedGross = realizedNet + (windowed ? windowed.fees : closedFeesAll);
 
-  const openShown = open.filter((r) => hit(r.title, r.event_slug));
+  // hide/unhide rows (client request, Aug 7) — cosmetic only: the stat cards
+  // keep counting hidden rows; only the tables (and the open totals) skip them
+  const openHideKey = (r) => `o:${r.asset}`;
+  const closedHideKey = (r) => `c:${r.asset}:${r.closed_ts}`;
+  const isHidden = (rowKey) => !!hiddenRows[hiddenKey(current, rowKey)];
+  const hideToggle = (rowKey) => setHiddenRows({ ...toggleHidden(current, rowKey) });
+
+  const openBase = open.filter((r) => hit(r.title, r.event_slug));
+  const openHiddenN = openBase.filter((r) => isHidden(openHideKey(r))).length;
+  const openShown = showHidden ? openBase : openBase.filter((r) => !isHidden(openHideKey(r)));
   // totals row under the open table (client item 8) — follows the filters;
   // potential profit = shares × $1 − cost (redeems are fee-free, item 9)
   const openTotals = {
@@ -418,10 +432,12 @@ export default function AccountsTracker() {
     pnl: openShown.reduce((a, r) => a + r.pnl, 0),
     potential: openShown.reduce((a, r) => a + (r.shares - r.cost), 0),
   };
-  const closedShown = closed
+  const closedBase = closed
     .filter((r) => hit(r.title, r.event_slug) && inRange(r.closed_ts))
     .filter((r) => inPeriod(period, r.closed_ts))
     .filter((r) => result === "all" || (result === "win") === r.win);
+  const closedHiddenN = closedBase.filter((r) => isHidden(closedHideKey(r))).length;
+  const closedShown = showHidden ? closedBase : closedBase.filter((r) => !isHidden(closedHideKey(r)));
   const categories = useMemo(() => {
     const set = new Set([...open, ...closed].map((r) => categoryOf(r.event_slug)));
     return [...set].sort();
@@ -437,6 +453,27 @@ export default function AccountsTracker() {
       .then((d) => setPeaks((p) => ({ ...p, [key]: d && d.peak_cents != null ? d : null })))
       .catch(() => setPeaks((p) => ({ ...p, [key]: null })));
   }
+
+  const hiddenToggle = (n) => (n > 0 || showHidden) && (
+    <button onClick={() => setShowHidden((s) => !s)}
+      style={{ ...btn.ghost, fontSize: 11, padding: "1px 8px", color: T.sub }}>
+      {showHidden ? "conceal hidden rows" : `${n} hidden — show`}
+    </button>
+  );
+
+  const hideBtn = (rowKey) => (
+    <button onClick={() => hideToggle(rowKey)}
+      title={isHidden(rowKey) ? "Show this row again" : "Hide this row from the table (nothing is deleted)"}
+      style={{ ...btn.ghost, fontSize: 11, padding: "3px 8px", color: T.sub }}>
+      {isHidden(rowKey) ? "👁 Unhide row" : "🚫 Hide row"}
+    </button>
+  );
+
+  const betLink = (slug) => slug && (
+    <a href={`https://polymarket.com/event/${slug}`} target="_blank" rel="noreferrer"
+      title="Open this bet on Polymarket"
+      style={{ marginLeft: 6, fontSize: 11, textDecoration: "none", color: T.sub }}>↗</a>
+  );
 
   const expandBtn = (key) => (
     <button onClick={() => setOpenRow(openRow === key ? null : key)}
@@ -488,6 +525,9 @@ export default function AccountsTracker() {
             <button onClick={() => setCurrent(a.id)} style={chip(current === a.id)} title={a.wallet}>
               {a.label}
             </button>
+            <a href={`https://polymarket.com/profile/${a.wallet}`} target="_blank" rel="noreferrer"
+              title="Open this profile on Polymarket"
+              style={{ fontSize: 12, textDecoration: "none", color: T.sub }}>↗</a>
             <button onClick={() => setRemoving(a)} title="Remove account"
               style={{ ...btn.ghost, fontSize: 12, padding: "0 4px", color: T.faint }}>✕</button>
           </span>
@@ -609,7 +649,8 @@ export default function AccountsTracker() {
 
           {/* ---------------- OPEN POSITIONS ---------------- */}
           {status !== "closed" && (
-            <Section title="OPEN POSITIONS" count={`${openShown.length} shown · largest value first`}>
+            <Section title="OPEN POSITIONS" count={`${openShown.length} shown · largest value first`}
+              extra={hiddenToggle(openHiddenN)}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
@@ -633,7 +674,8 @@ export default function AccountsTracker() {
                   {openShown.map((r) => {
                     const key = `o-${r.asset}`;
                     return [
-                      <tr key={key} style={{ borderTop: `1px solid ${T.border}` }}>
+                      <tr key={key} style={{ borderTop: `1px solid ${T.border}`,
+                        opacity: isHidden(openHideKey(r)) ? 0.45 : 1 }}>
                         <td style={{ ...td, textAlign: "center",
                           boxShadow: `inset 4px 0 0 ${r.pnl > 0 ? M.green : r.pnl < 0 ? M.red : T.border}` }}>{expandBtn(key)}</td>
                         <td style={{ ...td, fontFamily: T.ui, fontWeight: 500, maxWidth: 320 }}>
@@ -642,6 +684,7 @@ export default function AccountsTracker() {
                               style={{ marginRight: 5 }}>🔔</span>
                           )}
                           {r.title}
+                          {betLink(r.event_slug)}
                           <div style={{ fontSize: 11, color: T.faint }}>{categoryOf(r.event_slug)}</div>
                           <TagPills tags={r.tags} />
                         </td>
@@ -686,6 +729,7 @@ export default function AccountsTracker() {
                                 <TagEditor tags={r.tags} vocab={tagVocab}
                                   onToggle={(t) => toggleTag(r.asset, t)} />
                               </div>
+                              <div style={{ alignSelf: "center" }}>{hideBtn(openHideKey(r))}</div>
                             </div>
                           </td>
                         </tr>
@@ -741,7 +785,8 @@ export default function AccountsTracker() {
           {/* ---------------- CLOSED TRADES ---------------- */}
           {status !== "open" && (
             <Section title="CLOSED TRADES"
-              count={`${closedShown.length} shown · ${closedShown.filter((r) => r.win).length} won · ${closedShown.filter((r) => !r.win).length} lost · newest first`}>
+              count={`${closedShown.length} shown · ${closedShown.filter((r) => r.win).length} won · ${closedShown.filter((r) => !r.win).length} lost · newest first`}
+              extra={hiddenToggle(closedHiddenN)}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
@@ -767,7 +812,8 @@ export default function AccountsTracker() {
                       <tr key={key} style={{ borderTop: `1px solid ${T.border}`,
                         // a closed trade wears its outcome: green tint for a
                         // win, red for a loss — readable at scroll speed
-                        background: r.win ? M.winBg : M.lossBg }}>
+                        background: r.win ? M.winBg : M.lossBg,
+                        opacity: isHidden(closedHideKey(r)) ? 0.45 : 1 }}>
                         <td style={{ ...td, textAlign: "center",
                           boxShadow: `inset 4px 0 0 ${r.win ? M.green : M.red}` }}
                           onClick={() => loadPeak(r)}>{expandBtn(key)}</td>
@@ -783,6 +829,7 @@ export default function AccountsTracker() {
                             {r.win ? "WIN" : "LOSS"}
                           </span>
                           {r.title}
+                          {betLink(r.event_slug)}
                           <div style={{ fontSize: 11, color: T.faint }}>
                             {r.outcome} · {categoryOf(r.event_slug)}
                             {r.averaged_down && (
@@ -906,6 +953,7 @@ export default function AccountsTracker() {
                                 <TagEditor tags={r.tags} vocab={tagVocab}
                                   onToggle={(t) => toggleTag(r.asset, t)} />
                               </div>
+                              <div style={{ alignSelf: "center" }}>{hideBtn(closedHideKey(r))}</div>
                             </div>
                           </td>
                         </tr>

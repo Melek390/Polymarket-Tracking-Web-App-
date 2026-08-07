@@ -64,6 +64,19 @@ export default function App() {
     return () => window.removeEventListener("popstate", onNav);
   }, []);
 
+  // Browser-tab title follows the view — with several tabs open, "Market
+  // Tracker" x4 told the client nothing (his request, Aug 7).
+  useEffect(() => {
+    const names = {
+      dashboard: "Dashboard", screener: "Screener", accounts: "Accounts",
+      backtesting: "Backtesting", market: "Chart",
+    };
+    const label = route.view === "screener"
+      ? `Screener · ${route.sport[0].toUpperCase()}${route.sport.slice(1)}`
+      : names[route.view] || "Dashboard";
+    document.title = `${label} — Market Tracker`;
+  }, [route]);
+
   // The dashboard keeps its filters in the query string (?status=closed&page=2…).
   // Remember them while we're there so "Back to markets" returns to the same
   // filtered list instead of resetting to everything.
