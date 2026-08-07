@@ -4,6 +4,8 @@ Fills are stored FOREVER with their maker/taker role and computed fee — the
 API only reaches back 10,000 rows per wallet, so our own store is what
 outlives that window (V3.md limitation 2)."""
 
+import json
+
 from backend.database.db import get_db
 
 SCHEMA = """
@@ -45,6 +47,14 @@ CREATE TABLE IF NOT EXISTS trader_tags (
     asset      TEXT NOT NULL,
     tag        TEXT NOT NULL,
     PRIMARY KEY (account_id, asset, tag)
+);
+
+-- CLOB resolutions, persisted: a closed market can never un-close, and the
+-- in-memory cache dying on every deploy caused ~200-market refetch storms
+-- that hit rate limits and silently dropped resolved-zero losses (Aug 7)
+CREATE TABLE IF NOT EXISTS trader_resolutions (
+    condition_id TEXT PRIMARY KEY,
+    winners      TEXT NOT NULL     -- JSON {outcome_lower: bool}
 );
 """
 
@@ -120,6 +130,31 @@ def fills_for(acct_id: int) -> list[dict]:
         return [dict(r) for r in conn.execute(
             "SELECT * FROM trader_fills WHERE account_id=? ORDER BY ts, id",
             (acct_id,))]
+
+
+def saved_resolutions(condition_ids: list[str]) -> dict[str, dict]:
+    """Stored CLOSED resolutions for these markets ({} for none). Only closed
+    markets are ever written, so a hit is final — no TTL, survives restarts."""
+    out = {}
+    if not condition_ids:
+        return out
+    with get_db() as conn:
+        for chunk_start in range(0, len(condition_ids), 500):
+            chunk = condition_ids[chunk_start:chunk_start + 500]
+            q = ",".join("?" * len(chunk))
+            for r in conn.execute(
+                    f"SELECT condition_id, winners FROM trader_resolutions WHERE condition_id IN ({q})",
+                    chunk):
+                out[r["condition_id"]] = {"closed": True,
+                                          "winners": json.loads(r["winners"])}
+    return out
+
+
+def save_resolution(condition_id: str, winners: dict) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO trader_resolutions (condition_id, winners) VALUES (?, ?)",
+            (condition_id, json.dumps(winners)))
 
 
 def volume_for(acct_id: int) -> dict:

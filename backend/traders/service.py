@@ -5,10 +5,13 @@ to Polymarket per request, and live positions are cached in-process for a few
 seconds (one uvicorn worker, so a module dict IS the cache)."""
 
 import asyncio
+import logging
 import time
 
 from backend.database.db import get_db
 from backend.traders import dataapi, engine, fees, store
+
+log = logging.getLogger(__name__)
 
 SYNC_MIN_S = 120     # a wallet is re-synced at most this often
 POS_TTL_S = 20       # live positions/value cache
@@ -101,23 +104,41 @@ def _redeems_as_sells(activity: list[dict]) -> list[dict]:
 
 
 async def _resolve_many(condition_ids: set[str]) -> dict[str, dict | None]:
-    """CLOB resolutions with a forever-cache for closed markets and bounded
-    concurrency — the first pass over an account can need hundreds."""
+    """CLOB resolutions: SQLite first (closed markets are final and must
+    survive restarts — the in-memory-only cache dying on every deploy caused
+    refetch storms that rate-limited and silently dropped resolved losses,
+    Aug 7), then the in-memory TTL cache for still-open/unknown markets."""
     now = time.monotonic()
+    unknown = [c for c in condition_ids
+               if not (_res_cache.get(c, (0, None))[1] or {}).get("closed")]
+    for cid, res in store.saved_resolutions(unknown).items():
+        _res_cache[cid] = (now, res)
     todo = [c for c in condition_ids
             if c not in _res_cache
             or (not (_res_cache[c][1] and _res_cache[c][1]["closed"])
                 and now - _res_cache[c][0] > RES_TTL_S)]
     if todo:
         sem = asyncio.Semaphore(8)
+        failed = 0
 
         async def one(cid):
+            nonlocal failed
             async with sem:
                 try:
-                    _res_cache[cid] = (time.monotonic(), await dataapi.fetch_resolution(cid))
+                    res = await dataapi.fetch_resolution(cid)
+                    _res_cache[cid] = (time.monotonic(), res)
+                    if res and res["closed"]:
+                        store.save_resolution(cid, res["winners"])
+                    elif res is None:
+                        failed += 1
                 except Exception:
                     _res_cache[cid] = (time.monotonic(), None)
+                    failed += 1
         await asyncio.gather(*(one(c) for c in todo))
+        if failed:
+            # these trips will sit "open" (losses uncounted) until the retry
+            log.warning("trader resolutions: %d of %d CLOB lookups failed; "
+                        "retrying in %ds", failed, len(todo), RES_TTL_S)
     return {c: _res_cache.get(c, (0, None))[1] for c in condition_ids}
 
 
