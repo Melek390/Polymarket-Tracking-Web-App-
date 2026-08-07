@@ -249,6 +249,22 @@ async def activity_rows(acct: dict) -> list[dict]:
 _peak_cache: dict[tuple[str, int], dict | None] = {}
 
 
+def _sustained_max(prices: list[float]) -> float | None:
+    """Highest level held for at least two consecutive samples.
+
+    A lone spike is a book artifact, not a price: when a market dies the ask
+    side empties and the MIDPOINT snaps to ~50c for one poll before tracking
+    stops (found Aug 7 — DET-SEA's final tick read 50.0 while every
+    neighbouring tick sat at 26 on the way to zero). A real excursion always
+    spans several polls at 1-5s cadence, so a pairwise min filters the ghost
+    without touching genuine peaks."""
+    if not prices:
+        return None
+    if len(prices) == 1:
+        return prices[0]
+    return max(min(a, b) for a, b in zip(prices, prices[1:]))
+
+
 def _peak_from_our_ticks(token_id: str, after_ts: int) -> dict | None:
     """Our own collector's ticks (1s live MLB / 5s), if we tracked the market.
     Better resolution than anything Polymarket serves back (V3.md, limitation
@@ -258,12 +274,13 @@ def _peak_from_our_ticks(token_id: str, after_ts: int) -> dict | None:
         o = conn.execute("SELECT id FROM outcomes WHERE token_id=?", (token_id,)).fetchone()
         if not o:
             return None
-        row = conn.execute(
-            "SELECT MAX(price) AS peak FROM ticks WHERE outcome_id=? AND ts>?",
-            (o["id"], iso)).fetchone()
-        if not row or row["peak"] is None:
+        prices = [r["price"] for r in conn.execute(
+            "SELECT price FROM ticks WHERE outcome_id=? AND ts>? ORDER BY ts",
+            (o["id"], iso))]
+        peak = _sustained_max(prices)
+        if peak is None:
             return None
-        return {"peak_cents": round(float(row["peak"]), 1), "source": "tracker"}
+        return {"peak_cents": round(float(peak), 1), "source": "tracker"}
 
 
 async def peak_after(token_id: str, after_ts: int) -> dict | None:
@@ -275,8 +292,11 @@ async def peak_after(token_id: str, after_ts: int) -> dict | None:
     result = _peak_from_our_ticks(token_id, after_ts)
     if result is None:
         hist = await dataapi.fetch_price_history(token_id)
-        later = [h["p"] for h in hist if int(h.get("t") or 0) > after_ts]
+        later = [h["p"] for h in sorted(hist, key=lambda h: int(h.get("t") or 0))
+                 if int(h.get("t") or 0) > after_ts]
         if later:
-            result = {"peak_cents": round(max(later) * 100, 1), "source": "polymarket"}
+            # same dying-book midpoint artifact exists in Polymarket's bars
+            result = {"peak_cents": round(_sustained_max(later) * 100, 1),
+                      "source": "polymarket"}
     _peak_cache[key] = result
     return result
