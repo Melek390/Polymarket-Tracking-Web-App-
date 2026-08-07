@@ -37,22 +37,53 @@ async def sync_account(acct: dict, force: bool = False) -> int:
             return 0
     fills = await dataapi.fetch_fills(acct["wallet"])
     # exact fees from the cash that actually moved; the schedule is only the
-    # fallback for fills the activity feed no longer reaches
+    # last resort for fills the activity feed no longer reaches
     try:
         exact = await dataapi.fetch_fill_fees(acct["wallet"])
     except Exception:
         exact = {}
-    for f in fills:
-        key = (f["tx"], f["side"], round(f["price"], 6), round(f["size"], 4))
-        if key in exact:
-            f["fee"] = exact[key]
-        else:
-            f["fee"] = fees.fee_for(f["role"], f["size"], f["price"],
-                                    fees.rate_for(f["event_slug"], f["title"]))
+    _assign_fees(fills, exact)
     added = store.insert_fills(acct["id"], fills)
     store.update_fees(acct["id"], fills)  # heal rows stored under old rates
     store.touch_sync(acct["id"])
     return added
+
+
+def _assign_fees(fills: list[dict], exact: dict[tuple, float]) -> None:
+    """Stamp each fill's fee from the exact cash map.
+
+    1. A fill whose (tx, side, price, size) matches an activity row gets that
+       row's exact fee.
+    2. /activity AGGREGATES partial fills (/trades splits them), so some fills
+       have no matching row. Their transaction's leftover cash fee — implied
+       total minus what step 1 assigned — is split across them weighted by
+       size*p*(1-p), the shape of the fee curve. (Found Aug 7: 87 of the
+       client's 1,978 fills missed the key match and sat on the old schedule,
+       overstating fees by $141.)
+    3. Fills in transactions the activity feed no longer reaches fall back to
+       the flat schedule."""
+    left_by_tx: dict[tuple, float] = {}
+    for (tx, side, _p, _s), fee in exact.items():
+        left_by_tx[(tx, side)] = left_by_tx.get((tx, side), 0.0) + fee
+    unmatched: dict[tuple, list[dict]] = {}
+    for f in fills:
+        key = (f["tx"], f["side"], round(f["price"], 6), round(f["size"], 4))
+        if key in exact:
+            f["fee"] = exact[key]
+            left_by_tx[(f["tx"], f["side"])] -= exact[key]
+        else:
+            unmatched.setdefault((f["tx"], f["side"]), []).append(f)
+    for txside, group in unmatched.items():
+        left = left_by_tx.get(txside)
+        weights = [g["size"] * g["price"] * (1 - g["price"]) for g in group]
+        if left is not None and sum(weights) > 0:
+            left = max(left, 0.0)  # float dust on fully-consumed transactions
+            for g, w in zip(group, weights):
+                g["fee"] = round(left * w / sum(weights), 5)
+        else:
+            for g in group:
+                g["fee"] = fees.fee_for(g["role"], g["size"], g["price"],
+                                        fees.rate_for(g["event_slug"], g["title"]))
 
 
 async def _positions(wallet: str) -> list[dict]:
