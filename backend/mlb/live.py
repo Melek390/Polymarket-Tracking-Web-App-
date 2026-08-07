@@ -32,6 +32,7 @@ STATE_TTL = 4                         # a cached state is fresh enough for this 
 # min after the change is announced, so a faster cycle would buy nothing.
 _pitchers: dict[int, dict] = {}       # gamePk -> {"away": n, "home": n}
 _homers: dict[int, dict] = {}         # gamePk -> {"away": n, "home": n}
+_extras: dict[int, dict] = {}         # gamePk -> {walks, durations, duration_totals}
 _slow_at: dict[int, float] = {}       # gamePk -> when we last refreshed both
 SLOW_TTL = 20
 POLL_CONCURRENCY = 8       # games refreshed in parallel
@@ -70,7 +71,8 @@ async def _poll_game(g: dict) -> None:
         client.last_pitch(pk),
     ]
     if slow_due:
-        jobs += [client.pitchers_used(pk), client.home_runs(pk)]
+        # one playByPlay fetch now feeds home runs AND the walks/duration rows
+        jobs += [client.pitchers_used(pk), client.inning_extras(pk)]
     results = await asyncio.gather(*jobs, return_exceptions=True)
 
     st = results[0]
@@ -81,14 +83,16 @@ async def _poll_game(g: dict) -> None:
     pitch = results[1]
     st["last_pitch"] = None if isinstance(pitch, Exception) else pitch
     if slow_due:
-        used, hrs = results[2], results[3]
+        used, ex = results[2], results[3]
         if not isinstance(used, Exception) and used:
             _pitchers[pk] = used
-        if not isinstance(hrs, Exception) and hrs is not None:
-            _homers[pk] = hrs
+        if not isinstance(ex, Exception) and ex is not None:
+            _homers[pk] = ex.pop("home_runs", None)
+            _extras[pk] = ex
         _slow_at[pk] = time.monotonic()
     st["pitchers"] = _pitchers.get(pk)
     st["home_runs"] = _homers.get(pk)
+    st["inning_extras"] = _extras.get(pk)
     _state[pk] = st
     _state_at[pk] = time.monotonic()
 
@@ -141,6 +145,19 @@ async def light_state(game_pk: int) -> dict | None:
     except Exception as e:
         log.warning("MLB light_state %s failed: %s", game_pk, e)
         return _state.get(game_pk)
+    # walks/durations: finished games are static, so ONE playByPlay fetch per
+    # process covers them; live games get refreshed by the poller anyway
+    if game_pk not in _extras:
+        try:
+            ex = await client.inning_extras(game_pk)
+            if ex is not None:
+                _homers.setdefault(game_pk, ex.pop("home_runs", None))
+                _extras[game_pk] = ex
+        except Exception as e:
+            log.warning("MLB inning_extras %s failed: %s", game_pk, e)
+    st["pitchers"] = _pitchers.get(game_pk)
+    st["home_runs"] = _homers.get(game_pk)
+    st["inning_extras"] = _extras.get(game_pk)
     _state[game_pk] = st
     _state_at[game_pk] = now
     return st

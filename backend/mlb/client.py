@@ -1,6 +1,8 @@
 """MLB Stats API client — the live game feed baseball rows are enriched with.
 Polymarket's own MLB scores are unreliable, so game state comes from here."""
 
+from datetime import datetime
+
 import httpx
 
 BASE = "https://statsapi.mlb.com/api"
@@ -145,9 +147,15 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
         "innings": [
             {"num": i.get("num"),
              "away": i.get("away", {}).get("runs"),
-             "home": i.get("home", {}).get("runs")}
+             "home": i.get("home", {}).get("runs"),
+             # per-inning hits ride the same linescore row (client scoreboard
+             # upgrade, Aug 7) — no extra request needed
+             "away_hits": i.get("away", {}).get("hits"),
+             "home_hits": i.get("home", {}).get("hits")}
             for i in ls.get("innings", [])
         ],
+        # walks + batting durations need play-by-play; the poller attaches them
+        "inning_extras": None,
         "plays": [],  # play-by-play only comes from the full feed (live_game)
     }
 
@@ -230,16 +238,65 @@ def _home_runs_from_plays(all_plays: list) -> dict:
     return out
 
 
-async def home_runs(game_pk: int) -> dict | None:
-    """Home runs per side. Field-filtered playByPlay — ~7 KB for a full game,
-    versus 487 KB unfiltered. Counting completed plays is reliable; watching
-    `currentPlay` would race the next batter and miss them."""
+def _ts(value) -> float | None:
+    """Epoch seconds from an MLB play timestamp ("2026-08-06T20:31:12.345Z")."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _inning_extras_from_plays(all_plays: list) -> dict:
+    """Per-inning walks and batting durations (client scoreboard upgrade).
+
+    halfInning says who was batting: top = away, bottom = home. Walks count
+    result.eventType walk/intent_walk on completed plays. A half-inning's
+    duration is wall-clock first-play start -> last-play end (endTime is empty
+    while an at-bat is in progress, so the latest startTime stands in — the
+    live half simply keeps growing). Keys are strings: this dict travels as
+    JSON. Totals are per side, in seconds."""
+    walks: dict[str, dict] = {}
+    spans: dict[tuple, list] = {}  # (inning, side) -> [first_start, last_seen]
+    for p in all_plays or []:
+        about = p.get("about", {})
+        inning, half = about.get("inning"), about.get("halfInning")
+        if inning is None or half not in ("top", "bottom"):
+            continue
+        side = "away" if half == "top" else "home"
+        if p.get("result", {}).get("eventType") in ("walk", "intent_walk"):
+            walks.setdefault(str(inning), {"away": 0, "home": 0})[side] += 1
+        start = _ts(about.get("startTime"))
+        end = _ts(about.get("endTime")) or start
+        if start is None:
+            continue
+        span = spans.setdefault((inning, side), [start, end])
+        span[0] = min(span[0], start)
+        span[1] = max(span[1], end)
+    durations: dict[str, dict] = {}
+    totals = {"away": 0, "home": 0}
+    for (inning, side), (first, last) in spans.items():
+        secs = max(0, round(last - first))
+        durations.setdefault(str(inning), {})[side] = secs
+        totals[side] += secs
+    return {"walks": walks, "durations": durations, "duration_totals": totals}
+
+
+async def inning_extras(game_pk: int) -> dict | None:
+    """Home runs + walks + batting durations per side, one field-filtered
+    playByPlay fetch (~8 KB for a full game, versus 487 KB unfiltered).
+    Counting completed plays is reliable; watching `currentPlay` would race
+    the next batter and miss them."""
     r = await _http().get(
         f"{BASE}/v1/game/{game_pk}/playByPlay",
-        params={"fields": "allPlays,result,eventType,about,halfInning"},
+        params={"fields": "allPlays,result,eventType,about,halfInning,inning,startTime,endTime"},
     )
     r.raise_for_status()
-    return _home_runs_from_plays(r.json().get("allPlays"))
+    plays = r.json().get("allPlays")
+    out = _inning_extras_from_plays(plays)
+    out["home_runs"] = _home_runs_from_plays(plays)
+    return out
 
 
 def _season_stat(boxscore: dict, side: str, player_id, group: str, key: str):
@@ -360,8 +417,12 @@ async def live_game(game_pk: int) -> dict:
         "innings": [
             {"num": i.get("num"),
              "away": i.get("away", {}).get("runs"),
-             "home": i.get("home", {}).get("runs")}
+             "home": i.get("home", {}).get("runs"),
+             "away_hits": i.get("away", {}).get("hits"),
+             "home_hits": i.get("home", {}).get("hits")}
             for i in ls.get("innings", [])
         ],
+        # the full feed already carries every play — same math, no extra call
+        "inning_extras": _inning_extras_from_plays(live.get("plays", {}).get("allPlays")),
         "plays": recent,
     }

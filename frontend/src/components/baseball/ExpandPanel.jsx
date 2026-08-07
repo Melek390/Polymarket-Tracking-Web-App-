@@ -208,17 +208,55 @@ export default function ExpandPanel({ live, onAnalyze, matchup }) {
   const nums = live.innings.map((i) => i.num);
   const cell = { ...monoText, fontSize: 12, padding: "3px 7px", textAlign: "center", minWidth: 18 };
   const head = { ...cell, color: T.sub, fontSize: 10 };
-  const row = (side) => (
-    <tr>
-      <td style={{ ...cell, textAlign: "left", fontWeight: 600 }}>{live[side].abbr}</td>
-      {live.innings.map((i) => (
-        <td key={i.num} style={cell}>{i[side] ?? ""}</td>
-      ))}
-      <td style={{ ...cell, fontWeight: 700, borderLeft: `1px solid ${T.border}` }}>{live[side].runs ?? 0}</td>
-      <td style={cell}>{live[side].hits ?? 0}</td>
-      <td style={cell}>{live[side].errors ?? 0}</td>
-    </tr>
-  );
+  // client scoreboard upgrade (Aug 7): each team shows Runs / Hits / Walks /
+  // Duration per inning. Hits come with the linescore; walks and batting
+  // durations come from play-by-play (inning_extras) and can lag a moment.
+  const ex = live.inning_extras;
+  const walks = ex?.walks;
+  const durs = ex?.durations;
+  const fmtDur = (s) => {
+    if (s == null) return "";
+    const m = Math.round(s / 60);
+    return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+  };
+  // an inning cell is only 0 (rather than blank) once that half was played
+  const played = (i, side) => durs?.[String(i.num)]?.[side] != null || i[side] != null;
+  const rowsFor = (side) => {
+    const t = live[side];
+    const defs = [
+      { label: "Runs", val: (i) => i[side] ?? "", bold: true,
+        tot: { R: t.runs ?? 0, H: t.hits ?? 0, E: t.errors ?? 0 } },
+      { label: "Hits", val: (i) => i[`${side}_hits`] ?? "",
+        tot: { H: t.hits ?? 0 } },
+    ];
+    if (walks) defs.push({
+      label: "Walks",
+      val: (i) => (played(i, side) ? (walks[String(i.num)]?.[side] ?? 0) : ""),
+      tot: { H: Object.keys(walks).reduce((a, k) => a + (walks[k][side] || 0), 0) },
+    });
+    if (durs) defs.push({
+      label: "Duration",
+      val: (i) => fmtDur(durs[String(i.num)]?.[side]),
+      tot: { R: fmtDur(ex.duration_totals?.[side]) },
+    });
+    return defs.map((d, ri) => (
+      <tr key={`${side}-${d.label}`}
+        style={ri === 0 && side === "home" ? { borderTop: `1px solid ${T.border}` } : undefined}>
+        {ri === 0 && (
+          <td rowSpan={defs.length} style={{ ...cell, textAlign: "left", fontWeight: 700 }}>
+            {t.abbr}
+          </td>
+        )}
+        <td style={{ ...cell, textAlign: "left", color: T.sub, fontSize: 10 }}>{d.label}</td>
+        {live.innings.map((i) => (
+          <td key={i.num} style={{ ...cell, fontWeight: d.bold ? 600 : 400 }}>{d.val(i)}</td>
+        ))}
+        <td style={{ ...cell, fontWeight: 700, borderLeft: `1px solid ${T.border}` }}>{d.tot.R ?? ""}</td>
+        <td style={{ ...cell, fontWeight: 700 }}>{d.tot.H ?? ""}</td>
+        <td style={{ ...cell, fontWeight: 700 }}>{d.tot.E ?? ""}</td>
+      </tr>
+    ));
+  };
   return (
     <div style={{ padding: "12px 16px", background: T.soft, borderTop: `1px solid ${T.border}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
@@ -243,13 +281,14 @@ export default function ExpandPanel({ live, onAnalyze, matchup }) {
             <thead>
               <tr>
                 <th style={head} />
+                <th style={head} />
                 {nums.map((n) => <th key={n} style={head}>{n}</th>)}
                 <th style={{ ...head, borderLeft: `1px solid ${T.border}` }}>R</th>
                 <th style={head}>H</th>
                 <th style={head}>E</th>
               </tr>
             </thead>
-            <tbody>{row("away")}{row("home")}</tbody>
+            <tbody>{rowsFor("away")}{rowsFor("home")}</tbody>
           </table>
         </div>
         {live.status === "Live" && (
