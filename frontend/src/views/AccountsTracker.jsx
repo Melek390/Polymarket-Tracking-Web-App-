@@ -401,6 +401,13 @@ export default function AccountsTracker() {
     };
   }, [period, closed, summary]);
 
+  // Polymarket's profile chart shows P/L BEFORE fees (verified Aug 7 against
+  // user-pnl-api), so the headline figures do too — the fee-included truth
+  // sits in parentheses underneath. Gross = net + the fees of those trips.
+  const closedFeesAll = closed.reduce((a, c) => a + c.fees, 0);
+  const realizedNet = windowed ? windowed.realized : (summary ? summary.realized_pnl : 0);
+  const realizedGross = realizedNet + (windowed ? windowed.fees : closedFeesAll);
+
   const openShown = open.filter((r) => hit(r.title, r.event_slug));
   // totals row under the open table (client item 8) — follows the filters;
   // potential profit = shares × $1 − cost (redeems are fee-free, item 9)
@@ -509,20 +516,22 @@ export default function AccountsTracker() {
             )}
           </div>
 
-          {/* stat cards */}
+          {/* stat cards — headline P/L is BEFORE fees so it reconciles with
+              the Polymarket profile page (which ignores fees); the honest
+              fee-included figure rides along in parentheses */}
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Stat title="Portfolio value"
               value={summary.portfolio_value != null ? usd(summary.portfolio_value) : "—"} />
             <Stat title="Realized P/L"
-              value={usd(windowed ? windowed.realized : summary.realized_pnl)}
-              color={pnlColor(windowed ? windowed.realized : summary.realized_pnl)}
-              sub={windowed ? "closed in this window, net of fees" : "closed trades, net of fees"} />
+              value={usd(realizedGross)}
+              color={pnlColor(realizedGross)}
+              sub={`(${usd(realizedNet)} after fees)`} />
             <Stat title="Unrealized P/L" value={usd(summary.unrealized_pnl)}
               color={pnlColor(summary.unrealized_pnl)} sub="open positions" />
             <Stat title="Total P/L"
-              value={usd(windowed ? windowed.realized + summary.unrealized_pnl : summary.total_pnl)}
-              color={pnlColor(windowed ? windowed.realized + summary.unrealized_pnl : summary.total_pnl)}
-              sub={windowed ? "window realized + current unrealized" : undefined} />
+              value={usd(realizedGross + summary.unrealized_pnl)}
+              color={pnlColor(realizedGross + summary.unrealized_pnl)}
+              sub={`(${usd(realizedNet + summary.unrealized_pnl)} after fees)`} />
             <Stat title="Win rate"
               value={(windowed ? windowed.winRate : summary.win_rate) != null
                 ? `${((windowed ? windowed.winRate : summary.win_rate) * 100).toFixed(1)}%` : "—"}
@@ -749,7 +758,8 @@ export default function AccountsTracker() {
                 <tbody>
                   {closedShown.map((r) => {
                     const key = `c-${r.asset}-${r.closed_ts}`;
-                    const roi = r.cost ? r.net / r.cost : 0;
+                    const gross = r.net + r.fees; // pre-fee, like the profile page
+                    const roi = r.cost ? gross / r.cost : 0;
                     return [
                       <tr key={key} style={{ borderTop: `1px solid ${T.border}`,
                         // a closed trade wears its outcome: green tint for a
@@ -790,8 +800,13 @@ export default function AccountsTracker() {
                         <td style={rightTd}>{usd(r.cost)}</td>
                         <td style={rightTd}>{usd(r.proceeds)}</td>
                         <td style={{ ...rightTd, color: T.sub }}>{usd(r.fees)}</td>
-                        <td style={{ ...rightTd, fontWeight: 700, color: pnlColor(r.net) }}>{usd(r.net)}</td>
-                        <td style={{ ...rightTd, color: pnlColor(r.net) }}>
+                        <td style={{ ...rightTd, fontWeight: 700, color: pnlColor(gross) }}>
+                          {usd(gross)}
+                          <div style={{ fontSize: 10, fontWeight: 400, color: T.sub }}>
+                            ({usd(r.net)} after fees)
+                          </div>
+                        </td>
+                        <td style={{ ...rightTd, color: pnlColor(gross) }}>
                           {roi > 0 ? "+" : ""}{(roi * 100).toFixed(1)}%
                         </td>
                       </tr>,

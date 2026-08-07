@@ -80,6 +80,27 @@ async def fetch_fills(wallet: str) -> list[dict]:
     return fills
 
 
+async def fetch_fill_fees(wallet: str) -> dict[tuple, float]:
+    """The EXACT fee per fill, from the activity feed: usdcSize is the USDC
+    that actually moved, price*size is the face amount, and the difference is
+    the fee (buyers pay extra, sellers receive less; makers diff to zero).
+
+    Found Aug 7 reconciling the client's account: the flat schedule cannot be
+    trusted across time — Polymarket raised sports taker fees 3% -> 5% in
+    mid-2026, and our computed rate overcharged every older fill by 2/3."""
+    rows = await _paged("/activity", {"user": wallet, "type": "TRADE"})
+    out: dict[tuple, float] = {}
+    for r in rows:
+        price = float(r.get("price") or 0)
+        size = float(r.get("size") or 0)
+        diff = float(r.get("usdcSize") or 0) - price * size
+        fee = diff if r.get("side") == "BUY" else -diff
+        key = (r.get("transactionHash"), r.get("side"), round(price, 6), round(size, 4))
+        out[key] = out.get(key, 0.0) + fee
+    # clamp float dust so maker fills store a clean zero
+    return {k: (v if v > 1e-4 else 0.0) for k, v in out.items()}
+
+
 async def fetch_positions(wallet: str) -> list[dict]:
     """Current holdings (winners pending redeem and dead losers included)."""
     return await _paged("/positions", {"user": wallet, "sizeThreshold": 0})

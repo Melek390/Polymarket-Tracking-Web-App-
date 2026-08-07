@@ -33,10 +33,21 @@ async def sync_account(acct: dict, force: bool = False) -> int:
         if time.time() - synced < SYNC_MIN_S:
             return 0
     fills = await dataapi.fetch_fills(acct["wallet"])
+    # exact fees from the cash that actually moved; the schedule is only the
+    # fallback for fills the activity feed no longer reaches
+    try:
+        exact = await dataapi.fetch_fill_fees(acct["wallet"])
+    except Exception:
+        exact = {}
     for f in fills:
-        f["fee"] = fees.fee_for(f["role"], f["size"], f["price"],
-                                fees.rate_for(f["event_slug"], f["title"]))
+        key = (f["tx"], f["side"], round(f["price"], 6), round(f["size"], 4))
+        if key in exact:
+            f["fee"] = exact[key]
+        else:
+            f["fee"] = fees.fee_for(f["role"], f["size"], f["price"],
+                                    fees.rate_for(f["event_slug"], f["title"]))
     added = store.insert_fills(acct["id"], fills)
+    store.update_fees(acct["id"], fills)  # heal rows stored under old rates
     store.touch_sync(acct["id"])
     return added
 

@@ -103,6 +103,18 @@ def insert_fills(acct_id: int, fills: list[dict]) -> int:
         return cur.rowcount
 
 
+def update_fees(acct_id: int, fills: list[dict]) -> None:
+    """Re-stamp fees on already-stored fills — sync self-heals rows that were
+    ingested under the (wrong) flat schedule before exact fees existed."""
+    with get_db() as conn:
+        conn.executemany(
+            """UPDATE trader_fills SET fee=?
+               WHERE account_id=? AND tx_hash=? AND asset=? AND side=?
+                 AND price=? AND size=? AND ABS(fee - ?) > 1e-9""",
+            [(f["fee"], acct_id, f["tx"], f["asset"], f["side"],
+              f["price"], f["size"], f["fee"]) for f in fills])
+
+
 def fills_for(acct_id: int) -> list[dict]:
     with get_db() as conn:
         return [dict(r) for r in conn.execute(
