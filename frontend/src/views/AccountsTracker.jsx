@@ -9,8 +9,8 @@ import { playSound } from "../alerts.js";
 import Toasts, { useToasts } from "../components/Toasts.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import {
-  alertKey, alertSummaryText, loadLastSeen, loadMuted, loadPriceAlerts,
-  setLastSeen, setPriceAlert, toggleMuted,
+  alertKey, alertSummaryText, loadAccountAlerts, loadLastSeen, loadMuted,
+  loadPriceAlerts, setAccountAlert, setLastSeen, setPriceAlert, toggleMuted,
 } from "../traderAlerts.js";
 import { hiddenKey, loadHidden, toggleHidden } from "../traderHidden.js";
 
@@ -233,6 +233,7 @@ export default function AccountsTracker() {
   const [hiddenRows, setHiddenRows] = useState(loadHidden);
   const [showHidden, setShowHidden] = useState(false); // reveal hidden rows (dimmed)
   const [muted, setMuted] = useState(loadMuted); // acctId -> alerts off
+  const [acctAlerts, setAcctAlerts] = useState(loadAccountAlerts); // acctId -> {above, below}
   const { toasts, push: pushToast, dismiss: dismissToast, clear: clearToasts } = useToasts();
   const accountsRef = useRef(null);
   const priceAlertsRef = useRef(priceAlerts);
@@ -298,8 +299,10 @@ export default function AccountsTracker() {
         // muted account: no alerts of any kind (he follows his own wallets —
         // trades made on another machine came right back at him as alerts)
         if (loadMuted()[a.id]) continue;
-        // --- price targets ---
-        const hasAlert = Object.keys(priceAlertsRef.current)
+        // --- price targets: per-position alerts + the account-wide rule ---
+        // (a position's own alert overrides the account rule for that position)
+        const acctRule = loadAccountAlerts()[a.id];
+        const hasAlert = acctRule || Object.keys(priceAlertsRef.current)
           .some((k) => k.startsWith(`${a.id}|`));
         if (hasAlert) {
           try {
@@ -307,18 +310,20 @@ export default function AccountsTracker() {
             if (stop) return;
             if (a.id === current) setOpen(rows); // freshen the visible table
             for (const r of rows) {
-              const al = priceAlertsRef.current[alertKey(a.id, r.asset)];
+              const own = priceAlertsRef.current[alertKey(a.id, r.asset)];
+              const al = own || acctRule;
               if (!al) continue;
+              const src = own ? "target" : "account target";
               const cur = r.cur_price * 100;
               for (const [dir, hit] of [
                 ["above", al.above != null && cur >= al.above],
                 ["below", al.below != null && cur <= al.below],
               ]) {
-                const fk = `${a.id}|${r.asset}|${dir}`;
+                const fk = `${a.id}|${r.asset}|${own ? "own" : "acct"}|${dir}`;
                 if (hit && !firedRef.current[fk]) {
                   firedRef.current[fk] = true;
                   playSound("price");
-                  pushToast(`${a.label}: ${r.title} — ${r.outcome} is ${cents(r.cur_price)} (target ${dir} ${dir === "above" ? al.above : al.below}¢)`);
+                  pushToast(`${a.label}: ${r.title} — ${r.outcome} is ${cents(r.cur_price)} (${src} ${dir} ${dir === "above" ? al.above : al.below}¢)`);
                 } else if (!hit) {
                   firedRef.current[fk] = false; // re-arm once it leaves the zone
                 }
@@ -363,6 +368,7 @@ export default function AccountsTracker() {
       if (e.key === "traderPriceAlerts") setPriceAlerts(loadPriceAlerts());
       if (e.key === "traderHiddenRows") setHiddenRows(loadHidden());
       if (e.key === "traderAlertMute") setMuted(loadMuted());
+      if (e.key === "traderAccountAlerts") setAcctAlerts(loadAccountAlerts());
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
@@ -633,6 +639,28 @@ export default function AccountsTracker() {
                 ? `${(summary.fees_all_fills / summary.taker_volume * 100).toFixed(1)}% of ${usd(summary.taker_volume)} `
                   + "traded — charged per trade, not on profit; makers pay zero"
                 : "takers only — makers are free"} />
+          </div>
+
+          {/* account-wide price alert (client, Aug 11): one rule that covers
+              EVERY open position of this account, present and future — his
+              "I always exit at 70c" workflow without per-position clicking */}
+          <div style={{ ...card, background: T.soft, padding: "10px 14px", display: "flex",
+            gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>
+              🔔 Account-wide alert
+              {acctAlerts[current] && (
+                <span style={{ color: M.green }}> — on ({alertSummaryText(acctAlerts[current])})</span>
+              )}
+            </span>
+            <AlertEditor
+              key={`acct-${current}-${JSON.stringify(acctAlerts[current] ?? null)}`}
+              existing={acctAlerts[current]}
+              onSave={(ab, be) => setAcctAlerts({ ...setAccountAlert(current, ab, be) })}
+            />
+            <span style={{ fontSize: 11, color: T.faint }}>
+              fires when ANY open position of this account reaches a target — positions
+              with their own alert keep their own; the 🔕 mute silences everything
+            </span>
           </div>
 
           {/* filters */}

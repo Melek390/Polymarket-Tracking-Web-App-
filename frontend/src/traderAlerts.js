@@ -52,6 +52,27 @@ export function alertSummaryText(a) {
   return bits.join(" or ");
 }
 
+// Account-wide price rule (client request, Aug 11): "I exit at 70c on every
+// single open position" — one target pair per ACCOUNT that applies to all of
+// its open positions, current and future. A position's own alert overrides it.
+const ACCT_KEY = "traderAccountAlerts"; // { acctId: {above, below} }
+
+export function loadAccountAlerts() {
+  try {
+    return JSON.parse(localStorage.getItem(ACCT_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+export function setAccountAlert(acctId, above, below) {
+  const all = loadAccountAlerts();
+  if (above == null && below == null) delete all[acctId];
+  else all[acctId] = { above, below };
+  localStorage.setItem(ACCT_KEY, JSON.stringify(all));
+  return all;
+}
+
 // Per-account mute (client request, Aug 7): he follows his own wallets, so
 // every trade he makes on another machine came back at him as an alert.
 // Muted accounts fire NO alerts — neither entry/exit toasts nor price alerts.
