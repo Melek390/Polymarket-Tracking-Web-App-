@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import PriceChart from "../components/PriceChart.jsx";
 import TicksTable from "../components/TicksTable.jsx";
-import { fetchTicks, exportCsvFor, fetchMlbTimeline } from "../api/client.js";
+import { fetchTicks, fetchChart, exportCsvFor, fetchMlbTimeline } from "../api/client.js";
 import { T, label, monoText, page, btn } from "../theme.js";
 import { fmtCents, fmtDate, timeAgo, gameWhen } from "../utils.js";
 
@@ -11,6 +11,9 @@ const DEFAULT_WINDOW_MS = 10 * 60 * 1000; // open focused on the last 10 minutes
 // The single-market view: current price, chart, action row and the ticks table.
 export default function MarketHistory({ market, onBack, onToggle }) {
   const [ticks, setTicks] = useState(null);
+  const [history, setHistory] = useState([]); // whole life, downsampled
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderDone, setOlderDone] = useState(false);
   const [win, setWin] = useState(null); // [fromTs, toTs] the user is looking at
   const [live, setLive] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -20,17 +23,26 @@ export default function MarketHistory({ market, onBack, onToggle }) {
   async function load(followEdge = false) {
     setRefreshing(true);
     try {
-      const rows = await fetchTicks(market);
+      // raw newest ticks for the table + the downsampled whole life for the
+      // chart (V1 promised closed markets their full history; the newest-2000
+      // cap had silently broken that — client caught it, Aug 11)
+      const [rows, hist] = await Promise.all([
+        fetchTicks(market),
+        fetchChart(market).catch(() => []),
+      ]);
       const prev = ticksRef.current;
       ticksRef.current = rows;
       setTicks(rows);
+      setHistory(hist);
       if (rows.length) {
         const last = rows[rows.length - 1].ts;
+        const spanStart = hist.length ? Math.min(hist[0].ts, rows[0].ts) : rows[0].ts;
         setWin((w) => {
           if (!w) {
             // first load: live markets focus on the latest activity; closed
-            // ones show their whole life (their tail is just pinned 0/100)
-            if (market.closed) return [rows[0].ts, last];
+            // ones show their whole life (V1 behaviour, now truly the whole
+            // life thanks to the downsampled history)
+            if (market.closed) return [spanStart, last];
             return [Math.max(rows[0].ts, last - DEFAULT_WINDOW_MS), last];
           }
           const prevLast = prev?.length ? prev[prev.length - 1].ts : w[1];
@@ -48,11 +60,38 @@ export default function MarketHistory({ market, onBack, onToggle }) {
 
   useEffect(() => {
     setTicks(null);
+    setHistory([]);
+    setOlderDone(false);
     ticksRef.current = null;
     setWin(null);
     setLive(false);
     load();
   }, [market.id]);
+
+  // table paging: pull the next 2000 raw rows older than what we hold
+  async function loadOlder() {
+    const cur = ticksRef.current;
+    if (!cur?.length || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const older = await fetchTicks(market, 2000, cur[0].iso);
+      if (older.length === 0) setOlderDone(true);
+      const next = [...older, ...cur];
+      ticksRef.current = next;
+      setTicks(next);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
+  // the chart draws the whole life (downsampled) with the raw ticks laid
+  // over the recent end, so zooming near "now" keeps full 1-5s detail
+  const chartTicks = (() => {
+    if (!ticks?.length) return history;
+    if (!history.length) return ticks;
+    const cutoff = ticks[0].ts;
+    return [...history.filter((h) => h.ts < cutoff), ...ticks];
+  })();
 
   // MLB games: pull the play-by-play timeline once so the chart tooltip can
   // show the inning + pitcher + batter at the hovered moment.
@@ -166,7 +205,7 @@ export default function MarketHistory({ market, onBack, onToggle }) {
         </div>
       ) : (
         <PriceChart
-          ticks={ticks}
+          ticks={chartTicks}
           outcomes={market.outcomes}
           trackedSince={market.createdAt}
           window={win}
@@ -253,6 +292,10 @@ export default function MarketHistory({ market, onBack, onToggle }) {
           pollInterval={market.pollInterval}
           trackedSince={market.createdAt}
           closedAt={market.closed ? market.closedAt : null}
+          totalRecords={market.records}
+          onLoadOlder={loadOlder}
+          loadingOlder={loadingOlder}
+          olderDone={olderDone}
         />
       )}
     </main>

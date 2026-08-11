@@ -188,8 +188,16 @@ export async function deleteMarket(id) {
 }
 
 // GET /api/markets/{id}/ticks — ISO timestamps become ms epoch numbers
-export async function fetchTicks(market, limit = 2000) {
-  const rows = await request(`/api/markets/${market.id}/ticks?limit=${limit}`);
+export async function fetchTicks(market, limit = 2000, before = null) {
+  const q = before ? `&before=${encodeURIComponent(before)}` : "";
+  const rows = await request(`/api/markets/${market.id}/ticks?limit=${limit}${q}`);
+  // iso kept for the "load older" paging cursor
+  return rows.map((r) => ({ ts: Date.parse(r.ts), iso: r.ts, ...r.prices }));
+}
+
+// GET /api/markets/{id}/chart — the WHOLE history, downsampled server-side
+export async function fetchChart(market, points = 1500) {
+  const rows = await request(`/api/markets/${market.id}/chart?points=${points}`);
   return rows.map((r) => ({ ts: Date.parse(r.ts), ...r.prices }));
 }
 

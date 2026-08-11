@@ -496,6 +496,50 @@ def get_ticks(market_id: int, limit: int = 500, before: str | None = None) -> li
         ]
 
 
+def get_chart(market_id: int, points: int = 1500) -> list[dict]:
+    """The ENTIRE price history downsampled to ~points rows (client, Aug 11:
+    the chart must show a market's whole life — V1 promised that for closed
+    markets and the newest-2000 cap silently broke it). Prices are averaged
+    per time bucket; the caller overlays raw recent ticks for fine detail."""
+    with get_db() as conn:
+        labels = {
+            o["id"]: o["label"]
+            for o in conn.execute(
+                "SELECT id, label FROM outcomes WHERE market_id = ? ORDER BY position",
+                (market_id,),
+            )
+        }
+        if not labels:
+            return []
+        placeholders = ",".join("?" * len(labels))
+        span = conn.execute(
+            f"SELECT CAST(strftime('%s', MIN(ts)) AS INTEGER),"
+            f"       CAST(strftime('%s', MAX(ts)) AS INTEGER)"
+            f" FROM ticks WHERE outcome_id IN ({placeholders})",
+            list(labels)).fetchone()
+        if not span or span[0] is None:
+            return []
+        t0, t1 = span
+        width = max(1, (t1 - t0) // max(1, points))
+        rows = conn.execute(
+            f"""SELECT outcome_id,
+                       (CAST(strftime('%s', ts) AS INTEGER) - ?) / ? AS bucket,
+                       AVG(price) AS price
+                FROM ticks WHERE outcome_id IN ({placeholders})
+                GROUP BY outcome_id, bucket ORDER BY bucket""",
+            [t0, width, *labels]).fetchall()
+        by_bucket: dict[int, dict] = {}
+        for r in rows:
+            by_bucket.setdefault(r["bucket"], {})[r["outcome_id"]] = round(r["price"], 2)
+        out = []
+        for b, prices in sorted(by_bucket.items()):
+            ts = datetime.fromtimestamp(t0 + b * width + width // 2,
+                                        tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            out.append({"ts": ts, "prices": {
+                label: prices[oid] for oid, label in labels.items() if oid in prices}})
+        return out
+
+
 def iter_ticks(market_id: int):
     """Walk the full history chronologically without loading it all into memory."""
     with get_db() as conn:

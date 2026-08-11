@@ -249,6 +249,13 @@ def market_ticks(market_id: int, limit: int = 500, before: str | None = None):
     return db.get_ticks(market_id, limit=limit, before=before)
 
 
+@router.get("/markets/{market_id}/chart")
+def market_chart(market_id: int, points: int = 1500):
+    """The market's WHOLE history, downsampled for charting."""
+    _market_or_404(market_id)
+    return db.get_chart(market_id, points=min(points, 5000))
+
+
 @router.patch("/markets/{market_id}")
 def patch_market(market_id: int, body: MarketPatch):
     """Change a market's poll interval."""

@@ -100,6 +100,14 @@ export default function PriceChart({
   const [level, setLevel] = useState(null);
   const [showInnings, setShowInnings] = useState(true);
 
+  // time-only labels are meaningless across a multi-day span (the chart now
+  // carries a market's whole life) — add the date once the view exceeds 24h
+  const spanMs = win ? win[1] - win[0]
+    : ticks.length ? ticks[ticks.length - 1].ts - ticks[0].ts : 0;
+  const fmtAxis = spanMs > 24 * 3600e3
+    ? (ts) => `${fmtDate(ts).slice(5)} ${fmtTime(ts).slice(0, 5)}`
+    : fmtTime;
+
   // The brush fires on every pixel of a drag. Pushing each one straight into
   // state re-rendered thousands of points and fed the indexes back into the
   // brush mid-drag, which made it feel slow and jumpy — so settle first.
@@ -275,7 +283,7 @@ export default function PriceChart({
             dataKey="ts"
             type="number"
             domain={["dataMin", "dataMax"]}
-            tickFormatter={fmtTime}
+            tickFormatter={fmtAxis}
             tick={{ fontFamily: T.mono, fontSize: 11, fill: T.sub }}
             stroke={T.border}
             minTickGap={48}
@@ -373,7 +381,7 @@ export default function PriceChart({
             fill="#EFF6FF"
             startIndex={startIndex}
             endIndex={endIndex}
-            tickFormatter={fmtTime}
+            tickFormatter={fmtAxis}
             onChange={onBrush}
           />
         </LineChart>

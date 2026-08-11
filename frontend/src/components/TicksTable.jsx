@@ -19,8 +19,26 @@ export default function TicksTable({
   pollInterval,
   trackedSince,
   closedAt,
+  totalRecords,
+  onLoadOlder,
+  loadingOlder,
+  olderDone,
 }) {
   const [order, setOrder] = useState("desc");
+  // paging: the table holds the newest rows; this pulls further back in time
+  const hasMore = !olderDone && totalRecords != null && ticks.length < totalRecords;
+  const olderBtn = onLoadOlder && hasMore && (
+    <tr key="load-older">
+      <td colSpan={1 + outcomes.length} style={{ textAlign: "center", padding: "8px 14px" }}>
+        <button onClick={onLoadOlder} disabled={loadingOlder}
+          style={{ ...btn.outline, fontSize: 12, padding: "6px 14px" }}>
+          {loadingOlder
+            ? "Loading…"
+            : `⬇ Load older rows (${ticks.length.toLocaleString("en-US")} of ${Number(totalRecords).toLocaleString("en-US")} loaded)`}
+        </button>
+      </td>
+    </tr>
+  );
 
   const closedDivider = closedAt && (
     <tr key="closed-divider">
@@ -105,6 +123,7 @@ export default function TicksTable({
             </tr>
           </thead>
           <tbody>
+            {order === "asc" && olderBtn}
             {order === "desc" && closedDivider}
             {rows.map((row, i) => {
               const isLive = trackedSince && row.ts >= trackedSince;
@@ -165,6 +184,7 @@ export default function TicksTable({
               ];
             })}
             {order === "asc" && closedDivider}
+            {order === "desc" && olderBtn}
           </tbody>
         </table>
       </div>
