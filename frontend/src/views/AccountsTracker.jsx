@@ -285,7 +285,7 @@ export default function AccountsTracker() {
   }
   useEffect(() => { memo.current = current; loadData(current); setActShown(60); }, [current]);
 
-  // Alert watcher: every 45s (tab visible only) check each account for
+  // Alert watcher: every 30s (tab visible only) check each account for
   // (a) positions crossing a saved price target, (b) NEW trades/redeems since
   // the last watermark. Server caches keep this at one upstream call per
   // account per interval no matter how many windows are open; the storage
@@ -358,7 +358,9 @@ export default function AccountsTracker() {
       }
     }
     tick();
-    const id = setInterval(tick, 45_000);
+    // 30s matches the backend's activity cache TTL, so every tick can
+    // actually see fresh data — 45s was just leaving news on the table
+    const id = setInterval(tick, 30_000);
     return () => { stop = true; clearInterval(id); };
   }, []);
 
