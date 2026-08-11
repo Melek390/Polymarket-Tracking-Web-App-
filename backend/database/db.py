@@ -521,22 +521,37 @@ def get_chart(market_id: int, points: int = 1500) -> list[dict]:
             return []
         t0, t1 = span
         width = max(1, (t1 - t0) // max(1, points))
+        # min AND max per bucket, not the mean: averaging painted prices that
+        # never traded once a game swung hard inside one bucket (client caught
+        # "59.76¢" on a bucket that really ran 40¢ -> 80¢, Aug 11). Flat
+        # buckets emit one point; volatile ones emit their true extremes.
         rows = conn.execute(
             f"""SELECT outcome_id,
                        (CAST(strftime('%s', ts) AS INTEGER) - ?) / ? AS bucket,
-                       AVG(price) AS price
+                       MIN(price) AS lo, MAX(price) AS hi
                 FROM ticks WHERE outcome_id IN ({placeholders})
                 GROUP BY outcome_id, bucket ORDER BY bucket""",
             [t0, width, *labels]).fetchall()
-        by_bucket: dict[int, dict] = {}
+        lows: dict[int, dict] = {}
+        highs: dict[int, dict] = {}
         for r in rows:
-            by_bucket.setdefault(r["bucket"], {})[r["outcome_id"]] = round(r["price"], 2)
+            lows.setdefault(r["bucket"], {})[r["outcome_id"]] = round(r["lo"], 2)
+            highs.setdefault(r["bucket"], {})[r["outcome_id"]] = round(r["hi"], 2)
+
+        def _stamp(sec: int) -> str:
+            return datetime.fromtimestamp(sec, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
         out = []
-        for b, prices in sorted(by_bucket.items()):
-            ts = datetime.fromtimestamp(t0 + b * width + width // 2,
-                                        tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            out.append({"ts": ts, "prices": {
-                label: prices[oid] for oid, label in labels.items() if oid in prices}})
+        for b in sorted(lows):
+            lo, hi = lows[b], highs[b]
+            if lo == hi:  # quiet bucket — one point carries it
+                out.append({"ts": _stamp(t0 + b * width + width // 2), "prices": {
+                    label: lo[oid] for oid, label in labels.items() if oid in lo}})
+                continue
+            out.append({"ts": _stamp(t0 + b * width + width // 3), "prices": {
+                label: lo[oid] for oid, label in labels.items() if oid in lo}})
+            out.append({"ts": _stamp(t0 + b * width + 2 * width // 3), "prices": {
+                label: hi[oid] for oid, label in labels.items() if oid in hi}})
         return out
 
 
