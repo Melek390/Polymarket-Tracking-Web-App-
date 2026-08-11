@@ -147,6 +147,11 @@ export async function fetchMlbAnalyze(gamePk) {
   return request(`/api/mlb/analyze/${gamePk}?_=${Date.now()}`);
 }
 
+// GET /api/favorite/{pk} — the Clear Favorite verdict + factor breakdown
+export async function fetchFavorite(gamePk) {
+  return request(`/api/favorite/${gamePk}`);
+}
+
 // GET /api/mlb/matchup/{pk} — standings, season series and probable starters
 export async function fetchMlbMatchup(gamePk) {
   return request(`/api/mlb/matchup/${gamePk}`);

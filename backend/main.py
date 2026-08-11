@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.routes import router
+from backend.favorite.api import router as favorite_router
 from backend.traders.api import router as traders_router
 from backend.traders import store as traders_store
 from backend.collector import scheduler
@@ -60,6 +61,7 @@ async def cache_headers(request, call_next):
 # JSON API under /api/... (see backend/api/routes.py)
 app.include_router(router)
 app.include_router(traders_router)
+app.include_router(favorite_router)
 
 
 # The frontend uses real paths (not hashes), so a page opened directly at

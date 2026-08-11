@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents } from "../utils.js";
-import { fetchMlbGame, fetchLivePrice, fetchMlbAnalyze, fetchMlbMatchup } from "../api/client.js";
+import { fetchMlbGame, fetchLivePrice, fetchMlbAnalyze, fetchMlbMatchup, fetchFavorite } from "../api/client.js";
 import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
 import { loadHighlights, persistHighlights, highlightColor } from "../highlights.js";
 import AlertDialog from "./AlertDialog.jsx";
@@ -64,6 +64,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const [notes, setNotes] = useState(loadNotes); // slug -> the user's note
   const [noteEdit, setNoteEdit] = useState(null); // slug being edited
   const [noteDraft, setNoteDraft] = useState("");
+  const [favorites, setFavorites] = useState({}); // gamePk -> Clear Favorite verdict
 
   // Build the paste-ready snapshot (MLB + Polymarket), copy it to the clipboard
   // and show it in a modal. It stays open until the user closes it; clicking
@@ -329,6 +330,33 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
     }
   }
 
+  // Clear Favorite verdicts (client scoring spec, Aug 11): fetched for the
+  // day's games in small batches — the backend caches each verdict 10 min,
+  // so this refresh loop stays cheap however many windows are open.
+  useEffect(() => {
+    let stop = false;
+    async function load() {
+      const now = Date.now();
+      const targets = rowsRef.current.filter((r) => r.gamePk && r.kickoff
+        && r.kickoff > now - 6 * 3600e3 && r.kickoff < now + 36 * 3600e3);
+      for (let i = 0; i < targets.length && !stop; i += 3) {
+        const batch = targets.slice(i, i + 3);
+        const res = await Promise.allSettled(batch.map((r) => fetchFavorite(r.gamePk)));
+        if (stop) return;
+        setFavorites((prev) => {
+          const next = { ...prev };
+          batch.forEach((r, j) => {
+            if (res[j].status === "fulfilled") next[r.gamePk] = res[j].value;
+          });
+          return next;
+        });
+      }
+    }
+    load();
+    const id = setInterval(load, 600_000);
+    return () => { stop = true; clearInterval(id); };
+  }, [rows]);
+
   // status for the filter chips: prefer MLB's own state, fall back to kickoff
   const nowMs = Date.now();
   function rowStatus(r) {
@@ -502,6 +530,15 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
               // MLB-designated home/away teams + prices (live CLOB mid overrides
               // the cached price); shared with the sort comparator via resolved()
               const { homeTeam, homePrice, awayTeam, awayPrice } = resolved(r);
+              // Clear Favorite tag, matched by TEAM NAME (the verdict speaks
+              // MLB home/away; the row may be Polymarket away-first)
+              const fav = favorites[r.gamePk];
+              const favName = fav?.favorite ? fav[`${fav.favorite}_name`] : null;
+              const favTip = favName
+                ? `CLEAR FAVORITE — ${fav[fav.favorite].total}/100 points\n`
+                  + fav[fav.favorite].factors
+                    .map((x) => `${x.key}: ${x.points}/${x.max} — ${x.detail}`).join("\n")
+                : "";
               // Home / Away columns: the team name under its win price, and a
               // BATTING pill on whichever side is at bat, so these columns can
               // be read without glancing back at the Batting column
@@ -509,6 +546,16 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                 <td style={{ ...td, textAlign: "right" }}>
                   <div><LivePrice cents={price} color={color} /></div>
                   <div style={{ fontFamily: T.ui, fontSize: 11, color: T.sub }}>{team}</div>
+                  {team === favName && (
+                    <div style={{ marginTop: 2 }}>
+                      <span title={favTip}
+                        style={{ fontFamily: T.ui, fontSize: 9, fontWeight: 800,
+                          letterSpacing: 0.5, color: "#fff", background: "#D97706",
+                          borderRadius: 4, padding: "1px 6px", cursor: "help" }}>
+                        ★ CLEAR FAVORITE
+                      </span>
+                    </div>
+                  )}
                   {(() => {
                     const mine = tagsFor(teamTags, team);
                     return mine.length ? (
