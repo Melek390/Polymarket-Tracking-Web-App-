@@ -153,18 +153,25 @@ function MatchupPanel({ m, prices }) {
           {t.sportRank ? `#${t.sportRank} in MLB` : ""}
         </div>
       )}
-      {/* last 3 completed series, newest first (client request, Aug 11) */}
+      {/* last 3 completed series, newest first (client request, Aug 11):
+          "● W 2-1 vs MIN · ● L 1-2 @ NYY" — vs = home, @ = away; the abbr
+          shows the full club name on hover (dotted underline, kept subtle) */}
       {t.lastSeries?.length > 0 && (
         <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 4 }}>
           Last series:{" "}
           {t.lastSeries.map((s, i) => (
-            <span key={i} title={`vs ${s.opponent}`} style={{ whiteSpace: "nowrap" }}>
+            <span key={i} style={{ whiteSpace: "nowrap" }}>
               <span style={{ color: s.res === "W" ? T.green : s.res === "L" ? T.red : T.sub,
                 fontSize: 9, verticalAlign: "middle" }}>●</span>
               {" "}
               <span style={{ fontWeight: 700,
                 color: s.res === "W" ? T.green : s.res === "L" ? T.red : T.sub }}>
                 {s.res} {s.wins}-{s.losses}
+              </span>
+              {" "}{s.home ? "vs" : "@"}{" "}
+              <span title={s.opponent}
+                style={{ borderBottom: `1px dotted ${T.faint}`, cursor: "help" }}>
+                {s.opp_abbr}
               </span>
               {i < t.lastSeries.length - 1 ? " · " : ""}
             </span>
@@ -176,6 +183,17 @@ function MatchupPanel({ m, prices }) {
         Last 10: {lastTenText(t.lastTen) ?? "—"}
         {streakText(t.streak) ? ` · ${streakText(t.streak)}` : ""}
       </div>
+      {/* the actual order of those results, newest first (client, Aug 11) */}
+      {t.lastTenSeq?.length > 0 && (
+        <div style={{ ...monoText, fontSize: 11, marginTop: 1 }}>
+          <span style={{ letterSpacing: 3 }}>
+            {t.lastTenSeq.map((r, i) => (
+              <span key={i} style={{ color: r === "W" ? T.green : T.red, fontWeight: 700 }}>{r}</span>
+            ))}
+          </span>
+          <div style={{ fontSize: 9, color: T.faint }}>↑ most recent</div>
+        </div>
+      )}
       <div style={{ ...monoText, fontSize: 11, color: T.sub }}>
         Run differential{" "}
         <span style={{ fontWeight: 700,
