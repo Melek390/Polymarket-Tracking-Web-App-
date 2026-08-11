@@ -167,6 +167,125 @@ async def _last_series(team_id: int, n: int = 3) -> list[dict]:
         return hit[1] if hit else []
 
 
+# gamePk -> (cached_at, {side: {"ids", "names", "pos", "sp"}}). A finished
+# game's lineup is immutable (ttl=None); today's re-checks every 5 min so a
+# late scratch or the confirmed lineup replacing "not available" shows up.
+_lineup_cache: dict[int, tuple[float | None, dict]] = {}
+_prev_cache: dict[int, tuple[float, tuple | None]] = {}  # team -> (at, (pk, side))
+PREV_TTL = 1800
+LINEUP_TTL = 300
+
+
+async def _game_lineups(game_pk: int, immutable: bool) -> dict[str, dict]:
+    """Starting lineups of one game, both sides. Starters are the players
+    whose battingOrder is a multiple of 100 (100..900) — substitutes get
+    e.g. 401 and never count. The first pitcher listed is the starter."""
+    hit = _lineup_cache.get(game_pk)
+    if hit and (hit[0] is None or time.monotonic() - hit[0] < LINEUP_TTL):
+        return hit[1]
+    r = await client._http().get(f"{client.BASE}/v1/game/{game_pk}/boxscore")
+    r.raise_for_status()
+    box = r.json()
+    out: dict[str, dict] = {}
+    for side in ("away", "home"):
+        t = box.get("teams", {}).get(side, {})
+        starters = []
+        for p in (t.get("players") or {}).values():
+            order = str(p.get("battingOrder", ""))
+            if order.isdigit() and int(order) % 100 == 0:
+                starters.append((int(order), p))
+        starters.sort()
+        out[side] = {
+            "ids": [p["person"]["id"] for _, p in starters],
+            "names": {p["person"]["id"]: p["person"].get("fullName") for _, p in starters},
+            "pos": {p["person"]["id"]: (p.get("position") or {}).get("abbreviation") or ""
+                    for _, p in starters},
+            "sp": (t.get("pitchers") or [None])[0],
+        }
+    _lineup_cache[game_pk] = (None if immutable else time.monotonic(), out)
+    return out
+
+
+async def _prev_final(team_id: int, before_pk: int) -> tuple | None:
+    """(gamePk, side) of the team's most recent FINISHED game."""
+    now = time.monotonic()
+    hit = _prev_cache.get(team_id)
+    if hit and now - hit[0] < PREV_TTL:
+        return hit[1]
+    end = datetime.now()
+    r = await client._http().get(
+        f"{client.BASE}/v1/schedule",
+        params={"sportId": 1, "teamId": team_id, "gameType": "R",
+                "startDate": (end - timedelta(days=12)).date().isoformat(),
+                "endDate": end.date().isoformat()})
+    r.raise_for_status()
+    result = None
+    for d in r.json().get("dates", []):
+        for g in d.get("games", []):
+            if g["gamePk"] == before_pk or g["status"]["abstractGameState"] != "Final":
+                continue
+            side = "home" if g["teams"]["home"]["team"]["id"] == team_id else "away"
+            result = (g["gamePk"], side)  # dates are ascending: keep the last
+    _prev_cache[team_id] = (now, result)
+    return result
+
+
+async def _lineup_diff(team_id: int, game_pk: int, side: str) -> dict:
+    """How today's starting nine differs from the team's previous game.
+    PERSONNEL continuity only (client spec): batting-order or defensive-
+    position moves don't count as changes, and the SP is reported separately
+    and excluded from the percentage."""
+    out: dict = {"status": "none", "sp_prev": None}
+    try:
+        prev = await _prev_final(team_id, game_pk)
+        prev_lu: dict = {}
+        prev_nine: list = []
+        if prev:
+            prev_lu = (await _game_lineups(prev[0], immutable=True)).get(prev[1]) or {}
+            prev_nine = prev_lu.get("ids") or []
+            if prev_lu.get("sp"):
+                era = (await _pitcher_seasons([prev_lu["sp"]])).get(prev_lu["sp"], {}).get("era")
+                name = await _person_name(prev_lu["sp"])
+                out["sp_prev"] = {"name": name, "era": era}
+        today = (await _game_lineups(game_pk, immutable=False)).get(side) or {}
+        nine = today.get("ids") or []
+        if not nine or not prev_nine:
+            return out  # no lineup yet (or no previous game) — nothing to compare
+        returning = [i for i in nine if i in prev_nine]
+        out.update({
+            "status": "confirmed",  # MLB only publishes official lineups
+            "returning": len(returning),
+            "total": len(nine),
+            "pct": round(len(returning) / len(nine) * 100),
+            "ins": [{"name": today["names"].get(i), "pos": today["pos"].get(i)}
+                    for i in nine if i not in prev_nine],
+            "outs": [{"name": prev_lu["names"].get(i), "pos": prev_lu["pos"].get(i)}
+                     for i in prev_nine if i not in nine],
+        })
+    except Exception:
+        pass  # a lineup hiccup must never take the whole matchup panel down
+    return out
+
+
+_names: dict[int, str] = {}
+
+
+async def _person_name(pid: int) -> str | None:
+    if pid in _names:
+        return _names[pid]
+    try:
+        r = await client._http().get(f"{client.BASE}/v1/people/{pid}",
+                                     params={"fields": "people,id,fullName"})
+        r.raise_for_status()
+        people = r.json().get("people", [])
+        if people:
+            _names[pid] = people[0].get("fullName")
+            return _names[pid]
+    except Exception:
+        pass
+    return None
+
+
 async def _season_series(away_id, home_id, away_name, home_name) -> str:
     """Head to head this season, as a sentence."""
     try:
@@ -229,9 +348,13 @@ async def matchup(game_pk: int) -> dict:
         }
 
     away, home = side("away"), side("home")
-    away["lastSeries"], home["lastSeries"] = await asyncio.gather(
-        _last_series(g["teams"]["away"]["team"]["id"]),
-        _last_series(g["teams"]["home"]["team"]["id"]))
+    away_id = g["teams"]["away"]["team"]["id"]
+    home_id = g["teams"]["home"]["team"]["id"]
+    (away["lastSeries"], home["lastSeries"],
+     away["lineup"], home["lineup"]) = await asyncio.gather(
+        _last_series(away_id), _last_series(home_id),
+        _lineup_diff(away_id, game_pk, "away"),
+        _lineup_diff(home_id, game_pk, "home"))
     return {
         "away": away,
         "home": home,

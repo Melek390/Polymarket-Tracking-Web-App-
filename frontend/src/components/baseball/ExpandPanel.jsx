@@ -1,4 +1,5 @@
 import { T, monoText, btn } from "../../theme.js";
+import { fmtCents } from "../../utils.js";
 import { Bases, OutDots } from "./widgets.jsx";
 import { inningText, lastTenText, streakText } from "./gameState.js";
 
@@ -92,7 +93,7 @@ function recordPct(record) {
 }
 
 // panel before first pitch, and sits beside the play feed once a game is on.
-function MatchupPanel({ m }) {
+function MatchupPanel({ m, prices }) {
   const lbl = { color: T.sub, fontSize: 10, textTransform: "uppercase" };
   // Reserve the column while it loads, for the same reason as PlayFeed —
   // this is fetched once on expand, so returning null meant it popped in late
@@ -199,8 +200,66 @@ function MatchupPanel({ m }) {
           </div>
         </div>
       )}
+      {/* lineup continuity vs the previous game (client request, Aug 11):
+          personnel only — order/position moves don't count; SP separate */}
+      {t.lineup && (
+        <div style={{ marginTop: 7, paddingTop: 6, borderTop: `1px solid ${T.border}` }}>
+          <div style={lbl}>
+            {t.lineup.status === "confirmed" ? "Confirmed lineup vs last game" : "Lineup vs last game"}
+          </div>
+          {t.lineup.status === "confirmed" ? (
+            <>
+              <div style={{ ...monoText, fontSize: 12, fontWeight: 700, marginTop: 2 }}>
+                {t.lineup.returning}/{t.lineup.total} returning · {t.lineup.pct}% same
+              </div>
+              {t.lineup.ins.length > 0 && (
+                <div style={{ ...monoText, fontSize: 11, color: T.green, marginTop: 2 }}>
+                  ↑ IN: {t.lineup.ins.map((p) => `${p.name}${p.pos ? ` (${p.pos})` : ""}`).join(", ")}
+                </div>
+              )}
+              {t.lineup.outs.length > 0 && (
+                <div style={{ ...monoText, fontSize: 11, color: T.red, marginTop: 1 }}>
+                  ↓ OUT: {t.lineup.outs.map((p) => `${p.name}${p.pos ? ` (${p.pos})` : ""}`).join(", ")}
+                </div>
+              )}
+              {t.lineup.ins.length === 0 && t.lineup.outs.length === 0 && (
+                <div style={{ fontSize: 11, color: T.sub, marginTop: 1 }}>
+                  same nine as last game
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ fontSize: 11, color: T.faint, marginTop: 2 }}>
+              Today's lineup not available yet.
+            </div>
+          )}
+          {(t.lineup.sp_prev || t.probable) && (
+            <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 3 }}>
+              SP: {t.lineup.sp_prev
+                ? `${t.lineup.sp_prev.name}${t.lineup.sp_prev.era ? ` (${t.lineup.sp_prev.era} ERA)` : ""}`
+                : "—"}
+              {" → "}
+              {t.probable
+                ? `${t.probable.name}${t.probable.era ? ` (${t.probable.era} ERA)` : ""}`
+                : "—"}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
+  // the market's verdict, stated plainly (client request, Aug 11): who is
+  // favored right now and by how much — "no clear favorite" inside 5c
+  const fav = (() => {
+    const p = prices;
+    if (!p || p.awayPrice == null || p.homePrice == null) return null;
+    const diff = Math.abs(p.awayPrice - p.homePrice);
+    if (diff < 5) return { text: "No clear favorite", sub: `${p.awayTeam} ${fmtCents(p.awayPrice)} · ${p.homeTeam} ${fmtCents(p.homePrice)}` };
+    const lead = p.awayPrice > p.homePrice
+      ? { team: p.awayTeam, price: p.awayPrice, other: p.homePrice }
+      : { team: p.homeTeam, price: p.homePrice, other: p.awayPrice };
+    return { text: `${lead.team} favored`, sub: `${fmtCents(lead.price)} vs ${fmtCents(lead.other)} on Polymarket` };
+  })();
   return (
     <div style={{ flex: 1, minWidth: 320 }}>
       <div style={{ ...lbl, marginBottom: 6 }}>Matchup</div>
@@ -209,6 +268,16 @@ function MatchupPanel({ m }) {
         {side(m.home)}
         {/* series + venue take the third column so the row fills the panel */}
         <div style={{ flex: 1, minWidth: 150 }}>
+          {fav && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={lbl}>Market favorite</div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2,
+                color: fav.text === "No clear favorite" ? T.sub : T.green }}>
+                {fav.text}
+              </div>
+              <div style={{ ...monoText, fontSize: 11, color: T.sub }}>{fav.sub}</div>
+            </div>
+          )}
           <div style={lbl}>Season series</div>
           <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>
             {m.series || "—"}
@@ -231,7 +300,7 @@ function MatchupPanel({ m }) {
 }
 
 // The MLB.com-style line score shown when a row is expanded.
-export default function ExpandPanel({ live, onAnalyze, matchup }) {
+export default function ExpandPanel({ live, onAnalyze, matchup, prices }) {
   if (!live) return <div style={{ ...monoText, fontSize: 12, padding: "8px 10px", color: T.faint }}>Loading live data…</div>;
   const nums = live.innings.map((i) => i.num);
   const cell = { ...monoText, fontSize: 12, padding: "3px 7px", textAlign: "center", minWidth: 18 };
@@ -357,7 +426,7 @@ export default function ExpandPanel({ live, onAnalyze, matchup }) {
         )}
       </div>
       {live.status === "Live" && <PlayFeed live={live} />}
-      <MatchupPanel m={matchup} />
+      <MatchupPanel m={matchup} prices={prices} />
       </div>
     </div>
   );

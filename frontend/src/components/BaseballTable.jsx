@@ -711,6 +711,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                       <ExpandPanel
                         live={live}
                         matchup={matchups[r.gamePk]}
+                        prices={{ awayTeam, awayPrice, homeTeam, homePrice }}
                         onAnalyze={() =>
                           runAnalyze(
                             r.gamePk,
