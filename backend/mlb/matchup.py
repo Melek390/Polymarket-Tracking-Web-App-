@@ -2,8 +2,9 @@
 season series, and the probable starters. Fetched on demand when a row is
 expanded, with short caches so repeated expands cost nothing."""
 
+import asyncio
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from backend.mlb import client
 
@@ -107,6 +108,65 @@ async def _pitcher_seasons(ids: list[int]) -> dict[int, dict]:
         return {}
 
 
+_series_cache: dict[int, tuple[float, list]] = {}
+SERIES_TTL = 3600  # a series result changes at most once a day
+
+
+async def _last_series(team_id: int, n: int = 3) -> list[dict]:
+    """The team's last n COMPLETED series, newest first — "W 2-1" style
+    (client request, Aug 11). Consecutive final games against the same
+    opponent form a series; it only counts once its final scheduled game was
+    played (seriesGameNumber == gamesInSeries), so the series in progress
+    right now is never shown half-done."""
+    now = time.monotonic()
+    hit = _series_cache.get(team_id)
+    if hit and now - hit[0] < SERIES_TTL:
+        return hit[1]
+    end = datetime.now()
+    try:
+        r = await client._http().get(
+            f"{client.BASE}/v1/schedule",
+            params={"sportId": 1, "teamId": team_id, "gameType": "R",
+                    "startDate": (end - timedelta(days=35)).date().isoformat(),
+                    "endDate": end.date().isoformat()})
+        r.raise_for_status()
+        finals = []
+        for d in r.json().get("dates", []):
+            for g in d.get("games", []):
+                if g["status"]["abstractGameState"] != "Final":
+                    continue
+                t = g["teams"]
+                mine = "home" if t["home"]["team"]["id"] == team_id else "away"
+                opp = t["away" if mine == "home" else "home"]["team"]
+                finals.append({
+                    "opp_id": opp["id"], "opp": opp.get("name") or "",
+                    "won": bool(t[mine].get("isWinner")),
+                    "series_num": g.get("seriesGameNumber"),
+                    "in_series": g.get("gamesInSeries"),
+                })
+        groups: list[dict] = []
+        for f in finals:  # already in date order
+            if not groups or groups[-1]["opp_id"] != f["opp_id"]:
+                groups.append({"opp_id": f["opp_id"], "opp": f["opp"], "games": []})
+            groups[-1]["games"].append(f)
+        out = []
+        for grp in reversed(groups):  # newest first, as the client reads
+            last = grp["games"][-1]
+            if (last["series_num"] is not None and last["in_series"] is not None
+                    and last["series_num"] != last["in_series"]):
+                continue  # series not finished (in progress or postponed tail)
+            wins = sum(g["won"] for g in grp["games"])
+            losses = len(grp["games"]) - wins
+            out.append({"res": "W" if wins > losses else "L" if losses > wins else "T",
+                        "wins": wins, "losses": losses, "opponent": grp["opp"]})
+            if len(out) == n:
+                break
+        _series_cache[team_id] = (now, out)
+        return out
+    except Exception:
+        return hit[1] if hit else []
+
+
 async def _season_series(away_id, home_id, away_name, home_name) -> str:
     """Head to head this season, as a sentence."""
     try:
@@ -169,6 +229,9 @@ async def matchup(game_pk: int) -> dict:
         }
 
     away, home = side("away"), side("home")
+    away["lastSeries"], home["lastSeries"] = await asyncio.gather(
+        _last_series(g["teams"]["away"]["team"]["id"]),
+        _last_series(g["teams"]["home"]["team"]["id"]))
     return {
         "away": away,
         "home": home,

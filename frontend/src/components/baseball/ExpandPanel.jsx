@@ -152,6 +152,24 @@ function MatchupPanel({ m }) {
           {t.sportRank ? `#${t.sportRank} in MLB` : ""}
         </div>
       )}
+      {/* last 3 completed series, newest first (client request, Aug 11) */}
+      {t.lastSeries?.length > 0 && (
+        <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 4 }}>
+          Last series:{" "}
+          {t.lastSeries.map((s, i) => (
+            <span key={i} title={`vs ${s.opponent}`} style={{ whiteSpace: "nowrap" }}>
+              <span style={{ color: s.res === "W" ? T.green : s.res === "L" ? T.red : T.sub,
+                fontSize: 9, verticalAlign: "middle" }}>●</span>
+              {" "}
+              <span style={{ fontWeight: 700,
+                color: s.res === "W" ? T.green : s.res === "L" ? T.red : T.sub }}>
+                {s.res} {s.wins}-{s.losses}
+              </span>
+              {i < t.lastSeries.length - 1 ? " · " : ""}
+            </span>
+          ))}
+        </div>
+      )}
       {/* spelled out on client request — "L10 4-6 · L4 · +18" was unreadable */}
       <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 4 }}>
         Last 10: {lastTenText(t.lastTen) ?? "—"}
