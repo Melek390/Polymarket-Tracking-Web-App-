@@ -116,24 +116,30 @@ async def _value(wallet: str) -> float | None:
 
 
 def _redeems_as_sells(activity: list[dict]) -> list[dict]:
-    """REDEEM events become $1 exits with no fee (winner held to the end).
+    """REDEEM events become exits priced by the CASH RECEIVED, no fee.
     Missing them makes every held winner look like an open position forever.
 
-    GOTCHA (found reconciling against a real profile, Aug 6): REDEEM rows
-    carry an EMPTY `asset` — redemption happens at the condition level — so
-    they are keyed by (conditionId, outcome) and resolved to the bought token
-    in matched(). Zero-size redeems (the losing side being cleaned up) are
-    skipped: they close nothing and rendered as "Redeemed 0"."""
+    GOTCHA (Aug 6): REDEEM rows carry an EMPTY `asset` — redemption happens
+    at the condition level — so they are keyed by (conditionId, outcome) and
+    resolved to the bought token in matched(). Zero-size redeems (the losing
+    side being cleaned up) are skipped: they close nothing.
+
+    GOTCHA (Aug 11, client caught it): losing positions are ALSO swept as
+    REDEEMs with the FULL share count and usdcSize=0 — assuming $1 turned
+    three lost bets into phantom 100c wins. The price is therefore always
+    usdcSize/size: $1/share for a real winner, $0 for a swept loss."""
     out = []
     for a in activity:
-        if a.get("type") != "REDEEM" or float(a.get("size") or 0) <= 0:
+        size = float(a.get("size") or 0)
+        if a.get("type") != "REDEEM" or size <= 0:
             continue
+        price = min(max(float(a.get("usdcSize") or 0) / size, 0.0), 1.0)
         out.append({
             "tx": a.get("transactionHash") or "", "asset": a.get("asset") or "",
             "condition_id": a.get("conditionId") or "", "title": a.get("title") or "",
             "slug": a.get("slug") or "", "event_slug": a.get("eventSlug") or "",
             "outcome": a.get("outcome") or "", "side": "SELL",
-            "price": 1.0, "size": float(a.get("size") or 0),
+            "price": price, "size": size,
             "ts": int(a.get("timestamp") or 0), "role": "maker", "fee": 0.0,
         })
     return out
