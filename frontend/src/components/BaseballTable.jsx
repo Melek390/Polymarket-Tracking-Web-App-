@@ -15,6 +15,7 @@ import { breakText, inningText, isFinished, isInningBreak, preGameLabel } from "
 import TeamTagsDialog, { TeamTag } from "./baseball/TeamTagsDialog.jsx";
 import { loadTeamTags, tagsFor, taggedTeamCount } from "../teamTags.js";
 import { loadScreenerHidden, toggleScreenerHidden } from "../screenerHidden.js";
+import { loadNotes, setNote } from "../matchNotes.js";
 
 const POLL_MS = 2000; // fast live prices + state; backend caps each at ~2s
 
@@ -60,6 +61,9 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const [tagsOpen, setTagsOpen] = useState(false);
   const [hidden, setHidden] = useState(loadScreenerHidden); // slug -> hidden
   const [showHidden, setShowHidden] = useState(false); // reveal hidden (dimmed)
+  const [notes, setNotes] = useState(loadNotes); // slug -> the user's note
+  const [noteEdit, setNoteEdit] = useState(null); // slug being edited
+  const [noteDraft, setNoteDraft] = useState("");
 
   // Build the paste-ready snapshot (MLB + Polymarket), copy it to the clipboard
   // and show it in a modal. It stays open until the user closes it; clicking
@@ -135,6 +139,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
         setHighlights(loadHighlights());
       } else if (e.key === "screenerHiddenRows") {
         setHidden(loadScreenerHidden());
+      } else if (e.key === "matchNotes") {
+        setNotes(loadNotes());
       }
     };
     window.addEventListener("storage", sync);
@@ -338,6 +344,47 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
     : rows.filter((r) => statuses.includes(rowStatus(r)));
   const hiddenN = statusRows.filter((r) => hidden[r.slug]).length;
   const displayRows = showHidden ? statusRows : statusRows.filter((r) => !hidden[r.slug]);
+  // per-match note (client request): free text under the game name.
+  // Editor + display live in the title cell; the 📝 button sits with the
+  // other row actions. Shared with the generic screener via matchNotes.js.
+  const saveNote = (slug) => { setNotes({ ...setNote(slug, noteDraft) }); setNoteEdit(null); };
+  const noteBlock = (slug) => (noteEdit === slug ? (
+    <div style={{ marginTop: 4 }}>
+      <textarea value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)}
+        rows={2} autoFocus placeholder="Your note about this match…"
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveNote(slug); } }}
+        style={{ ...monoText, width: "100%", maxWidth: 420, fontSize: 12, padding: 6,
+          border: `1px solid ${T.border}`, borderRadius: 6, color: T.ink, display: "block" }} />
+      <div style={{ display: "flex", gap: 6, marginTop: 3 }}>
+        <button onClick={() => saveNote(slug)}
+          style={{ ...btn.green, fontSize: 11, padding: "3px 10px" }}>Save</button>
+        <button onClick={() => setNoteEdit(null)}
+          style={{ ...btn.ghost, fontSize: 11, padding: "3px 8px" }}>Cancel</button>
+        {notes[slug] && (
+          <button onClick={() => { setNotes({ ...setNote(slug, "") }); setNoteEdit(null); }}
+            style={{ ...btn.ghost, fontSize: 11, padding: "3px 8px", color: T.red }}>Delete</button>
+        )}
+      </div>
+    </div>
+  ) : notes[slug] ? (
+    <div style={{ fontSize: 11, color: T.sub, fontStyle: "italic", fontWeight: 400,
+      marginTop: 3, whiteSpace: "normal", maxWidth: 420 }}>
+      📝 {notes[slug]}
+    </div>
+  ) : null);
+  const noteBtn = (slug) => (
+    <button onClick={() => {
+        if (noteEdit === slug) { setNoteEdit(null); return; }
+        setNoteEdit(slug); setNoteDraft(loadNotes()[slug] || "");
+      }}
+      title={notes[slug] ? "Edit your note for this match" : "Write a note about this match"}
+      style={{ ...btn.outline, fontSize: 12, padding: "5px 8px", marginRight: 6,
+        color: notes[slug] ? T.series[0] : T.sub,
+        borderColor: notes[slug] ? T.series[0] : undefined }}>
+      📝
+    </button>
+  );
+
   const rowHideBtn = (slug) => (
     <button onClick={() => setHidden({ ...toggleScreenerHidden(slug) })}
       title={hidden[slug] ? "Show this game again" : "Hide this game from the list (nothing is deleted)"}
@@ -547,6 +594,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                         </span>
                       </div>
                     ))}
+                    {noteBlock(r.slug)}
                   </td>
                   <td style={{ ...td, whiteSpace: "nowrap",
                     color: warmup || isInningBreak(live) ? T.series[1] : isLive ? T.red : T.sub,
@@ -626,6 +674,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                     >
                       {alerts[r.slug] ? "🔔" : "🔕"}
                     </button>
+                    {noteBtn(r.slug)}
                     {(() => {
                       const n = trackedCount(r.slug);
                       return (

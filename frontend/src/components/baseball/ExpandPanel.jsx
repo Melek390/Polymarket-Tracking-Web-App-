@@ -82,6 +82,15 @@ function leagueOf(division) {
   return m ? m[1] : "league";
 }
 
+// "39-21" -> " (65%)" — the home/away split as a percentage too
+function recordPct(record) {
+  const m = /^(\d+)-(\d+)$/.exec(record || "");
+  if (!m) return "";
+  const w = Number(m[1]);
+  const games = w + Number(m[2]);
+  return games ? ` (${Math.round((w / games) * 100)}%)` : "";
+}
+
 // panel before first pitch, and sits beside the play feed once a game is on.
 function MatchupPanel({ m }) {
   const lbl = { color: T.sub, fontSize: 10, textTransform: "uppercase" };
@@ -156,7 +165,8 @@ function MatchupPanel({ m }) {
         </span>
       </div>
       <div style={{ ...monoText, fontSize: 11, color: T.faint }}>
-        Home {t.homeRecord ?? "—"} · Away {t.awayRecord ?? "—"}
+        {/* win % alongside the raw W-L (client request, Aug 11) */}
+        Home {t.homeRecord ?? "—"}{recordPct(t.homeRecord)} · Away {t.awayRecord ?? "—"}{recordPct(t.awayRecord)}
       </div>
       {t.probable && (
         <div style={{ marginTop: 7, paddingTop: 6, borderTop: `1px solid ${T.border}` }}>
