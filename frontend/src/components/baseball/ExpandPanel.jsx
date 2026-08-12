@@ -306,11 +306,13 @@ function TeamStandings({ t }) {
           Last series:{" "}
           {t.lastSeries.map((s, i) => (
             <span key={i} style={{ whiteSpace: "nowrap" }}>
-              {/* the W/L letter is right there in the text — the coloured dot
-                  and coloured score were saying it a second and third time */}
-              <span style={{ color: T.faint, fontSize: 9, verticalAlign: "middle" }}>●</span>
+              {/* W green / L red — a result is exactly the kind of thing
+                  colour SHOULD carry; greying these was a step too far */}
+              <span style={{ color: s.res === "W" ? T.green : s.res === "L" ? T.red : T.sub,
+                fontSize: 9, verticalAlign: "middle" }}>●</span>
               {" "}
-              <span style={{ fontWeight: 700, color: T.ink }}>
+              <span style={{ fontWeight: 700,
+                color: s.res === "W" ? T.green : s.res === "L" ? T.red : T.sub }}>
                 {s.res} {s.wins}-{s.losses}
               </span>
               {" "}{s.home ? "vs" : "@"}{" "}
@@ -331,13 +333,10 @@ function TeamStandings({ t }) {
       {/* the actual order of those results, newest first (client, Aug 11) */}
       {t.lastTenSeq?.length > 0 && (
         <div style={{ ...monoText, fontSize: 11, marginTop: 1 }}>
-          {/* the streak pattern still has to pop at a glance, but these are
-              literal W and L letters — weight and tone carry the rhythm
-              without spending two more colours on it */}
+          {/* the streak pattern has to pop at a glance — W green, L red */}
           <span style={{ letterSpacing: 3 }}>
             {t.lastTenSeq.map((r, i) => (
-              <span key={i} style={{ color: r === "W" ? T.ink : T.faint,
-                fontWeight: r === "W" ? 800 : 400 }}>{r}</span>
+              <span key={i} style={{ color: r === "W" ? T.green : T.red, fontWeight: 700 }}>{r}</span>
             ))}
           </span>
           <div style={{ fontSize: 9, color: T.faint }}>↑ most recent</div>
@@ -345,8 +344,9 @@ function TeamStandings({ t }) {
       )}
       <div style={{ ...monoText, fontSize: 11, color: T.sub }}>
         Run differential{" "}
-        {/* the +/- sign carries it; the colour was decoration */}
-        <span style={{ fontWeight: 700, color: T.ink }}>
+        {/* signed number: + green, - red */}
+        <span style={{ fontWeight: 700,
+          color: t.runDiff > 0 ? T.green : t.runDiff < 0 ? T.red : T.sub }}>
           {t.runDiff > 0 ? "+" : ""}{t.runDiff ?? "—"}
         </span>
       </div>
@@ -476,14 +476,14 @@ function TeamLineup({ t }) {
               <div style={{ ...monoText, fontSize: 12, fontWeight: 700, marginTop: 2 }}>
                 {t.lineup.returning}/{t.lineup.total} returning · {t.lineup.pct}% same
               </div>
-              {/* "IN:" / "OUT:" and the arrows are unambiguous on their own */}
+              {/* same up/down family as +/-: IN green, OUT red */}
               {t.lineup.ins.length > 0 && (
-                <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 2 }}>
+                <div style={{ ...monoText, fontSize: 11, color: T.green, marginTop: 2 }}>
                   ↑ IN: {t.lineup.ins.map((p) => `${p.name}${p.pos ? ` (${p.pos})` : ""}`).join(", ")}
                 </div>
               )}
               {t.lineup.outs.length > 0 && (
-                <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 1 }}>
+                <div style={{ ...monoText, fontSize: 11, color: T.red, marginTop: 1 }}>
                   ↓ OUT: {t.lineup.outs.map((p) => `${p.name}${p.pos ? ` (${p.pos})` : ""}`).join(", ")}
                 </div>
               )}
