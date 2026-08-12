@@ -759,6 +759,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                         live={live}
                         matchup={matchups[r.gamePk]}
                         prices={{ awayTeam, awayPrice, homeTeam, homePrice }}
+                        favorite={fav}
                         onAnalyze={() =>
                           runAnalyze(
                             r.gamePk,
