@@ -471,6 +471,26 @@ export default function AccountsTracker() {
     .filter((r) => result === "all" || (result === "win") === r.win);
   const closedHiddenN = closedBase.filter((r) => isHidden(closedHideKey(r))).length;
   const closedShown = showHidden ? closedBase : closedBase.filter((r) => !isHidden(closedHideKey(r)));
+  // Accumulated closed P/L, following whatever is filtered (client, Aug 12:
+  // picking Tennis showed "75 shown · 25 won · 50 lost" but never what the
+  // category actually made). Wins and losses are kept apart on purpose — one
+  // net number hides a category that churns big in both directions.
+  // Per-row headline stays PRE-fee to reconcile with the profile page, so
+  // these sums do too, with the after-fees figure alongside.
+  const closedTotals = closedShown.reduce((a, r) => {
+    const gross = r.net + r.fees;
+    a.shares += r.shares;
+    a.cost += r.cost;
+    a.proceeds += r.proceeds;
+    a.fees += r.fees;
+    a.gross += gross;
+    a.net += r.net;
+    // bucketed by the row's own WIN/LOSS pill, so the money always agrees
+    // with the "N won · N lost" counts in the header
+    if (r.win) { a.wonN += 1; a.won += gross; } else { a.lostN += 1; a.lost += gross; }
+    return a;
+  }, { shares: 0, cost: 0, proceeds: 0, fees: 0, gross: 0, net: 0,
+       won: 0, lost: 0, wonN: 0, lostN: 0 });
   const categories = useMemo(() => {
     const set = new Set([...open, ...closed].map((r) => categoryOf(r.event_slug)));
     return [...set].sort();
@@ -1042,7 +1062,52 @@ export default function AccountsTracker() {
                     ];
                   })}
                 </tbody>
+                {closedShown.length > 0 && (
+                  <tfoot>
+                    {/* sums follow the filters, same rule as the open table */}
+                    <tr style={{ borderTop: `2px solid ${T.border}`, background: T.soft }}>
+                      <td style={td} />
+                      <td style={{ ...td, fontFamily: T.ui, fontWeight: 700 }} colSpan={2}>
+                        Total — {closedShown.length} trade{closedShown.length === 1 ? "" : "s"}
+                        {category ? ` · ${category}` : ""}
+                      </td>
+                      <td style={rightTd} />
+                      <td style={rightTd} />
+                      <td style={{ ...rightTd, fontWeight: 700 }}>
+                        {Math.round(closedTotals.shares).toLocaleString("en-US")}
+                      </td>
+                      <td style={{ ...rightTd, fontWeight: 700 }}>{usd(closedTotals.cost)}</td>
+                      <td style={{ ...rightTd, fontWeight: 700 }}>{usd(closedTotals.proceeds)}</td>
+                      <td style={{ ...rightTd, fontWeight: 700, color: T.sub }}>{usd(closedTotals.fees)}</td>
+                      <td style={{ ...rightTd, fontWeight: 700, color: pnlColor(closedTotals.gross) }}>
+                        {usd(closedTotals.gross)}
+                        <div style={{ fontSize: 10, fontWeight: 400, color: T.sub }}>
+                          ({usd(closedTotals.net)} after fees)
+                        </div>
+                      </td>
+                      <td style={{ ...rightTd, fontWeight: 700, color: pnlColor(closedTotals.gross) }}>
+                        {closedTotals.cost
+                          ? `${closedTotals.gross > 0 ? "+" : ""}${(closedTotals.gross / closedTotals.cost * 100).toFixed(1)}%`
+                          : "—"}
+                      </td>
+                      <td style={td} />
+                    </tr>
+                  </tfoot>
+                )}
               </table>
+              {closedShown.length > 0 && (
+                <div style={{ padding: "8px 16px", fontSize: 12, color: T.sub,
+                  borderTop: `1px solid ${T.border}` }}>
+                  {category ? <b>{category}</b> : "All categories"}:{" "}
+                  <b style={{ color: M.green }}>{closedTotals.wonN} win{closedTotals.wonN === 1 ? "" : "s"}</b>{" "}
+                  made <b style={{ color: M.green }}>{usd(closedTotals.won)}</b>,{" "}
+                  <b style={{ color: M.red }}>{closedTotals.lostN} loss{closedTotals.lostN === 1 ? "" : "es"}</b>{" "}
+                  cost <b style={{ color: M.red }}>{usd(Math.abs(closedTotals.lost))}</b> — leaving{" "}
+                  <b style={{ color: pnlColor(closedTotals.gross) }}>{usd(closedTotals.gross)}</b>{" "}
+                  on {usd(closedTotals.cost)} staked ({usd(closedTotals.net)} after{" "}
+                  {usd(closedTotals.fees)} of fees).
+                </div>
+              )}
               {closedShown.length === 0 && (
                 <div style={{ padding: "20px 16px", fontSize: 13, color: T.faint }}>
                   No closed trades match. (Only trades inside Polymarket's 10,000-fill history
