@@ -407,8 +407,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
       }}
       title={notes[slug] ? "Edit your note for this match" : "Write a note about this match"}
       style={{ ...btn.outline, fontSize: 12, padding: "5px 8px", marginRight: 6,
-        color: notes[slug] ? T.series[0] : T.sub,
-        borderColor: notes[slug] ? T.series[0] : undefined }}>
+        color: notes[slug] ? T.ink : T.sub,
+        borderColor: notes[slug] ? T.ink : undefined }}>
       📝
     </button>
   );
@@ -418,9 +418,11 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
       title={hidden[slug] ? "Show this game again" : "Hide this game from the list (nothing is deleted)"}
       style={{ ...btn.outline, fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
         padding: "3px 9px", whiteSpace: "nowrap",
-        color: hidden[slug] ? "#fff" : T.red,
-        background: hidden[slug] ? T.green : "transparent",
-        borderColor: hidden[slug] ? T.green : T.red }}>
+        // hiding a row is cosmetic and reversible — it never warranted the
+        // same red as a Delete, and one per row made the column shout
+        color: hidden[slug] ? "#fff" : T.sub,
+        background: hidden[slug] ? T.ink : "transparent",
+        borderColor: hidden[slug] ? T.ink : T.border }}>
       {hidden[slug] ? "UNHIDE" : "HIDE"}
     </button>
   );
@@ -616,12 +618,14 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                     {/* inline event badges — spotted while scanning the list,
                         each dismissable, no popup */}
                     {[
+                      // one dark badge for both: the LABEL distinguishes them,
+                      // a purple one and an orange one did not add anything
                       homeRun[r.slug] && {
-                        key: "hr", teams: homeRun[r.slug], bg: T.series[2],
+                        key: "hr", teams: homeRun[r.slug], bg: T.ink,
                         label: "HOME RUN", setter: setHomeRun,
                       },
                       pitcherChange[r.slug] && {
-                        key: "pc", teams: pitcherChange[r.slug], bg: T.series[1],
+                        key: "pc", teams: pitcherChange[r.slug], bg: T.ink,
                         label: "PITCHER CHANGED", setter: setPitcherChange,
                       },
                     ].filter(Boolean).map((f) => (
@@ -643,9 +647,12 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                     ))}
                     {noteBlock(r.slug)}
                   </td>
+                  {/* every live row used to print this column in red and every
+                      break in orange — down a 15-game slate that was the
+                      brightest thing on screen. Weight carries it now. */}
                   <td style={{ ...td, whiteSpace: "nowrap",
-                    color: warmup || isInningBreak(live) ? T.series[1] : isLive ? T.red : T.sub,
-                    fontWeight: warmup || isInningBreak(live) ? 700 : undefined }}>
+                    color: warmup || isInningBreak(live) ? T.sub : isLive ? T.ink : T.sub,
+                    fontWeight: warmup || isInningBreak(live) || isLive ? 700 : undefined }}>
                     {isInningBreak(live) ? (
                       /* two lines on client request — the one-line
                          "End of Bot 4 · break" was the widest thing in
@@ -664,7 +671,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                             reads as though they are at the plate already. */}
                         {isInningBreak(live) && (
                           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
-                            color: T.series[1] }}>
+                            color: T.sub }}>
                             UP NEXT:
                           </span>
                         )}
@@ -697,7 +704,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                         {/* a foul with two strikes leaves the count unchanged,
                             so without this the row looks frozen mid at-bat */}
                         {live.last_pitch?.foul && (
-                          <div style={{ fontSize: 10, fontWeight: 700, color: T.series[1] }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: T.sub }}>
                             FOUL
                           </div>
                         )}
@@ -717,7 +724,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                       onClick={() => setDialogRow(r)}
                       title={alerts[r.slug] ? "Edit this game's alert" : "Alert for this game only"}
                       style={{ ...btn.outline, fontSize: 13, padding: "5px 8px", marginRight: 6,
-                        color: alerts[r.slug] ? T.series[0] : T.sub }}
+                        color: alerts[r.slug] ? T.ink : T.sub }}
                     >
                       {alerts[r.slug] ? "🔔" : "🔕"}
                     </button>

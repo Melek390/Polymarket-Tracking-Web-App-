@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { T, monoText, btn } from "../../theme.js";
+import { T, monoText, btn, meter } from "../../theme.js";
 import { fmtCents } from "../../utils.js";
 import { Bases, OutDots } from "./widgets.jsx";
 import { inningText, lastTenText, streakText } from "./gameState.js";
@@ -32,7 +32,7 @@ function TabStrip({ tabs, active, onChange }) {
               color: on ? T.ink : T.sub,
               background: "transparent", border: "none", cursor: "pointer",
               padding: "8px 14px", marginBottom: -1,
-              borderBottom: `2px solid ${on ? T.green : "transparent"}`,
+              borderBottom: `2px solid ${on ? T.ink : "transparent"}`,
             }}
           >
             {t.label}
@@ -73,17 +73,17 @@ function PlayFeed({ live }) {
       <div style={{ ...lbl, marginBottom: 8 }}>Latest plays</div>
       {plays.slice(0, 3).map((p, i) => {
         const team = p.half === "top" ? live.away.abbr : live.home.abbr;
-        let headline, color;
+        // the 🚀 and the 22px headline already make a home run unmissable —
+        // it does not also need to be purple while runs are green
+        let headline;
         if (p.event === "Home Run") {
           headline = `🚀 ${team} Home Run${p.rbi ? ` +${p.rbi}` : ""}`;
-          color = T.series[2];
         } else if (p.scoring && p.rbi > 0) {
           headline = `${team} scored ${p.rbi} run${p.rbi > 1 ? "s" : ""}`;
-          color = T.green;
         } else {
           headline = p.event;
-          color = T.ink;
         }
+        const color = T.ink;
         return (
           <div key={i} style={{ marginBottom: i === 0 ? 12 : 8, opacity: i === 0 ? 1 : 0.55 }}>
             <div style={{ fontSize: i === 0 ? 22 : 15, fontWeight: 800, lineHeight: 1.15, color }}>
@@ -259,7 +259,7 @@ function MatchTab({ live }) {
               <div style={{ fontWeight: 600 }}>
                 {live.balls}-{live.strikes}, {live.outs} out
                 {live.last_pitch?.foul && (
-                  <span style={{ color: T.series[1], marginLeft: 8 }}>· foul</span>
+                  <span style={{ color: T.sub, marginLeft: 8 }}>· foul</span>
                 )}
               </div>
               <div style={{ marginTop: 6 }}><OutDots outs={live.outs} size={16} /></div>
@@ -306,11 +306,11 @@ function TeamStandings({ t }) {
           Last series:{" "}
           {t.lastSeries.map((s, i) => (
             <span key={i} style={{ whiteSpace: "nowrap" }}>
-              <span style={{ color: s.res === "W" ? T.green : s.res === "L" ? T.red : T.sub,
-                fontSize: 9, verticalAlign: "middle" }}>●</span>
+              {/* the W/L letter is right there in the text — the coloured dot
+                  and coloured score were saying it a second and third time */}
+              <span style={{ color: T.faint, fontSize: 9, verticalAlign: "middle" }}>●</span>
               {" "}
-              <span style={{ fontWeight: 700,
-                color: s.res === "W" ? T.green : s.res === "L" ? T.red : T.sub }}>
+              <span style={{ fontWeight: 700, color: T.ink }}>
                 {s.res} {s.wins}-{s.losses}
               </span>
               {" "}{s.home ? "vs" : "@"}{" "}
@@ -331,9 +331,13 @@ function TeamStandings({ t }) {
       {/* the actual order of those results, newest first (client, Aug 11) */}
       {t.lastTenSeq?.length > 0 && (
         <div style={{ ...monoText, fontSize: 11, marginTop: 1 }}>
+          {/* the streak pattern still has to pop at a glance, but these are
+              literal W and L letters — weight and tone carry the rhythm
+              without spending two more colours on it */}
           <span style={{ letterSpacing: 3 }}>
             {t.lastTenSeq.map((r, i) => (
-              <span key={i} style={{ color: r === "W" ? T.green : T.red, fontWeight: 700 }}>{r}</span>
+              <span key={i} style={{ color: r === "W" ? T.ink : T.faint,
+                fontWeight: r === "W" ? 800 : 400 }}>{r}</span>
             ))}
           </span>
           <div style={{ fontSize: 9, color: T.faint }}>↑ most recent</div>
@@ -341,8 +345,8 @@ function TeamStandings({ t }) {
       )}
       <div style={{ ...monoText, fontSize: 11, color: T.sub }}>
         Run differential{" "}
-        <span style={{ fontWeight: 700,
-          color: t.runDiff > 0 ? T.green : t.runDiff < 0 ? T.red : T.sub }}>
+        {/* the +/- sign carries it; the colour was decoration */}
+        <span style={{ fontWeight: 700, color: T.ink }}>
           {t.runDiff > 0 ? "+" : ""}{t.runDiff ?? "—"}
         </span>
       </div>
@@ -413,7 +417,7 @@ function MatchupTab({ m, prices }) {
           <div style={{ marginBottom: 8 }}>
             <div style={lbl}>Market favorite</div>
             <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2,
-              color: fav.text === "No clear favorite" ? T.sub : T.green }}>
+              color: fav.text === "No clear favorite" ? T.sub : T.ink }}>
               {fav.text}
             </div>
             <div style={{ ...monoText, fontSize: 11, color: T.sub }}>{fav.sub}</div>
@@ -472,13 +476,14 @@ function TeamLineup({ t }) {
               <div style={{ ...monoText, fontSize: 12, fontWeight: 700, marginTop: 2 }}>
                 {t.lineup.returning}/{t.lineup.total} returning · {t.lineup.pct}% same
               </div>
+              {/* "IN:" / "OUT:" and the arrows are unambiguous on their own */}
               {t.lineup.ins.length > 0 && (
-                <div style={{ ...monoText, fontSize: 11, color: T.green, marginTop: 2 }}>
+                <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 2 }}>
                   ↑ IN: {t.lineup.ins.map((p) => `${p.name}${p.pos ? ` (${p.pos})` : ""}`).join(", ")}
                 </div>
               )}
               {t.lineup.outs.length > 0 && (
-                <div style={{ ...monoText, fontSize: 11, color: T.red, marginTop: 1 }}>
+                <div style={{ ...monoText, fontSize: 11, color: T.sub, marginTop: 1 }}>
                   ↓ OUT: {t.lineup.outs.map((p) => `${p.name}${p.pos ? ` (${p.pos})` : ""}`).join(", ")}
                 </div>
               )}
@@ -552,14 +557,15 @@ function FactorRow({ f }) {
         <span style={{ fontSize: 11, fontWeight: 600, flex: 1 }}>
           {FACTOR_LABELS[f.key] || f.key}
         </span>
-        <span style={{ ...monoText, fontSize: 11, fontWeight: 700,
-          color: pct >= 0.75 ? T.green : pct >= 0.4 ? T.sub : T.faint }}>
+        <span style={{ ...monoText, fontSize: 11, fontWeight: 700, color: T.sub }}>
           {f.points}/{f.max}
         </span>
       </div>
-      <div style={{ height: 3, background: T.border, borderRadius: 2, overflow: "hidden", marginTop: 3 }}>
-        <div style={{ width: `${pct * 100}%`, height: "100%",
-          background: pct >= 0.75 ? T.green : pct >= 0.4 ? AMBER : T.faint }} />
+      {/* one neutral grey for every factor bar: the LENGTH already says how
+          the factor scored, so colouring it too was 16 coloured bars per
+          game saying nothing extra */}
+      <div style={{ height: 3, background: meter.track, borderRadius: 2, overflow: "hidden", marginTop: 3 }}>
+        <div style={{ width: `${pct * 100}%`, height: "100%", background: meter.fill }} />
       </div>
       {f.detail && (
         <div style={{ fontSize: 10, color: T.faint, marginTop: 2, lineHeight: 1.4 }}>{f.detail}</div>
@@ -580,17 +586,19 @@ function FavoriteSide({ name, side, isFavorite }) {
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
         <span style={{ fontWeight: 700, fontSize: 13, flex: 1 }}>{name}</span>
         <span style={{ ...monoText, fontSize: 20, fontWeight: 800,
-          color: side.qualifies ? T.green : T.ink }}>
+          color: side.qualifies ? AMBER : T.ink }}>
           {total}
         </span>
         <span style={{ ...monoText, fontSize: 11, color: T.faint }}>/100</span>
       </div>
       {/* the 75 bar drawn where it actually sits, so "how close was it" is a
-          glance rather than arithmetic */}
-      <div style={{ position: "relative", height: 6, background: T.border,
+          glance rather than arithmetic. This is the ONE accented bar on the
+          card, and only when the team actually cleared the rules — amber, to
+          match the ★ chip in the table. */}
+      <div style={{ position: "relative", height: 6, background: meter.track,
         borderRadius: 3, overflow: "hidden", marginTop: 4 }}>
         <div style={{ width: `${Math.max(0, Math.min(100, total))}%`, height: "100%",
-          background: side.qualifies ? T.green : total >= 60 ? AMBER : T.faint }} />
+          background: side.qualifies ? AMBER : meter.fillStrong }} />
       </div>
       <div style={{ position: "relative", height: 12 }}>
         <div style={{ position: "absolute", left: `${THRESHOLD}%`, top: -6,
@@ -601,20 +609,23 @@ function FavoriteSide({ name, side, isFavorite }) {
         </div>
       </div>
       <div style={{ fontSize: 11, fontWeight: 700, marginTop: 8, marginBottom: 8,
-        color: side.qualifies ? T.green : T.sub }}>
+        color: side.qualifies ? AMBER : T.sub }}>
         {side.qualifies
           ? "★ Qualifies as a clear favorite"
           : short > 0
             ? `${short} point${short === 1 ? "" : "s"} below the bar`
             : "At the points bar, but blocked below"}
       </div>
+      {/* red survives here: a disqualifier is the one thing on this card that
+          is genuinely a stop sign */}
       {side.disqualifiers?.length > 0 && (
         <div style={{ fontSize: 10, color: T.red, marginBottom: 8, lineHeight: 1.5 }}>
           {side.disqualifiers.map((d, i) => <div key={i}>✕ {d}</div>)}
         </div>
       )}
+      {/* a flag is a caveat, not a block — the ⚠ says that without amber */}
       {side.flags?.length > 0 && (
-        <div style={{ fontSize: 10, color: AMBER, marginBottom: 8, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 10, color: T.sub, marginBottom: 8, lineHeight: 1.5 }}>
           {side.flags.map((f, i) => <div key={i}>⚠ {f}</div>)}
         </div>
       )}

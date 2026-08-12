@@ -11,6 +11,17 @@ export const T = {
   mono: `"IBM Plex Mono", ui-monospace, Consolas, monospace`,
 };
 
+// Neutral meter greys (client, Aug 12: "too many colours, too bright").
+// Bars, badges and state pills default to these. Colour is reserved for the
+// few things that carry meaning on their own — away/home prices, a blocked
+// state, an armed alert, the Clear Favorite tag — so when something IS
+// coloured it means something.
+export const meter = {
+  track: "#E8EAEE",
+  fill: "#B6BCC5",
+  fillStrong: "#5B6470",
+};
+
 export const card = {
   border: `1px solid ${T.border}`,
   borderRadius: 8,

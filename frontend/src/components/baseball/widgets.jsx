@@ -3,14 +3,14 @@ import { T } from "../../theme.js";
 // The small label pills used across the baseball row. The WORD always carries
 // the meaning; colour only makes it scannable, so none of these depend on
 // colour alone being readable.
-function Pill({ label, bg, title }) {
+function Pill({ label, bg, fg = "#fff", title }) {
   return (
     <span
       title={title}
       style={{
         display: "inline-block",
         fontFamily: T.ui, fontSize: 9, fontWeight: 700, letterSpacing: 0.5,
-        color: "#fff", background: bg, borderRadius: 4,
+        color: fg, background: bg, borderRadius: 4,
         padding: "2px 6px", lineHeight: 1.4,
       }}
     >
@@ -20,18 +20,17 @@ function Pill({ label, bg, title }) {
 }
 
 // HOME / AWAY for the batting team, so the Batting column can be read on its
-// own without cross-referencing the "Away @ Home" game column. Keeps the
-// colours the old bare dot used (blue = home, purple = away), so the mapping
-// the client already knows is unchanged — just spelled out.
-const SIDE = {
-  home: { label: "HOME", bg: T.series[0] },
-  away: { label: "AWAY", bg: T.series[2] },
-};
+// own without cross-referencing the "Away @ Home" game column.
+// These used to inherit the old bare dot's blue/purple, but once the pill
+// spells the word out the hue is decoration — and a violet AWAY chip was the
+// brightest thing in the row (client, Aug 12). Muted grey chip, dark text:
+// still obviously a pill, distinct from the solid dark BATTING one.
+const SIDE = { home: { label: "HOME" }, away: { label: "AWAY" } };
 
 export function HomeAwayTag({ side }) {
   const s = SIDE[side];
   if (!s) return null;
-  return <Pill label={s.label} bg={s.bg}
+  return <Pill label={s.label} bg="#EAECEF" fg={T.sub}
     title={side === "home" ? "Home team batting" : "Away team batting"} />;
 }
 
