@@ -43,7 +43,11 @@ async def _score_side(info: dict, side: str, game_pk: int,
     # it resolves by itself as the day goes on. Reporting it as "data missing"
     # made a normal morning slate look broken.
     unannounced = [f["key"] for f in factors if f.get("unannounced")]
-    top4_missing = [k for k in top4_missing if k not in unannounced]
+    # An emergency starter already gets its own line below; listing it again as
+    # "data missing: sp" printed the same cause twice on the card.
+    emergency = [f["key"] for f in factors if f.get("emergency")]
+    top4_missing = [k for k in top4_missing
+                    if k not in unannounced and k not in emergency]
     flags = []
     if any(f.get("pending") for f in factors):
         flags.append("lineup still pending near first pitch")
