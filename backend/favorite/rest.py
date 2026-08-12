@@ -1,41 +1,71 @@
 """Factor 5 — Rest / travel / schedule spot (max 10).
 
-From the two teams' schedules: days off before today, and whether the
-opponent both played yesterday and changed venue (travel burden)."""
+From the two teams' schedules: days off before today, and how far they had to
+travel to get here. The spec's top band is "extra day of rest AND the opponent
+on short rest OR long travel" — an OR, which the first cut had as an AND, so
+10/10 could effectively never fire.
 
-from datetime import datetime, timedelta
+Travel is now real mileage between the last park and today's, not "did the
+venue change": Yankees -> Boston is 190 miles and Seattle -> Miami is 2700,
+and only one of those is a schedule burden.
+"""
+
+from datetime import datetime
 
 from backend.favorite import data
 
 MAX = 10
+# a coast-to-coast or cross-country hop, not a division bus ride
+LONG_TRAVEL_MILES = 900
 
 
-async def _spot(team_id: int, today_venue: int | None) -> dict:
+async def _spot(team_id: int, today_park_team: int | None) -> dict:
+    """Days off before today, and the miles travelled to get to today's park."""
     sched = await data.team_schedule(team_id)
     today = datetime.now().date().isoformat()
     past = [g for g in sched if g["final"] and (g["date"] or "") < today]
     if not past:
-        return {"rest": 1, "traveled": False}
+        return {"rest": 1, "miles": None}
     last = past[-1]
     days = (datetime.fromisoformat(today) - datetime.fromisoformat(last["date"])).days - 1
+    # the park they last played in belongs to that game's home club
+    last_park_team = team_id if last["home"] else last["opp_id"]
     return {"rest": max(0, days),
-            "traveled": bool(today_venue and last["venue_id"]
-                             and last["venue_id"] != today_venue)}
+            "miles": data.park_miles(last_park_team, today_park_team)}
 
 
-async def score(team_id: int, opp_id: int, venue_id: int | None) -> dict:
-    mine = await _spot(team_id, venue_id)
-    theirs = await _spot(opp_id, venue_id)
-    if mine["rest"] > theirs["rest"] and theirs["rest"] == 0 and theirs["traveled"]:
-        pts = 10
-    elif mine["rest"] > theirs["rest"]:
+def _long(spot: dict) -> bool:
+    return spot["miles"] is not None and spot["miles"] >= LONG_TRAVEL_MILES
+
+
+async def score(team_id: int, opp_id: int, home_team_id: int | None) -> dict:
+    mine = await _spot(team_id, home_team_id)
+    theirs = await _spot(opp_id, home_team_id)
+    adv = mine["rest"] - theirs["rest"]
+    long_them, long_me = _long(theirs), _long(mine)
+
+    if adv > 0 and (theirs["rest"] == 0 or long_them):
+        pts = MAX                      # extra rest AND they are short OR far
+    elif adv > 0:
         pts = 7
-    elif mine["rest"] == theirs["rest"]:
+    elif adv == 0 and long_them and not long_me:
+        # In midseason both clubs play every single day, so rest alone graded
+        # all 30 teams a flat 5/10 and the factor never separated anyone. Equal
+        # rest is NOT an equal spot when one side just flew across the country.
+        pts = 7
+    elif adv == 0 and long_me and not long_them:
+        pts = 2
+    elif adv == 0:
         pts = 5
-    elif theirs["rest"] - mine["rest"] == 1:
+    elif adv == -1:
         pts = 2
     else:
         pts = 0
+
+    bits = [f"rest {mine['rest']}d vs {theirs['rest']}d"]
+    if long_them:
+        bits.append(f"opponent traveled {round(theirs['miles']):,}mi")
+    if long_me:
+        bits.append(f"we traveled {round(mine['miles']):,}mi")
     return {"key": "rest", "points": pts, "max": MAX, "ok": True,
-            "detail": (f"rest {mine['rest']}d vs {theirs['rest']}d"
-                       + (", opponent traveling" if theirs["traveled"] else ""))}
+            "detail": ", ".join(bits)}

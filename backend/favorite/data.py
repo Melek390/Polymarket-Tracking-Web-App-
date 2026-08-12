@@ -8,6 +8,7 @@ process is the house rule (July 27 lesson)."""
 
 import time
 from datetime import datetime, timedelta, timezone
+from math import asin, cos, radians, sin, sqrt
 
 from backend.mlb import client
 
@@ -200,6 +201,10 @@ async def team_schedule(team_id: int) -> list[dict]:
                 "final": g["status"]["abstractGameState"] == "Final",
                 "home": mine == "home",
                 "venue_id": (g.get("venue") or {}).get("id"),
+                # the park a game was played in belongs to its HOME club, and
+                # STADIUMS is keyed by team — so travel distance needs to know
+                # who the opponent was, not just the venue id
+                "opp_id": t[other]["team"]["id"],
                 "won": bool(t[mine].get("isWinner")),
                 "my_runs": t[mine].get("score"), "opp_runs": t[other].get("score"),
                 "side": mine,
@@ -291,6 +296,21 @@ STADIUMS: dict[int, tuple[float, float, int]] = {
     147: (40.829, -73.926, 100),   # NYY
     158: (43.028, -87.971, 101),   # MIL
 }
+
+
+def park_miles(from_team_id: int | None, to_team_id: int | None) -> float | None:
+    """Great-circle miles between two clubs' parks, for the travel half of the
+    rest factor. "Did the venue change" treated Yankees->Boston (190mi) the
+    same as Seattle->Miami (2700mi); this tells them apart. None = either park
+    is off the map, in which case the caller must not claim a travel burden."""
+    a, b = STADIUMS.get(from_team_id or 0), STADIUMS.get(to_team_id or 0)
+    if not a or not b:
+        return None
+    lat1, lon1 = radians(a[0]), radians(a[1])
+    lat2, lon2 = radians(b[0]), radians(b[1])
+    h = (sin((lat2 - lat1) / 2) ** 2
+         + cos(lat1) * cos(lat2) * sin((lon2 - lon1) / 2) ** 2)
+    return 2 * 3958.8 * asin(min(1.0, sqrt(h)))
 
 
 async def weather(home_team_id: int, kickoff_iso: str | None) -> dict | None:
