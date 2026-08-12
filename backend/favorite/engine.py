@@ -39,6 +39,11 @@ async def _score_side(info: dict, side: str, game_pk: int,
 
     top4_missing = [f["key"] for f in factors
                     if f["key"] in ("market", "sp", "bullpen", "strength") and not f["ok"]]
+    # "probable starter not announced yet" is a clock problem, not a data one —
+    # it resolves by itself as the day goes on. Reporting it as "data missing"
+    # made a normal morning slate look broken.
+    unannounced = [f["key"] for f in factors if f.get("unannounced")]
+    top4_missing = [k for k in top4_missing if k not in unannounced]
     flags = []
     if any(f.get("pending") for f in factors):
         flags.append("lineup still pending near first pitch")
@@ -50,6 +55,8 @@ async def _score_side(info: dict, side: str, game_pk: int,
         disqualifiers.append("price below 59¢")
     if any(f.get("emergency") for f in factors):
         disqualifiers.append("bullpen game / emergency starter")
+    if unannounced:
+        disqualifiers.append("probable starter not announced yet")
     if top4_missing:
         disqualifiers.append(f"data missing: {', '.join(top4_missing)}")
     if len(flags) >= 2:

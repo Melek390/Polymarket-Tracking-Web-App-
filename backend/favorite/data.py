@@ -46,8 +46,10 @@ def _zstats(values: list[float]) -> tuple[float, float]:
 
 async def league_pitching() -> dict:
     """One daily league-wide pitching pull feeding TWO factors:
-    - "starters": {player_id: {...,"rating"}} — z-composite of ERA/WHIP/K9,
-      re-standardised so the rating IS in league standard deviations.
+    - "starters": {player_id: {...,"rating","regular_starter"}} — z-composite
+      of ERA/WHIP/K9, re-standardised so the rating IS in league standard
+      deviations. Rated pool = 30+ IP; the DISTRIBUTION behind those SD units
+      is regular starters only (5+ GS, 30+ IP). See the table comment below.
     - "pen_rank": {team_id: 1..30} — bullpen composite rank from relievers.
     """
     if (hit := _get("pitching", 6 * 3600)) is not None:
@@ -75,17 +77,35 @@ async def league_pitching() -> dict:
         except (TypeError, ValueError):
             continue
 
+    # The DISTRIBUTION is regular starters only, so a rating keeps meaning
+    # "standard deviations among starting pitchers".
     starters = [p for p in rows if p["gs"] >= 5 and p["ip"] >= 30]
     e_m, e_s = _zstats([p["era"] for p in starters])
     w_m, w_s = _zstats([p["whip"] for p in starters])
     k_m, k_s = _zstats([p["k9"] for p in starters])
+
+    def _raw(p):
+        return ((e_m - p["era"]) / e_s + (w_m - p["whip"]) / w_s
+                + (p["k9"] - k_m) / k_s) / 3
+
     for p in starters:
-        p["raw"] = ((e_m - p["era"]) / e_s + (w_m - p["whip"]) / w_s
-                    + (p["k9"] - k_m) / k_s) / 3
+        p["raw"] = _raw(p)
     r_m, r_s = _zstats([p["raw"] for p in starters])
+
+    # The LOOKUP TABLE is deliberately wider than the distribution. Requiring
+    # gs>=5 to have a rating at all called swingmen emergency call-ups: Drew
+    # Anderson (Aug 12) had 71 IP over 42 appearances and a 3.91 ERA but only
+    # 4 starts, so the sp factor scored 0/18 for BOTH sides of DET-CLE — the
+    # gap needs two ratings. Anyone with a real workload is now rated on the
+    # starters' scale; a genuine call-up (<30 IP, e.g. George Klassen at 8.7)
+    # still has no line and still trips the emergency-starter hard rule.
+    # A pitcher is only ever looked up once MLB announces him as today's
+    # starter, so carrying relievers here costs nothing.
     table = {}
-    for p in starters:
+    for p in (q for q in rows if q["ip"] >= 30):
+        p["raw"] = _raw(p)
         p["rating"] = (p["raw"] - r_m) / r_s  # true SD units across the league
+        p["regular_starter"] = p["gs"] >= 5   # False = rated, but a swingman
         table[p["id"]] = p
 
     # bullpen: relievers aggregated per team, IP-weighted, ranked 1..30

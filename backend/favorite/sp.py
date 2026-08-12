@@ -17,8 +17,12 @@ async def score(my_pid: int | None, opp_pid: int | None) -> dict:
     table = (await data.league_pitching())["starters"]
     mine, theirs = table.get(my_pid), table.get(opp_pid)
     if not my_pid or not opp_pid:
+        # Not a data failure — MLB simply hasn't posted it yet (4 of 15 games
+        # on a normal morning). Flagged separately so the verdict can say so
+        # instead of reporting it as missing data.
         return {"key": "sp", "points": 0, "max": MAX, "ok": False,
-                "detail": "probable starter not announced"}
+                "unannounced": True,
+                "detail": "probable starter not announced yet"}
     if not mine or not theirs:
         who = "ours" if not mine else "theirs"
         return {"key": "sp", "points": 0, "max": MAX, "ok": False,
@@ -35,6 +39,11 @@ async def score(my_pid: int | None, opp_pid: int | None) -> dict:
         pts = 4
     else:
         pts = 0
+    # a rating built mostly out of relief innings is still a rating, but say so
+    def _tag(p):
+        return "" if p.get("regular_starter", True) else " (swingman)"
+
     return {"key": "sp", "points": pts, "max": MAX, "ok": True, "gap_sd": round(gap, 2),
-            "detail": (f"{mine['name']} {mine['rating']:+.2f} SD vs "
-                       f"{theirs['name']} {theirs['rating']:+.2f} SD (gap {gap:+.2f})")}
+            "detail": (f"{mine['name']}{_tag(mine)} {mine['rating']:+.2f} SD vs "
+                       f"{theirs['name']}{_tag(theirs)} {theirs['rating']:+.2f} SD "
+                       f"(gap {gap:+.2f})")}
