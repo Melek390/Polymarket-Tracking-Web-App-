@@ -17,30 +17,62 @@ from backend.favorite import data
 MAX = 10
 # a coast-to-coast or cross-country hop, not a division bus ride
 LONG_TRAVEL_MILES = 900
+# an in-season club gets at most a couple of days off; anything beyond this
+# means we are looking past the edge of the schedule we fetched
+MAX_PLAUSIBLE_REST = 4
 
 
-async def _spot(team_id: int, today_park_team: int | None) -> dict:
-    """Days off before today, and the miles travelled to get to today's park."""
+async def _spot(team_id: int, park_team: int | None, game_date: str) -> dict:
+    """Days off before THIS GAME, and the miles travelled to reach its park.
+
+    Anchored to the game's own date, not to today. The first cut measured
+    everything against `datetime.now()`, so every one of the ~65 future-dated
+    games the screener carries reported "rest 0d vs 0d" — it compared a game
+    three days out against yesterday's result and ignored the games both clubs
+    play in between. That is why the factor read a flat 5/10 all the way down
+    the upcoming list."""
     sched = await data.team_schedule(team_id)
     today = datetime.now().date().isoformat()
-    past = [g for g in sched if g["final"] and (g["date"] or "") < today]
-    if not past:
-        return {"rest": 1, "miles": None}
-    last = past[-1]
-    days = (datetime.fromisoformat(today) - datetime.fromisoformat(last["date"])).days - 1
+    prior = []
+    for g in sched:
+        d = g["date"] or ""
+        if not d or d >= game_date:
+            continue
+        # A past game that never went final was postponed — it cost them
+        # nothing. A future one has not been played yet but will have been by
+        # the time this game starts, so it counts.
+        if not g["final"] and d < today:
+            continue
+        prior.append(g)
+    if not prior:
+        return {"rest": None, "miles": None}
+    last = prior[-1]
+    days = (datetime.fromisoformat(game_date)
+            - datetime.fromisoformat(last["date"])).days - 1
+    # An in-season club never gets close to a week off, so a gap this big means
+    # the previous game is outside our schedule window, not that they are
+    # rested. Say we don't know rather than invent a number.
+    if days > MAX_PLAUSIBLE_REST:
+        return {"rest": None, "miles": None}
     # the park they last played in belongs to that game's home club
     last_park_team = team_id if last["home"] else last["opp_id"]
     return {"rest": max(0, days),
-            "miles": data.park_miles(last_park_team, today_park_team)}
+            "miles": data.park_miles(last_park_team, park_team)}
 
 
 def _long(spot: dict) -> bool:
     return spot["miles"] is not None and spot["miles"] >= LONG_TRAVEL_MILES
 
 
-async def score(team_id: int, opp_id: int, home_team_id: int | None) -> dict:
-    mine = await _spot(team_id, home_team_id)
-    theirs = await _spot(opp_id, home_team_id)
+async def score(team_id: int, opp_id: int, home_team_id: int | None,
+                game_date: str | None = None) -> dict:
+    game_date = (game_date or datetime.now().date().isoformat())[:10]
+    mine = await _spot(team_id, home_team_id, game_date)
+    theirs = await _spot(opp_id, home_team_id, game_date)
+    if mine["rest"] is None or theirs["rest"] is None:
+        # neutral, and honest about why — never a fabricated edge
+        return {"key": "rest", "points": 5, "max": MAX, "ok": True,
+                "detail": "schedule not published this far out (neutral)"}
     adv = mine["rest"] - theirs["rest"]
     long_them, long_me = _long(theirs), _long(mine)
 

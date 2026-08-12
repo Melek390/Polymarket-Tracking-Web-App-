@@ -178,8 +178,14 @@ async def standings() -> dict[int, dict]:
 
 
 async def team_schedule(team_id: int) -> list[dict]:
-    """The team's games over the last 3 weeks (finals with scores + today's),
-    date-ordered: feeds rest/travel, recent form and pen workload."""
+    """The team's games from 3 weeks back to 5 weeks ahead, date-ordered:
+    feeds rest/travel, recent form and pen workload. Consumers that want only
+    completed games filter on `final` (form, pen workload); rest/travel needs
+    the FORWARD half too, because the screener lists games weeks out and their
+    rest has to be measured against games not yet played. The forward window
+    has to cover the whole screener horizon: with a short one, the last game
+    we could see for a distant fixture was the edge of the window, which
+    produced nonsense like "rest 12d vs 12d"."""
     key = ("sched", team_id)
     if (hit := _get(key, 3600)) is not None:
         return hit
@@ -188,7 +194,7 @@ async def team_schedule(team_id: int) -> list[dict]:
         f"{client.BASE}/v1/schedule",
         params={"sportId": 1, "teamId": team_id, "gameType": "R",
                 "startDate": (end - timedelta(days=21)).date().isoformat(),
-                "endDate": (end + timedelta(days=1)).date().isoformat()})
+                "endDate": (end + timedelta(days=35)).date().isoformat()})
     r.raise_for_status()
     out = []
     for d in r.json().get("dates", []):
@@ -255,6 +261,10 @@ async def game_info(game_pk: int) -> dict | None:
         "home_name": g["teams"]["home"]["team"].get("name"),
         "venue_id": (g.get("venue") or {}).get("id"),
         "game_date": g.get("gameDate"),  # ISO UTC first pitch
+        # MLB's own local game date. NOT gameDate[:10] — a 10pm ET first pitch
+        # is already tomorrow in UTC, which would shift late games a day and
+        # mis-count rest.
+        "official_date": g.get("officialDate") or (g.get("gameDate") or "")[:10],
         "probables": {s: (g["teams"][s].get("probablePitcher") or {}).get("id")
                       for s in ("away", "home")},
     })

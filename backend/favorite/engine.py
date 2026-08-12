@@ -31,7 +31,7 @@ async def _score_side(info: dict, side: str, game_pk: int,
         strength.score(team_id, opp_id),
         # travel is measured park-to-park, so rest needs today's HOME club
         # (whose park this is), not the bare venue id
-        rest.score(team_id, opp_id, info.get("home_id")),
+        rest.score(team_id, opp_id, info.get("home_id"), info.get("official_date")),
         lineup.score(team_id, game_pk, side, info.get("game_date")),
         form.score(team_id),
         park.score(info["home_id"], info.get("game_date")),
