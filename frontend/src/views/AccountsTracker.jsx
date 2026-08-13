@@ -909,6 +909,11 @@ export default function AccountsTracker() {
                       ({usd(closedTotals.net)} after fees)
                     </span>
                   </div>
+                  {/* win rate for THIS filter — the stat card at the top of
+                      the page is account-wide, so it cannot answer "am I good
+                      at tennis" (client, Aug 13). Same rule as everywhere
+                      else: a win is a round trip that netted > $0 after fees,
+                      over closed trips. */}
                   <div style={{ fontSize: 12, color: T.sub }}>
                     <b style={{ color: M.green }}>
                       {closedTotals.wonN} win{closedTotals.wonN === 1 ? "" : "s"}
@@ -919,6 +924,14 @@ export default function AccountsTracker() {
                       {closedTotals.lostN} loss{closedTotals.lostN === 1 ? "" : "es"}
                     </b>{" "}
                     cost <b style={{ color: M.red }}>{usd(Math.abs(closedTotals.lost))}</b>
+                    {closedShown.length > 0 && (
+                      <>
+                        {" · win rate "}
+                        <b style={{ color: T.ink }}>
+                          {(closedTotals.wonN / closedShown.length * 100).toFixed(1)}%
+                        </b>
+                      </>
+                    )}
                   </div>
                   <div style={{ fontSize: 12, color: T.sub }}>
                     on <b>{usd(closedTotals.cost)}</b> staked
