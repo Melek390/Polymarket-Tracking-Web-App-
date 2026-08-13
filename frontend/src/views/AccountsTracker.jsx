@@ -47,17 +47,29 @@ const etDay = (ms) =>
   new Date(ms).toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
 
 const PERIODS = [
-  ["today", "Today"], ["yesterday", "Yesterday"], ["7d", "Last 7 days"], ["all", "All time"],
+  ["today", "Today"], ["yesterday", "Yesterday"], ["7d", "Last 7 days"],
+  ["30d", "Last 30 days"], ["custom", "Custom range"], ["all", "All time"],
 ];
 
-function inPeriod(period, tsSec) {
+function inPeriod(period, custom, tsSec) {
   if (period === "all") return true;
   const ms = tsSec * 1000;
   const now = Date.now();
+  // 7d/30d are ROLLING windows (last 168h/720h), matching the existing 7d rule
   if (period === "7d") return ms >= now - 7 * 86_400_000;
+  if (period === "30d") return ms >= now - 30 * 86_400_000;
   const day = etDay(ms);
   if (period === "today") return day === etDay(now);
   if (period === "yesterday") return day === etDay(now - 86_400_000);
+  if (period === "custom") {
+    // calendar range, ET days, inclusive both ends. The date inputs emit
+    // yyyy-mm-dd — same shape etDay() produces — so plain string compare
+    // works. An empty end leaves that side open.
+    const { from, to } = custom || {};
+    if (from && day < from) return false;
+    if (to && day > to) return false;
+    return true;
+  }
   return true;
 }
 
@@ -229,6 +241,7 @@ export default function AccountsTracker() {
   const [priceAlerts, setPriceAlerts] = useState(loadPriceAlerts);
   const [customTags, setCustomTags] = useState(() => memo.byId[memo.current]?.customTags ?? []);
   const [period, setPeriod] = useState("all");
+  const [customRange, setCustomRange] = useState({ from: "", to: "" }); // ET days, inclusive
   const [removing, setRemoving] = useState(null); // account pending delete confirmation
   const [hiddenRows, setHiddenRows] = useState(loadHidden);
   const [showHidden, setShowHidden] = useState(false); // reveal hidden rows (dimmed)
@@ -426,7 +439,7 @@ export default function AccountsTracker() {
   // portfolio value / unrealized / open describe RIGHT NOW and stay live
   const windowed = useMemo(() => {
     if (period === "all" || !summary) return null;
-    const rows = closed.filter((c) => inPeriod(period, c.closed_ts));
+    const rows = closed.filter((c) => inPeriod(period, customRange, c.closed_ts));
     const wins = rows.filter((c) => c.win).length;
     const holds = rows.map((c) => c.hold_s);
     return {
@@ -437,7 +450,7 @@ export default function AccountsTracker() {
       winRate: rows.length ? wins / rows.length : null,
       avgHold: holds.length ? holds.reduce((a, b) => a + b, 0) / holds.length : null,
     };
-  }, [period, closed, summary]);
+  }, [period, customRange, closed, summary]);
 
   // Polymarket's profile chart shows P/L BEFORE fees (verified Aug 7 against
   // user-pnl-api), so the headline figures do too — the fee-included truth
@@ -467,7 +480,7 @@ export default function AccountsTracker() {
   };
   const closedBase = closed
     .filter((r) => hit(r.title, r.event_slug) && inRange(r.closed_ts))
-    .filter((r) => inPeriod(period, r.closed_ts))
+    .filter((r) => inPeriod(period, customRange, r.closed_ts))
     .filter((r) => result === "all" || (result === "win") === r.win);
   const closedHiddenN = closedBase.filter((r) => isHidden(closedHideKey(r))).length;
   const closedShown = showHidden ? closedBase : closedBase.filter((r) => !isHidden(closedHideKey(r)));
@@ -623,6 +636,23 @@ export default function AccountsTracker() {
             {PERIODS.map(([k, lab]) => (
               <button key={k} onClick={() => setPeriod(k)} style={chip(period === k)}>{lab}</button>
             ))}
+            {/* the calendar (client, Aug 13): native date pickers, ET days,
+                inclusive both ends; leaving one side empty leaves it open */}
+            {period === "custom" && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <input type="date" value={customRange.from}
+                  max={customRange.to || undefined}
+                  onChange={(e) => setCustomRange((c) => ({ ...c, from: e.target.value }))}
+                  style={{ padding: "4px 8px", fontSize: 12, fontFamily: T.ui,
+                    border: `1px solid ${T.border}`, borderRadius: 8, color: T.ink }} />
+                <span style={{ fontSize: 12, color: T.sub }}>to</span>
+                <input type="date" value={customRange.to}
+                  min={customRange.from || undefined}
+                  onChange={(e) => setCustomRange((c) => ({ ...c, to: e.target.value }))}
+                  style={{ padding: "4px 8px", fontSize: 12, fontFamily: T.ui,
+                    border: `1px solid ${T.border}`, borderRadius: 8, color: T.ink }} />
+              </span>
+            )}
             {period !== "all" && (
               <span style={{ fontSize: 11, color: T.faint }}>
                 portfolio value, unrealized and open positions always show right now
