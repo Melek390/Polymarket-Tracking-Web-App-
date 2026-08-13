@@ -886,6 +886,55 @@ export default function AccountsTracker() {
             <Section title="CLOSED TRADES"
               count={`${closedShown.length} shown · ${closedShown.filter((r) => r.win).length} won · ${closedShown.filter((r) => !r.win).length} lost · newest first`}
               extra={hiddenToggle(closedHiddenN)}>
+              {/* The accumulated P/L sits at the TOP: it was under the table
+                  to begin with, which on a 495-trade category meant scrolling
+                  past everything to reach the one number he opened the page
+                  for (client, Aug 13). The column-aligned totals row stays in
+                  the tfoot, where it lines up with what it totals. */}
+              {closedShown.length > 0 && (
+                <div style={{
+                  display: "flex", alignItems: "baseline", gap: 18, flexWrap: "wrap",
+                  padding: "11px 16px", background: T.soft,
+                  borderBottom: `1px solid ${T.border}`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
+                    <span style={{ ...label, fontSize: 10 }}>
+                      {category || "All categories"}
+                    </span>
+                    <span style={{ ...monoText, fontSize: 20, fontWeight: 800,
+                      color: pnlColor(closedTotals.gross) }}>
+                      {usd(closedTotals.gross)}
+                    </span>
+                    <span style={{ fontSize: 11, color: T.sub }}>
+                      ({usd(closedTotals.net)} after fees)
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: T.sub }}>
+                    <b style={{ color: M.green }}>
+                      {closedTotals.wonN} win{closedTotals.wonN === 1 ? "" : "s"}
+                    </b>{" "}
+                    made <b style={{ color: M.green }}>{usd(closedTotals.won)}</b>
+                    {" · "}
+                    <b style={{ color: M.red }}>
+                      {closedTotals.lostN} loss{closedTotals.lostN === 1 ? "" : "es"}
+                    </b>{" "}
+                    cost <b style={{ color: M.red }}>{usd(Math.abs(closedTotals.lost))}</b>
+                  </div>
+                  <div style={{ fontSize: 12, color: T.sub }}>
+                    on <b>{usd(closedTotals.cost)}</b> staked
+                    {closedTotals.cost ? (
+                      <>
+                        {" · ROI "}
+                        <b style={{ color: pnlColor(closedTotals.gross) }}>
+                          {closedTotals.gross > 0 ? "+" : ""}
+                          {(closedTotals.gross / closedTotals.cost * 100).toFixed(1)}%
+                        </b>
+                      </>
+                    ) : null}
+                    {" · "}{usd(closedTotals.fees)} fees
+                  </div>
+                </div>
+              )}
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
@@ -1095,19 +1144,6 @@ export default function AccountsTracker() {
                   </tfoot>
                 )}
               </table>
-              {closedShown.length > 0 && (
-                <div style={{ padding: "8px 16px", fontSize: 12, color: T.sub,
-                  borderTop: `1px solid ${T.border}` }}>
-                  {category ? <b>{category}</b> : "All categories"}:{" "}
-                  <b style={{ color: M.green }}>{closedTotals.wonN} win{closedTotals.wonN === 1 ? "" : "s"}</b>{" "}
-                  made <b style={{ color: M.green }}>{usd(closedTotals.won)}</b>,{" "}
-                  <b style={{ color: M.red }}>{closedTotals.lostN} loss{closedTotals.lostN === 1 ? "" : "es"}</b>{" "}
-                  cost <b style={{ color: M.red }}>{usd(Math.abs(closedTotals.lost))}</b> — leaving{" "}
-                  <b style={{ color: pnlColor(closedTotals.gross) }}>{usd(closedTotals.gross)}</b>{" "}
-                  on {usd(closedTotals.cost)} staked ({usd(closedTotals.net)} after{" "}
-                  {usd(closedTotals.fees)} of fees).
-                </div>
-              )}
               {closedShown.length === 0 && (
                 <div style={{ padding: "20px 16px", fontSize: 13, color: T.faint }}>
                   No closed trades match. (Only trades inside Polymarket's 10,000-fill history
