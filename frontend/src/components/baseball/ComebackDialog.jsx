@@ -111,7 +111,7 @@ export default function ComebackDialog({ onClose }) {
                 onChange={(e) => set("quality_min", Number(e.target.value))} />
             </div>
             <div style={row}>
-              <span style={lab}>"Pitched yesterday" is mandatory</span>
+              <span style={lab}>Pitched yesterday is mandatory</span>
               <input type="checkbox" checked={!!cfg.require_consecutive_days}
                 onChange={(e) => set("require_consecutive_days", e.target.checked)} />
             </div>
@@ -121,7 +121,7 @@ export default function ComebackDialog({ onClose }) {
                 onChange={(e) => set("whip_threshold", Number(e.target.value))} />
             </div>
             <div style={row}>
-              <span style={lab}>…measured over his last N appearances</span>
+              <span style={lab}>Measured over his last N appearances</span>
               <input style={num} type="number" min="3" max="20" value={cfg.whip_apps}
                 onChange={(e) => set("whip_apps", Number(e.target.value))} />
             </div>
