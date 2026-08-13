@@ -121,6 +121,14 @@ def cached(game_pk: int) -> dict | None:
     return _state.get(game_pk)
 
 
+def schedule_status(game_pk: int) -> str | None:
+    """The schedule's word on a game (Preview/Live/Final) — the linescore has
+    no completion flag, so THIS is how a finished game is recognised. None =
+    not on the cached two-day slate."""
+    g = _sched.get(game_pk)
+    return g["status"] if g else None
+
+
 def live_states() -> list[tuple[int, dict]]:
     """(game_pk, cached state) for every in-progress game — the comeback
     detector's read path. Cache only: calling this costs no upstream request,

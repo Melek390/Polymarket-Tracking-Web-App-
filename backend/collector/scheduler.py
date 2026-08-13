@@ -8,6 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from backend.config.settings import settings
 from backend.comeback import detector as comeback_detector
+from backend.comeback import outcomes as comeback_outcomes
 from backend.database import db
 from backend.favorite import lock as favorite_lock
 from backend.mlb import live as mlb_live
@@ -175,6 +176,11 @@ def start():
     # cadence costs no upstream requests at all.
     scheduler.add_job(
         comeback_detector.run, "interval", seconds=10, id="comeback-detector",
+    )
+    # fill in each trigger's outcome (price 5/15/30 min later + final score) —
+    # a couple of CLOB tokens per open trigger, so the volume is negligible
+    scheduler.add_job(
+        comeback_outcomes.record, "interval", seconds=60, id="comeback-outcomes",
     )
     scheduler.start()
 

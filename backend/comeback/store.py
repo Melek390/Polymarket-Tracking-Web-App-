@@ -65,6 +65,11 @@ _CFG_TTL = 30.0
 def init():
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        # migration: outcome tracking (price samples + final result) arrived a
+        # day after the table shipped
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(comeback_triggers)")]
+        if "outcome" not in cols:
+            conn.execute("ALTER TABLE comeback_triggers ADD COLUMN outcome TEXT")
 
 
 def config() -> dict:
@@ -122,26 +127,33 @@ def insert_trigger(game_pk: int, pitcher_id: int, payload: dict) -> bool:
         return cur.rowcount == 1
 
 
+def _row_dict(r) -> dict:
+    try:
+        p = json.loads(r["payload"])
+    except json.JSONDecodeError:
+        p = {}
+    outcome = None
+    if r["outcome"]:
+        try:
+            outcome = json.loads(r["outcome"])
+        except json.JSONDecodeError:
+            pass
+    return {"id": r["id"], "game_pk": r["game_pk"],
+            "pitcher_id": r["pitcher_id"], "created_at": r["created_at"],
+            "ack_at": r["ack_at"], "outcome": outcome, **p}
+
+
 def recent(hours: int = 24) -> list[dict]:
     """Today's triggers, acked or not — the UI keeps a quiet tag on acked ones
     for the rest of the day so 'did it fire earlier?' has an answer."""
     with get_db() as conn:
         rows = conn.execute(
-            """SELECT id, game_pk, pitcher_id, created_at, ack_at, payload
+            """SELECT id, game_pk, pitcher_id, created_at, ack_at, payload, outcome
                FROM comeback_triggers
                WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)
                ORDER BY created_at DESC""",
             (f"-{int(hours)} hours",)).fetchall()
-    out = []
-    for r in rows:
-        try:
-            p = json.loads(r["payload"])
-        except json.JSONDecodeError:
-            p = {}
-        out.append({"id": r["id"], "game_pk": r["game_pk"],
-                    "pitcher_id": r["pitcher_id"], "created_at": r["created_at"],
-                    "ack_at": r["ack_at"], **p})
-    return out
+    return [_row_dict(r) for r in rows]
 
 
 def ack(trigger_id: int) -> bool:
@@ -156,16 +168,30 @@ def log(limit: int = 200) -> list[dict]:
     """The full history, newest first — the review/backtest export."""
     with get_db() as conn:
         rows = conn.execute(
-            """SELECT id, game_pk, pitcher_id, created_at, ack_at, payload
+            """SELECT id, game_pk, pitcher_id, created_at, ack_at, payload, outcome
                FROM comeback_triggers ORDER BY id DESC LIMIT ?""",
             (max(1, min(2000, limit)),)).fetchall()
-    out = []
-    for r in rows:
-        try:
-            p = json.loads(r["payload"])
-        except json.JSONDecodeError:
-            p = {}
-        out.append({"id": r["id"], "game_pk": r["game_pk"],
-                    "pitcher_id": r["pitcher_id"], "created_at": r["created_at"],
-                    "ack_at": r["ack_at"], **p})
-    return out
+    return [_row_dict(r) for r in rows]
+
+
+# ---- outcome tracking ----------------------------------------------------
+
+def pending_outcomes(max_age_hours: int = 8) -> list[dict]:
+    """Triggers still owed outcome data: fired recently and either missing a
+    price sample or the final result. Old ones age out rather than being
+    chased forever (a postponed/suspended game would otherwise pin the job)."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT id, game_pk, pitcher_id, created_at, ack_at, payload, outcome
+               FROM comeback_triggers
+               WHERE created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)
+                 AND (outcome IS NULL OR outcome NOT LIKE '%"final"%')
+               ORDER BY id""",
+            (f"-{int(max_age_hours)} hours",)).fetchall()
+    return [_row_dict(r) for r in rows]
+
+
+def save_outcome(trigger_id: int, outcome: dict):
+    with get_db() as conn:
+        conn.execute("UPDATE comeback_triggers SET outcome=? WHERE id=?",
+                     (json.dumps(outcome), trigger_id))
