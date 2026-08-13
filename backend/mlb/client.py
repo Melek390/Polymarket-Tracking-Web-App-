@@ -143,7 +143,11 @@ async def linescore_state(game_pk: int, away_name: str, home_name: str, status: 
         "pitchers": None,
         "home_runs": None,
         "batter": {"name": (offense.get("batter") or {}).get("fullName"), "ops": None},
-        "pitcher": {"name": (defense.get("pitcher") or {}).get("fullName"), "era": None},
+        # the id rides along for the comeback detector, which tracks the
+        # CURRENT defensive pitcher between polls to spot a change — names
+        # collide (two Luis Garcias have pitched in the same season), ids don't
+        "pitcher": {"id": (defense.get("pitcher") or {}).get("id"),
+                    "name": (defense.get("pitcher") or {}).get("fullName"), "era": None},
         "innings": [
             {"num": i.get("num"),
              "away": i.get("away", {}).get("runs"),
@@ -408,6 +412,7 @@ async def live_game(game_pk: int) -> dict:
             "ops": _season_stat(box, off_side, batter.get("id"), "batting", "ops"),
         },
         "pitcher": {
+            "id": pitcher.get("id"),
             "name": pitcher.get("fullName"),
             "era": _season_stat(box, def_side, pitcher.get("id"), "pitching", "era"),
             # this game's line — a reliever who just came in has no innings yet,

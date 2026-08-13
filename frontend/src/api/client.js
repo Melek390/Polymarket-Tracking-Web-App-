@@ -152,6 +152,22 @@ export async function fetchFavorite(gamePk) {
   return request(`/api/favorite/${gamePk}`);
 }
 
+// --- Comeback Setup (tired reliever protecting a late 1-run/tied lead) ----
+export async function fetchComebackActive() {
+  return request(`/api/comeback/active?_=${Date.now()}`);
+}
+export const ackComeback = (id) => post("/api/comeback/ack", { id });
+export async function fetchComebackConfig() {
+  return request("/api/comeback/config");
+}
+export async function saveComebackConfig(cfg) {
+  return request("/api/comeback/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cfg),
+  });
+}
+
 // GET /api/mlb/matchup/{pk} — standings, season series and probable starters
 export async function fetchMlbMatchup(gamePk) {
   return request(`/api/mlb/matchup/${gamePk}`);

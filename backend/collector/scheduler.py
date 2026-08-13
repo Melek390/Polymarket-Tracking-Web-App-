@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from backend.config.settings import settings
+from backend.comeback import detector as comeback_detector
 from backend.database import db
 from backend.favorite import lock as favorite_lock
 from backend.mlb import live as mlb_live
@@ -168,6 +169,12 @@ def start():
     scheduler.add_job(
         favorite_lock.lock_due_games, "interval", seconds=60, id="favorite-lock",
         next_run_time=datetime.now(timezone.utc),
+    )
+    # watch live games for the Comeback Setup (tired reliever protecting a
+    # 1-run/tied lead late). Reads the mlb-live in-process cache, so this
+    # cadence costs no upstream requests at all.
+    scheduler.add_job(
+        comeback_detector.run, "interval", seconds=10, id="comeback-detector",
     )
     scheduler.start()
 

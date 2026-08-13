@@ -49,9 +49,29 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* Comeback Setup: the row flashes red until the trigger is checked. The
+   animation lives on the <tr>; a CSS animation outranks the row's inline
+   background, and the tds are transparent so the flash shows through. */
+@keyframes comebackFlash {
+  0%,
+  100% {
+    background-color: #fee2e2;
+  }
+  50% {
+    background-color: #f87171;
+  }
+}
+tr.comeback-flash {
+  animation: comebackFlash 1.1s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pulse,
   .spin {
     animation: none;
+  }
+  tr.comeback-flash {
+    animation: none;
+    background-color: #fecaca;
   }
 }

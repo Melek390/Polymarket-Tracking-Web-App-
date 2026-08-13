@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { T, card, monoText, btn } from "../theme.js";
 import { fmtCents } from "../utils.js";
-import { fetchMlbGame, fetchLivePrice, fetchMlbAnalyze, fetchMlbMatchup, fetchFavorite } from "../api/client.js";
+import { fetchMlbGame, fetchLivePrice, fetchMlbAnalyze, fetchMlbMatchup, fetchFavorite,
+  fetchComebackActive, ackComeback } from "../api/client.js";
 import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
 import { loadHighlights, persistHighlights, highlightColor } from "../highlights.js";
 import AlertDialog from "./AlertDialog.jsx";
@@ -13,6 +14,7 @@ import ExpandPanel from "./baseball/ExpandPanel.jsx";
 import { Bases, BattingTag, HomeAwayTag, OutDots } from "./baseball/widgets.jsx";
 import { breakText, inningText, isFinished, isInningBreak, preGameLabel } from "./baseball/gameState.js";
 import TeamTagsDialog, { TeamTag } from "./baseball/TeamTagsDialog.jsx";
+import ComebackDialog from "./baseball/ComebackDialog.jsx";
 import { loadTeamTags, tagsFor, taggedTeamCount } from "../teamTags.js";
 import { loadScreenerHidden, toggleScreenerHidden } from "../screenerHidden.js";
 import { loadNotes, setNote } from "../matchNotes.js";
@@ -65,6 +67,9 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const [noteEdit, setNoteEdit] = useState(null); // slug being edited
   const [noteDraft, setNoteDraft] = useState("");
   const [favorites, setFavorites] = useState({}); // gamePk -> Clear Favorite verdict
+  const [comeback, setComeback] = useState({}); // gamePk -> Comeback Setup trigger
+  const [cbConfigOpen, setCbConfigOpen] = useState(false);
+  const comebackSeen = useRef(new Set()); // trigger ids already announced
 
   // Build the paste-ready snapshot (MLB + Polymarket), copy it to the clipboard
   // and show it in a modal. It stays open until the user closes it; clicking
@@ -357,6 +362,54 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
     return () => { stop = true; clearInterval(id); };
   }, [rows]);
 
+  // Comeback Setup triggers: server-side detector fires them; the browser only
+  // reads. 10s matches the detector's own cadence. An UNACKED trigger that this
+  // window has not announced yet gets a toast + the triple situation tone —
+  // including on page load, since unacked means exactly "not checked yet".
+  useEffect(() => {
+    let stop = false;
+    async function pull() {
+      let r;
+      try {
+        r = await fetchComebackActive();
+      } catch {
+        return; // server hiccup — next tick retries
+      }
+      if (stop) return;
+      const byPk = {};
+      for (const t of r.triggers || []) {
+        // newest first from the API; an unacked trigger outranks an acked one
+        const cur = byPk[t.game_pk];
+        if (!cur || (!t.ack_at && cur.ack_at)) byPk[t.game_pk] = t;
+      }
+      setComeback(byPk);
+      for (const t of r.triggers || []) {
+        if (t.ack_at || comebackSeen.current.has(t.id)) continue;
+        comebackSeen.current.add(t.id);
+        const price = t.home_price_cents != null
+          ? ` · ${t.home_abbr ?? t.home_name} ${fmtCents(t.home_price_cents)}` : "";
+        pushToast(`⚡ Comeback Setup — ${t.away_abbr} ${t.away_runs}-${t.home_runs} ${t.home_abbr}, `
+          + `inning ${t.inning}: ${t.pitcher_name} in${price}`);
+        playSound("situation");
+      }
+    }
+    pull();
+    const id = setInterval(pull, 10_000);
+    return () => { stop = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // "stays there until I check it": Check stamps the ack server-side, so it
+  // holds across reloads and every open window — not just this tab's memory.
+  async function checkComeback(t) {
+    setComeback((prev) => ({ ...prev, [t.game_pk]: { ...t, ack_at: new Date().toISOString() } }));
+    try {
+      await ackComeback(t.id);
+    } catch {
+      /* the next pull re-flags it if the ack didn't land */
+    }
+  }
+
   // status for the filter chips: prefer MLB's own state, fall back to kickoff
   const nowMs = Date.now();
   function rowStatus(r) {
@@ -488,6 +541,13 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
         >
           🏷 Team tags{taggedTeamCount(teamTags) ? ` (${taggedTeamCount(teamTags)})` : ""}
         </button>
+        <button
+          onClick={() => setCbConfigOpen(true)}
+          title="Comeback Setup trigger — thresholds and on/off"
+          style={{ ...btn.outline, fontSize: 12, padding: "6px 10px" }}
+        >
+          ⚡ Comeback
+        </button>
         <ClearHighlights count={highlightCount} onClear={clearHighlights} />
       </div>
       <div style={{ ...card, overflow: "hidden" }}>
@@ -577,9 +637,15 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
               );
               const alerting = hits.has(r.slug);
               const hl = highlightColor(highlights[r.slug]);
+              // Comeback Setup: unchecked = the row flashes red (CSS animation
+              // outranks any inline background); checked = a quiet tag remains
+              // for the rest of the day so "did it fire?" has an answer.
+              const cb = comeback[r.gamePk];
+              const cbActive = !!cb && !cb.ack_at;
               return [
                 <tr
                   key={r.slug}
+                  className={cbActive ? "comeback-flash" : undefined}
                   style={{
                     borderTop: `1px solid ${T.border}`,
                     // The user's colour WINS. A matching alert used to override
@@ -587,7 +653,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                     // did nothing at all — the colour was saved, just invisible.
                     // The alert stays obvious via the bell and the amber stripe
                     // down the right edge.
-                    background: hl ? hl.bg : alerting ? "#FEF3C7" : undefined,
+                    background: cbActive ? undefined
+                      : hl ? hl.bg : alerting ? "#FEF3C7" : undefined,
                     opacity: hidden[r.slug] ? 0.45 : 1,
                   }}
 >
@@ -650,6 +717,46 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                         </span>
                       </div>
                     ))}
+                    {/* Comeback Setup tag — the reliever who came in and the
+                        home team's price CAPTURED AT TRIGGER TIME (the price
+                        he could still act on, not whatever it drifted to).
+                        Hover = the full tired-pitcher reasons. */}
+                    {cb && (
+                      <div
+                        title={[
+                          `${cb.pitcher_name} in for ${cb.away_name}`,
+                          ...(cb.quality?.reasons || []),
+                          cb.detected_at ? `detected ${cb.detected_at}` : "",
+                        ].filter(Boolean).join("\n")}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 7,
+                          marginTop: 3, marginRight: 5,
+                          fontFamily: T.ui, fontSize: 10, fontWeight: 800,
+                          letterSpacing: 0.4, borderRadius: 4, padding: "2px 7px",
+                          color: cbActive ? "#fff" : T.red,
+                          background: cbActive ? T.red : "transparent",
+                          border: `1px solid ${T.red}`,
+                        }}
+                      >
+                        ⚡ COMEBACK SETUP
+                        <span style={{ fontWeight: 600 }}>
+                          {cb.pitcher_name}
+                          {cb.home_price_cents != null
+                            ? ` · ${cb.home_abbr ?? cb.home_name} ${fmtCents(cb.home_price_cents)}`
+                            : ""}
+                        </span>
+                        {cbActive && (
+                          <span
+                            onClick={() => checkComeback(cb)}
+                            title="Mark as checked — stops the flashing, the tag stays"
+                            style={{ cursor: "pointer", background: "#fff", color: T.red,
+                              borderRadius: 3, padding: "0 6px", fontWeight: 800 }}
+                          >
+                            ✓ Check
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {noteBlock(r.slug)}
                   </td>
                   {/* every live row used to print this column in red and every
@@ -825,6 +932,8 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
           onClose={() => setTagsOpen(false)}
         />
       )}
+
+      {cbConfigOpen && <ComebackDialog onClose={() => setCbConfigOpen(false)} />}
 
       <Toasts toasts={toasts} onDismiss={dismissToast} />
 

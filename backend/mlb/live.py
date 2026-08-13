@@ -121,6 +121,14 @@ def cached(game_pk: int) -> dict | None:
     return _state.get(game_pk)
 
 
+def live_states() -> list[tuple[int, dict]]:
+    """(game_pk, cached state) for every in-progress game — the comeback
+    detector's read path. Cache only: calling this costs no upstream request,
+    so its consumer can run on any cadence without touching MLB."""
+    return [(g["game_pk"], _state[g["game_pk"]])
+            for g in _live["games"] if g["game_pk"] in _state]
+
+
 async def light_state(game_pk: int) -> dict | None:
     """Cheap state for one game for the per-row endpoint: serve a fresh cache
     entry, else do ONE light linescore fetch (never the heavy feed) and cache
