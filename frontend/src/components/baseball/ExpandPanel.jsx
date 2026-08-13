@@ -662,24 +662,28 @@ function LockNote({ fav }) {
   }
   if (fav.missed) {
     return (
-      <div style={{ fontSize: 12, color: T.sub, lineHeight: 1.6, marginBottom: 10 }}>
-        <b>Not locked for this game.</b> The verdict is taken a few minutes
-        before first pitch; this one was missed, and it is not scored
-        afterwards — the model is pre-game, so a score built on in-play prices
-        would be meaningless.
+      <div style={{ fontSize: 12, color: T.sub, lineHeight: 1.6 }}>
+        <b>Not calculated for this game.</b> The verdict is taken {fav.lock_minutes || 5} minutes
+        before first pitch and this one was missed. It is not calculated
+        afterwards: this is a pre-game model, so a score built on in-play
+        prices would be meaningless.
       </div>
     );
   }
+  // Pending — deliberately NO score. The client's rule is that it is
+  // calculated once, minutes before the game, and stays there.
   return (
-    <div style={{ fontSize: 11, color: T.sub, marginBottom: 10,
-      display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+    <div style={{ fontSize: 12, color: T.sub, lineHeight: 1.6,
+      display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       <span style={{ fontFamily: T.ui, fontSize: 9, fontWeight: 800,
         letterSpacing: 0.5, color: T.sub, background: meter.track,
-        borderRadius: 4, padding: "2px 7px" }}>
-        PROVISIONAL
+        borderRadius: 4, padding: "3px 8px", whiteSpace: "nowrap" }}>
+        ⏱ NOT YET CALCULATED
       </span>
-      Locks {fav.lock_minutes || 5} minutes before first pitch. Until then this
-      moves with the market.
+      <span>
+        The Clear Favorite verdict is calculated <b>{fav.lock_minutes || 5} minutes
+        before first pitch</b>, then stays fixed for the rest of the game.
+      </span>
     </div>
   );
 }
@@ -696,7 +700,9 @@ function FavoriteTab({ fav }) {
       </div>
     );
   }
-  if (fav.missed) return <LockNote fav={fav} />;
+  // No lock yet, or the lock was missed: there is no score to show, and the
+  // panel must not fabricate one.
+  if (!fav.locked) return <LockNote fav={fav} />;
   const favSide = fav.favorite ? fav[fav.favorite] : null;
   const favName = fav.favorite ? fav[`${fav.favorite}_name`] : null;
   return (
