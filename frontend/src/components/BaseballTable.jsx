@@ -15,6 +15,7 @@ import { Bases, BattingTag, HomeAwayTag, OutDots } from "./baseball/widgets.jsx"
 import { breakText, inningText, isFinished, isInningBreak, preGameLabel } from "./baseball/gameState.js";
 import TeamTagsDialog, { TeamTag } from "./baseball/TeamTagsDialog.jsx";
 import ComebackDialog from "./baseball/ComebackDialog.jsx";
+import { comebackValue } from "./baseball/comebackValue.js";
 import { loadTeamTags, tagsFor, taggedTeamCount } from "../teamTags.js";
 import { loadScreenerHidden, toggleScreenerHidden } from "../screenerHidden.js";
 import { loadNotes, setNote } from "../matchNotes.js";
@@ -606,13 +607,36 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                   + fav[fav.favorite].factors
                     .map((x) => `${x.key}: ${x.points}/${x.max} — ${x.detail}`).join("\n")
                 : "";
+              // The client's live value read on the HOME side in the comeback
+              // window (down 1 or tied, home batting, inning 8+). Follows the
+              // displayed live price, so it can move between bands as the
+              // market does — by design ("when the price hits the following").
+              const cbValue = comebackValue(live, homePrice);
               // Home / Away columns: the team name under its win price, and a
               // BATTING pill on whichever side is at bat, so these columns can
               // be read without glancing back at the Batting column
-              const priceCell = (team, price, color, isBatting) => (
+              const priceCell = (team, price, color, isBatting, valueNote) => (
                 <td style={{ ...td, textAlign: "right" }}>
                   <div><LivePrice cents={price} color={color} /></div>
                   <div style={{ fontFamily: T.ui, fontSize: 11, color: T.sub }}>{team}</div>
+                  {valueNote && (
+                    <div style={{ marginTop: 2 }}>
+                      <span
+                        title={`Home team ${valueNote.situation}, bottom of inning ${live?.inning} — `
+                          + `live price ${fmtCents(price)}`}
+                        style={{ fontFamily: T.ui, fontSize: 10, fontWeight: 800,
+                          letterSpacing: 0.3, cursor: "help", whiteSpace: "nowrap",
+                          // strength IS the signal: the two buy tiers in green
+                          // (solid, then outline), fair in grey, no-edge in red
+                          ...(valueNote.tier === 0
+                            ? { color: "#fff", background: T.green, borderRadius: 4, padding: "1px 6px" }
+                            : valueNote.tier === 1
+                              ? { color: T.green, border: `1px solid ${T.green}`, borderRadius: 4, padding: "0 6px" }
+                              : { color: valueNote.tier === 2 ? T.sub : T.red }) }}>
+                        {valueNote.label}
+                      </span>
+                    </div>
+                  )}
                   {team === favName && (
                     <div style={{ marginTop: 2 }}>
                       <span title={favTip}
@@ -800,7 +824,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                   {priceCell(awayTeam, awayPrice, priceColor(awayPrice, homePrice),
                     inPlay && live.batting === "away")}
                   {priceCell(homeTeam, homePrice, priceColor(homePrice, awayPrice),
-                    inPlay && live.batting === "home")}
+                    inPlay && live.batting === "home", cbValue)}
                   <td style={center}>
                     {inPlay ? (
                       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
