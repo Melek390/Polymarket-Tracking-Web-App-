@@ -77,13 +77,16 @@ async def _score_side(info: dict, side: str, game_pk: int,
     }
 
 
-async def score_game(game_pk: int, row: dict) -> dict | None:
+async def score_game(game_pk: int, row: dict, use_cache: bool = True) -> dict | None:
     """row = the screener-cache orientation: {home_team, away_team,
     home_price, away_price, home_token, away_token} in cents. Polymarket
     lists MLB games away-first, so the row's "home" is usually the MLB AWAY
     club — sides are re-assigned by matching team NAMES against the MLB
     schedule, never by position. Cached 10 min."""
-    hit = _result_cache.get(game_pk)
+    # The lock job passes use_cache=False: its whole job is to take a fresh
+    # snapshot at a precise moment, and a 10-minute-old cached result would
+    # silently make the "5 minutes before first pitch" promise a lie.
+    hit = _result_cache.get(game_pk) if use_cache else None
     if hit and time.monotonic() - hit[0] < RESULT_TTL:
         return hit[1]
     info = await data.game_info(game_pk)
@@ -115,6 +118,8 @@ async def score_game(game_pk: int, row: dict) -> dict | None:
 
     result = {"game_pk": game_pk, "favorite": favorite,
               "away_name": info.get("away_name"), "home_name": info.get("home_name"),
+              "game_date": info.get("official_date") or info.get("game_date"),
+              "first_pitch": info.get("game_date"),
               "away": away, "home": home}
     _result_cache[game_pk] = (time.monotonic(), result)
     return result

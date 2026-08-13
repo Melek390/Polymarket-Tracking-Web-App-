@@ -13,6 +13,7 @@ from backend.auth import deps as auth_deps
 from backend.auth import store as auth_store
 from backend.auth.api import router as auth_router
 from backend.favorite.api import router as favorite_router
+from backend.favorite import store as favorite_store
 from backend.traders.api import router as traders_router
 from backend.traders import store as traders_store
 from backend.collector import scheduler
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     for name in _QUIET_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
     traders_store.init()
+    favorite_store.init()
     auth_store.init()
     auth_store.purge_expired()
     if auth_store.user_count() == 0:

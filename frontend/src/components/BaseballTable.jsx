@@ -535,7 +535,12 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
               // Clear Favorite tag, matched by TEAM NAME (the verdict speaks
               // MLB home/away; the row may be Polymarket away-first)
               const fav = favorites[r.gamePk];
-              const favName = fav?.favorite ? fav[`${fav.favorite}_name`] : null;
+              // Only a LOCKED verdict earns the chip. A provisional score is
+              // still moving with the market, and an in-play one would be the
+              // pre-game model fed live prices — the bug that had Boston
+              // tagged favorite while losing 1-6 in the 9th (client, Aug 13).
+              const favName = fav?.locked && fav.favorite
+                ? fav[`${fav.favorite}_name`] : null;
               const favTip = favName
                 ? `CLEAR FAVORITE — ${fav[fav.favorite].total}/100 points\n`
                   + fav[fav.favorite].factors

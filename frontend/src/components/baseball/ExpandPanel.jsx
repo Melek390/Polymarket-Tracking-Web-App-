@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { T, monoText, btn, meter } from "../../theme.js";
-import { fmtCents } from "../../utils.js";
+import { fmtCents, fmtTimestamp } from "../../utils.js";
 import { Bases, OutDots } from "./widgets.jsx";
 import { inningText, lastTenText, streakText } from "./gameState.js";
 
@@ -636,6 +636,54 @@ function FavoriteSide({ name, side, isFavorite }) {
   );
 }
 
+// How the verdict came to be — the client's core complaint was that the score
+// moved after he had acted on it, and worse, kept moving on in-play prices.
+// It is now taken ONCE, minutes before first pitch, and frozen. The panel says
+// so plainly, because a number you are asked to trust has to explain itself.
+function LockNote({ fav }) {
+  const when = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso.endsWith("Z") ? iso : `${iso}Z`);
+    return Number.isNaN(d.getTime()) ? "" : ` at ${fmtTimestamp(d.getTime())}`;
+  };
+  if (fav.locked) {
+    return (
+      <div style={{ fontSize: 11, color: T.sub, marginBottom: 10,
+        display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: T.ui, fontSize: 9, fontWeight: 800,
+          letterSpacing: 0.5, color: "#fff", background: T.ink,
+          borderRadius: 4, padding: "2px 7px" }}>
+          🔒 LOCKED
+        </span>
+        Taken {fav.lock_minutes || 5} minutes before first pitch{when(fav.locked_at)} — this
+        is the final verdict and does not change once the game starts.
+      </div>
+    );
+  }
+  if (fav.missed) {
+    return (
+      <div style={{ fontSize: 12, color: T.sub, lineHeight: 1.6, marginBottom: 10 }}>
+        <b>Not locked for this game.</b> The verdict is taken a few minutes
+        before first pitch; this one was missed, and it is not scored
+        afterwards — the model is pre-game, so a score built on in-play prices
+        would be meaningless.
+      </div>
+    );
+  }
+  return (
+    <div style={{ fontSize: 11, color: T.sub, marginBottom: 10,
+      display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      <span style={{ fontFamily: T.ui, fontSize: 9, fontWeight: 800,
+        letterSpacing: 0.5, color: T.sub, background: meter.track,
+        borderRadius: 4, padding: "2px 7px" }}>
+        PROVISIONAL
+      </span>
+      Locks {fav.lock_minutes || 5} minutes before first pitch. Until then this
+      moves with the market.
+    </div>
+  );
+}
+
 function FavoriteTab({ fav }) {
   if (!fav) {
     // Undefined covers both "still scoring" and "outside the scoring window" —
@@ -643,15 +691,17 @@ function FavoriteTab({ fav }) {
     // pitch. Say that instead of spinning forever.
     return (
       <div style={{ fontSize: 12, color: T.faint, lineHeight: 1.6 }}>
-        Not scored yet. The Clear Favorite engine scores each game from about
-        36 hours before first pitch, and refreshes every 10 minutes.
+        Not scored yet. The Clear Favorite verdict is taken a few minutes
+        before first pitch and then frozen.
       </div>
     );
   }
+  if (fav.missed) return <LockNote fav={fav} />;
   const favSide = fav.favorite ? fav[fav.favorite] : null;
   const favName = fav.favorite ? fav[`${fav.favorite}_name`] : null;
   return (
     <div>
+      <LockNote fav={fav} />
       {favSide ? (
         <div style={{
           display: "inline-block", marginBottom: 12, padding: "6px 12px",

@@ -8,6 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from backend.config.settings import settings
 from backend.database import db
+from backend.favorite import lock as favorite_lock
 from backend.mlb import live as mlb_live
 from backend.mlb import timeline as mlb_timeline
 from backend.polymarket import clob
@@ -159,6 +160,13 @@ def start():
     # move MLB markets between 1s (game in progress) and the normal interval
     scheduler.add_job(
         sync_mlb_intervals, "interval", seconds=60, id="mlb-intervals",
+        next_run_time=datetime.now(timezone.utc),
+    )
+    # snapshot each game's Clear Favorite verdict ~5 min before first pitch and
+    # never recompute it. Every minute so the lock lands inside its window; the
+    # job is a no-op unless a game is actually due.
+    scheduler.add_job(
+        favorite_lock.lock_due_games, "interval", seconds=60, id="favorite-lock",
         next_run_time=datetime.now(timezone.utc),
     )
     scheduler.start()
