@@ -38,9 +38,11 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions(user_id);
 
 -- Registration is invite-only: no invite, no account. Single use.
+-- created_by is NULLABLE: the very first invitation is minted from the
+-- console before any account exists, so there is nobody to attribute it to.
 CREATE TABLE IF NOT EXISTS auth_invites (
     token_hash  TEXT PRIMARY KEY,
-    created_by  INTEGER NOT NULL REFERENCES auth_users(id),
+    created_by  INTEGER REFERENCES auth_users(id),
     grants_admin INTEGER NOT NULL DEFAULT 0,
     note        TEXT,
     created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
@@ -73,6 +75,21 @@ def init():
     """Create the auth tables; safe on every startup."""
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        # Migration: the first cut declared auth_invites.created_by NOT NULL,
+        # which blocks the console-minted setup invitation (there is no user
+        # to attribute it to yet). SQLite cannot drop NOT NULL in place, so
+        # rebuild the table. Invitations are short-lived, so copying them is
+        # cheap and losing none of them matters.
+        cols = {r["name"]: r for r in conn.execute("PRAGMA table_info(auth_invites)")}
+        if cols.get("created_by") and cols["created_by"]["notnull"]:
+            conn.execute("ALTER TABLE auth_invites RENAME TO auth_invites_old")
+            conn.executescript(SCHEMA)
+            conn.execute("""INSERT INTO auth_invites
+                (token_hash, created_by, grants_admin, note, created_at,
+                 expires_at, used_at, used_by)
+                SELECT token_hash, created_by, grants_admin, note, created_at,
+                       expires_at, used_at, used_by FROM auth_invites_old""")
+            conn.execute("DROP TABLE auth_invites_old")
 
 
 def _now() -> datetime:
@@ -212,7 +229,26 @@ def purge_expired():
 
 # ---- invitations ---------------------------------------------------------
 
-def create_invite(created_by: int, days: int, grants_admin: bool = False,
+def bootstrap_invite(days: int) -> str:
+    """The setup link for the very first administrator.
+
+    Registration needs an invitation and minting an invitation needs an admin,
+    so something has to break the loop from the console. Handing the operator
+    a LINK rather than a password is the better half of that trade: the client
+    picks his own username and password, and nobody else ever knows it.
+
+    Refused once an active admin exists, so this can never become a standing
+    console backdoor to admin — from then on invitations come from the panel.
+    (If every admin is somehow lost, create_admin.py is still the way back in.)
+    """
+    if admin_count() > 0:
+        raise RuntimeError(
+            "an active admin already exists — issue invitations from the "
+            "Users page in the app instead")
+    return create_invite(None, days, grants_admin=True, note="initial setup")
+
+
+def create_invite(created_by: int | None, days: int, grants_admin: bool = False,
                   note: str = "") -> str:
     token = security.new_token()
     with get_db() as conn:
@@ -253,7 +289,9 @@ def list_invites() -> list[dict]:
         return [dict(r) for r in conn.execute(
             """SELECT i.rowid AS id, i.grants_admin, i.note, i.created_at,
                       i.expires_at, i.used_at,
-                      c.username AS created_by_name, u.username AS used_by_name
+                      -- NULL creator = the console-minted setup invitation
+                      COALESCE(c.username, 'setup') AS created_by_name,
+                      u.username AS used_by_name
                FROM auth_invites i
                LEFT JOIN auth_users c ON c.id = i.created_by
                LEFT JOIN auth_users u ON u.id = i.used_by
