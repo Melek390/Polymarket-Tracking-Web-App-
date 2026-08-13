@@ -1,4 +1,5 @@
 import { T } from "../theme.js";
+import UserMenu from "./UserMenu.jsx";
 
 const NAVY = "#191970"; // header keeps its own darker blue
 
@@ -77,27 +78,6 @@ export default function Header({ collectorRunning, refreshing, onRefresh, onNavi
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        {user && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: T.ui, fontSize: 12, opacity: 0.85 }}
-              title={user.is_admin ? "Signed in as an administrator" : "Signed in"}>
-              {user.display_name || user.username}
-              {user.is_admin ? " · admin" : ""}
-            </span>
-            <button
-              onClick={onSignOut}
-              title="Sign out of this browser"
-              style={{
-                fontFamily: T.ui, fontSize: 12, fontWeight: 600,
-                padding: "5px 11px", borderRadius: 8, cursor: "pointer",
-                background: "transparent", color: "#fff",
-                border: "1px solid rgba(255, 255, 255, 0.55)",
-              }}
-            >
-              Sign out
-            </button>
-          </div>
-        )}
         {onScale && (
           <div style={{ display: "flex", alignItems: "center", gap: 5 }} title="Text size (only scales the content)">
             <button onClick={() => onScale(-0.1)} style={szBtn}>A−</button>
@@ -149,6 +129,9 @@ export default function Header({ collectorRunning, refreshing, onRefresh, onNavi
           <span className={refreshing ? "spin" : ""}>↻</span>
           Refresh
         </button>
+
+        {/* account chip last, so it sits in the very corner */}
+        <UserMenu user={user} onSignOut={onSignOut} onNavigate={onNavigate} />
       </div>
     </header>
   );

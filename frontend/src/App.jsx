@@ -18,6 +18,7 @@ import Register from "./views/auth/Register.jsx";
 import ForgotPassword from "./views/auth/ForgotPassword.jsx";
 import ResetPassword from "./views/auth/ResetPassword.jsx";
 import Admin from "./views/Admin.jsx";
+import Account from "./views/Account.jsx";
 
 // The four pages a signed-out visitor is allowed to see. Everything else
 // redirects to /login until /api/auth/me says who they are.
@@ -39,6 +40,7 @@ function parseRoute() {
   if (path === "/forgot") return { view: "forgot", params };
   if (path === "/reset") return { view: "reset", params };
   if (path === "/admin") return { view: "admin", params };
+  if (path === "/account") return { view: "account", params };
   if (path === "/accounts_tracker") return { view: "accounts", params };
   if (path === "/backtesting") return { view: "backtesting", params };
   const screener = path.match(/^\/screener(?:\/([a-z]+))?$/);
@@ -225,7 +227,8 @@ export default function App() {
     return <Login onSignedIn={onSignedIn} navigate={navigate} />;
   }
   // A signed-in user who lands on /login or /register belongs in the app.
-  if (PUBLIC_VIEWS.has(route.view) || (!authInstalled && route.view === "admin")) {
+  if (PUBLIC_VIEWS.has(route.view)
+      || (!authInstalled && (route.view === "admin" || route.view === "account"))) {
     navigate("/");
     return <div style={{ minHeight: "100vh", background: T.soft }} />;
   }
@@ -252,6 +255,8 @@ export default function App() {
       <div style={{ zoom: scale }}>
       {route.view === "admin" ? (
         <Admin me={me} navigate={navigate} />
+      ) : route.view === "account" ? (
+        <Account me={me} />
       ) : route.view === "accounts" ? (
         <AccountsTracker />
       ) : route.view === "backtesting" ? (
