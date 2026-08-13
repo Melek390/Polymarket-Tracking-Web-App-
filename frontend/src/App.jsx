@@ -12,6 +12,16 @@ import {
   setTracking,
 } from "./api/client.js";
 import { T } from "./theme.js";
+import { fetchMe } from "./api/auth.js";
+import Login from "./views/auth/Login.jsx";
+import Register from "./views/auth/Register.jsx";
+import ForgotPassword from "./views/auth/ForgotPassword.jsx";
+import ResetPassword from "./views/auth/ResetPassword.jsx";
+import Admin from "./views/Admin.jsx";
+
+// The four pages a signed-out visitor is allowed to see. Everything else
+// redirects to /login until /api/auth/me says who they are.
+const PUBLIC_VIEWS = new Set(["login", "register", "forgot", "reset"]);
 
 // Real-path routing so every page has its own clean, shareable URL:
 //   /                      dashboard (optionally ?page=2&per=50&status=open)
@@ -19,9 +29,16 @@ import { T } from "./theme.js";
 //   /screener/football     the screener on a specific sport
 //   /market/12             history page for market 12
 //   /accounts_tracker      V3 trader portfolio tracker
+//   /login /register /forgot /reset   signed-out pages (no header, no data)
+//   /admin                 user and invitation management (admins only)
 function parseRoute() {
   const path = window.location.pathname;
   const params = new URLSearchParams(window.location.search);
+  if (path === "/login") return { view: "login", params };
+  if (path === "/register") return { view: "register", params };
+  if (path === "/forgot") return { view: "forgot", params };
+  if (path === "/reset") return { view: "reset", params };
+  if (path === "/admin") return { view: "admin", params };
   if (path === "/accounts_tracker") return { view: "accounts", params };
   if (path === "/backtesting") return { view: "backtesting", params };
   const screener = path.match(/^\/screener(?:\/([a-z]+))?$/);
@@ -40,6 +57,10 @@ function navigate(path) {
 // Root component: owns shared data and switches between dashboard and history.
 export default function App() {
   const [route, setRoute] = useState(parseRoute);
+  // undefined = still asking the server, null = signed out, object = signed in.
+  // The three states matter: rendering the login page during the check would
+  // flash it at someone who is already signed in on every page load.
+  const [me, setMe] = useState(undefined);
   const [stats, setStats] = useState(null);
   const [markets, setMarkets] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,6 +84,35 @@ export default function App() {
     window.addEventListener("popstate", onNav);
     return () => window.removeEventListener("popstate", onNav);
   }, []);
+
+  // Who is signed in? Asked once on load; every data fetch waits for it.
+  useEffect(() => {
+    fetchMe()
+      .then((r) => setMe(r.user))
+      .catch(() => setMe(null));
+  }, []);
+
+  // A signed-out visitor on a private page goes to /login. Doing this as an
+  // effect (not during render) keeps it out of the render path and lets the
+  // public pages render normally.
+  useEffect(() => {
+    if (me === null && !PUBLIC_VIEWS.has(route.view)) navigate("/login");
+  }, [me, route.view]);
+
+  function onSignedIn(user) {
+    setMe(user);
+    navigate("/");
+  }
+
+  async function signOut() {
+    try {
+      await (await import("./api/auth.js")).logout();
+    } catch {
+      /* the cookie is dead either way */
+    }
+    setMe(null);
+    navigate("/login");
+  }
 
   // Browser-tab title follows the view — with several tabs open, "Market
   // Tracker" x4 told the client nothing (his request, Aug 7).
@@ -111,13 +161,16 @@ export default function App() {
   // initial load, then a quiet refresh every 15s while the tab is visible —
   // backfills grow the database for a while after tracking, and the stats
   // should follow without anyone pressing Refresh
+  // ...but only once we know there is a session: firing these while signed
+  // out just produces 401s and a red error banner behind the login page.
   useEffect(() => {
+    if (!me) return undefined;
     refresh();
     const id = setInterval(() => {
       if (document.visibilityState === "visible") refresh();
     }, 15_000);
     return () => clearInterval(id);
-  }, []);
+  }, [me]);
 
   async function handleDelete(id) {
     // drop the row right away — the server erase of a big history can take
@@ -144,6 +197,30 @@ export default function App() {
   const openMarket =
     route.view === "market" && markets.find((m) => m.id === route.id);
 
+  // --- auth gate ---------------------------------------------------------
+  // Still asking the server: render nothing rather than flashing the login
+  // page at a signed-in user on every load.
+  if (me === undefined) {
+    return <div style={{ minHeight: "100vh", background: T.soft }} />;
+  }
+  // The signed-out pages own the whole window — no header, no polling.
+  if (!me) {
+    if (route.view === "register") {
+      return <Register onSignedIn={onSignedIn} navigate={navigate} params={route.params} />;
+    }
+    if (route.view === "forgot") return <ForgotPassword navigate={navigate} />;
+    if (route.view === "reset") {
+      return <ResetPassword navigate={navigate} params={route.params} />;
+    }
+    // login, plus anything private while the redirect effect runs
+    return <Login onSignedIn={onSignedIn} navigate={navigate} />;
+  }
+  // A signed-in user who lands on /login or /register belongs in the app.
+  if (PUBLIC_VIEWS.has(route.view)) {
+    navigate("/");
+    return <div style={{ minHeight: "100vh", background: T.soft }} />;
+  }
+
   return (
     <div>
       <Header
@@ -153,6 +230,8 @@ export default function App() {
         onNavigate={navigate}
         scale={scale}
         onScale={changeScale}
+        user={me}
+        onSignOut={signOut}
       />
 
       {error && (
@@ -162,7 +241,9 @@ export default function App() {
       )}
 
       <div style={{ zoom: scale }}>
-      {route.view === "accounts" ? (
+      {route.view === "admin" ? (
+        <Admin me={me} navigate={navigate} />
+      ) : route.view === "accounts" ? (
         <AccountsTracker />
       ) : route.view === "backtesting" ? (
         <Backtesting />

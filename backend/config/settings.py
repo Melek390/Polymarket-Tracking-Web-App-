@@ -41,6 +41,23 @@ class Settings(BaseSettings):
     gamma_base_url: str = "https://gamma-api.polymarket.com"
     clob_base_url: str = "https://clob.polymarket.com"
 
+    # Auth. The public URL ran open for months (V2.md's biggest delivery
+    # risk); this closes it. auth_enabled exists so a developer can run the
+    # app locally without signing in — it must stay TRUE on the VM.
+    auth_enabled: bool = True
+    # Secure cookies require HTTPS. Production is behind HTTPS so the VM's
+    # .env sets AUTH_COOKIE_SECURE=true; local testing is plain http and must
+    # leave it false or the browser silently drops the login cookie.
+    auth_cookie_secure: bool = False
+    auth_session_days: int = 30
+    auth_invite_days: int = 7
+    auth_reset_hours: int = 4
+    # scripts/healthcheck.py runs on the box with no browser and no cookie, so
+    # once auth is on every one of its 27 checks would 401. It sends this
+    # shared secret in X-Health-Token instead. Empty = no bypass exists at
+    # all (fail closed); the VM's .env sets a long random value.
+    auth_health_token: str = ""
+
     log_level: str = "INFO"
 
 

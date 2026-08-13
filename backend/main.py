@@ -5,10 +5,13 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.routes import router
+from backend.auth import deps as auth_deps
+from backend.auth import store as auth_store
+from backend.auth.api import router as auth_router
 from backend.favorite.api import router as favorite_router
 from backend.traders.api import router as traders_router
 from backend.traders import store as traders_store
@@ -32,12 +35,33 @@ async def lifespan(app: FastAPI):
     for name in _QUIET_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
     traders_store.init()
+    auth_store.init()
+    auth_store.purge_expired()
+    if auth_store.user_count() == 0:
+        logging.getLogger(__name__).warning(
+            "auth: no accounts exist yet — create the first admin with "
+            "`python scripts/create_admin.py <username>` or nobody can sign in")
     scheduler.start()
     yield
     scheduler.stop()
 
 
 app = FastAPI(title="Polymarket Price Tracker", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def require_auth(request, call_next):
+    """Fail-closed gate. Every /api/ path needs a session unless it is on the
+    allow-list in auth.deps.is_public(), so an endpoint added later is
+    protected by default rather than accidentally exposed — which is exactly
+    how this app spent months serving live data to the open internet.
+
+    Non-API paths (the SPA shell, hashed assets) always pass: the browser has
+    to be able to load the app in order to render the login page."""
+    if settings.auth_enabled and not auth_deps.is_public(request.url.path):
+        if not (auth_deps.has_health_token(request) or auth_deps.current_user(request)):
+            return JSONResponse({"detail": "sign in to continue"}, status_code=401)
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -59,6 +83,7 @@ async def cache_headers(request, call_next):
 
 
 # JSON API under /api/... (see backend/api/routes.py)
+app.include_router(auth_router)
 app.include_router(router)
 app.include_router(traders_router)
 app.include_router(favorite_router)
@@ -71,6 +96,12 @@ app.include_router(favorite_router)
 @app.get("/market/{market_id}")
 @app.get("/accounts_tracker")
 @app.get("/backtesting")
+@app.get("/login")
+@app.get("/register")
+@app.get("/forgot")
+@app.get("/reset")
+@app.get("/admin")
+@app.get("/account")
 def spa_page(sport: str = "", market_id: int = 0):
     """Serve index.html for the app's own page routes."""
     return FileResponse("frontend/dist/index.html")

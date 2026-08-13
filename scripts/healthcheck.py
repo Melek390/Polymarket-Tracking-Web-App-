@@ -16,6 +16,7 @@ actually bitten this app:
 """
 import argparse
 import json
+import os
 import shutil
 import sys
 import time
@@ -24,6 +25,27 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 BASE = "http://127.0.0.1:8000"
+
+# The API needs a session once auth is on, and this script has no browser.
+# It sends the shared secret from AUTH_HEALTH_TOKEN instead (read straight
+# from the environment, falling back to the .env the app itself loads).
+def _health_token():
+    tok = os.environ.get("AUTH_HEALTH_TOKEN", "")
+    if tok:
+        return tok
+    try:
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(here, ".env"), encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if line.startswith("AUTH_HEALTH_TOKEN="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return ""
+
+
+HEALTH_TOKEN = _health_token()
 SPORTS = ["soccer", "basketball", "baseball", "tennis", "football", "cricket", "esports"]
 SLOW_SECONDS = 3.0          # an endpoint slower than this is a warning
 STALE_TICK_MINUTES = 15     # a tracked market silent longer than this is suspect
@@ -39,8 +61,22 @@ def record(level, name, detail=""):
 
 def get(path, timeout=20):
     started = time.time()
-    with urllib.request.urlopen(BASE + path, timeout=timeout) as r:
-        return json.load(r), time.time() - started
+    req = urllib.request.Request(BASE + path)
+    if HEALTH_TOKEN:
+        req.add_header("X-Health-Token", HEALTH_TOKEN)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.load(r), time.time() - started
+    except urllib.error.HTTPError as e:
+        # One clear message beats 27 identical "401" failures that look like
+        # the app is broken when it is only the token that is missing.
+        if e.code == 401:
+            raise SystemExit(
+                "\nFAIL: the API requires authentication and this script has no token.\n"
+                "      Set AUTH_HEALTH_TOKEN in the app's .env (and export it, or run\n"
+                "      this script from the app directory so the .env is found).\n"
+                "      It must match the value the running service loaded.\n")
+        raise
 
 
 # ---------------------------------------------------------------- smoke tests

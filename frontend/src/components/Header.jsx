@@ -15,8 +15,9 @@ const szBtn = {
   lineHeight: 1,
 };
 
-// Top bar: app name, page nav, collector health, text size, refresh.
-export default function Header({ collectorRunning, refreshing, onRefresh, onNavigate, scale = 1, onScale }) {
+// Top bar: app name, page nav, collector health, text size, refresh, account.
+export default function Header({ collectorRunning, refreshing, onRefresh, onNavigate,
+  scale = 1, onScale, user, onSignOut }) {
   return (
     <header
       style={{
@@ -36,6 +37,8 @@ export default function Header({ collectorRunning, refreshing, onRefresh, onNavi
             ["Screener", "/screener"],
             ["Accounts", "/accounts_tracker"],
             ["Backtesting", "/backtesting"],
+            // user management is the client's own page — hidden from everyone else
+            ...(user?.is_admin ? [["Users", "/admin"]] : []),
           ].map(([name, href]) => {
             // Dashboard owns "/" and the market history pages under it; the
             // others match their own prefix.
@@ -74,6 +77,27 @@ export default function Header({ collectorRunning, refreshing, onRefresh, onNavi
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        {user && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: T.ui, fontSize: 12, opacity: 0.85 }}
+              title={user.is_admin ? "Signed in as an administrator" : "Signed in"}>
+              {user.display_name || user.username}
+              {user.is_admin ? " · admin" : ""}
+            </span>
+            <button
+              onClick={onSignOut}
+              title="Sign out of this browser"
+              style={{
+                fontFamily: T.ui, fontSize: 12, fontWeight: 600,
+                padding: "5px 11px", borderRadius: 8, cursor: "pointer",
+                background: "transparent", color: "#fff",
+                border: "1px solid rgba(255, 255, 255, 0.55)",
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+        )}
         {onScale && (
           <div style={{ display: "flex", alignItems: "center", gap: 5 }} title="Text size (only scales the content)">
             <button onClick={() => onScale(-0.1)} style={szBtn}>A−</button>
