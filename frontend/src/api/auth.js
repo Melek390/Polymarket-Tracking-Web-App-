@@ -27,10 +27,23 @@ async function call(path, body) {
   return data;
 }
 
+// `installed` tells the app whether the auth API exists on the server AT ALL.
+// The bundle and the backend deploy separately, so a build carrying the auth
+// UI can land on a server that has not had the auth backend shipped yet — a
+// 404 here means exactly that, and the app must keep working as it did before
+// auth existed rather than bouncing everyone to a /login the old server
+// cannot even serve. This is only about the UI: the real gate is the
+// server-side middleware, which refuses data regardless of what we decide.
 export async function fetchMe() {
-  const r = await fetch("/api/auth/me");
-  if (!r.ok) return { user: null, auth_enabled: true };
-  return r.json();
+  let r;
+  try {
+    r = await fetch("/api/auth/me");
+  } catch {
+    return { user: null, auth_enabled: true, installed: true };
+  }
+  if (r.status === 404) return { user: null, auth_enabled: false, installed: false };
+  if (!r.ok) return { user: null, auth_enabled: true, installed: true };
+  return { ...(await r.json()), installed: true };
 }
 
 export const login = (username, password) => call("/api/auth/login", { username, password });

@@ -61,6 +61,9 @@ export default function App() {
   // The three states matter: rendering the login page during the check would
   // flash it at someone who is already signed in on every page load.
   const [me, setMe] = useState(undefined);
+  // false = this server has no auth API yet (the bundle shipped ahead of the
+  // backend). Skip the gate entirely and behave as the app did before auth.
+  const [authInstalled, setAuthInstalled] = useState(true);
   const [stats, setStats] = useState(null);
   const [markets, setMarkets] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -88,7 +91,10 @@ export default function App() {
   // Who is signed in? Asked once on load; every data fetch waits for it.
   useEffect(() => {
     fetchMe()
-      .then((r) => setMe(r.user))
+      .then((r) => {
+        setAuthInstalled(r.installed);
+        setMe(r.user);
+      })
       .catch(() => setMe(null));
   }, []);
 
@@ -96,8 +102,8 @@ export default function App() {
   // effect (not during render) keeps it out of the render path and lets the
   // public pages render normally.
   useEffect(() => {
-    if (me === null && !PUBLIC_VIEWS.has(route.view)) navigate("/login");
-  }, [me, route.view]);
+    if (authInstalled && me === null && !PUBLIC_VIEWS.has(route.view)) navigate("/login");
+  }, [authInstalled, me, route.view]);
 
   function onSignedIn(user) {
     setMe(user);
@@ -164,13 +170,14 @@ export default function App() {
   // ...but only once we know there is a session: firing these while signed
   // out just produces 401s and a red error banner behind the login page.
   useEffect(() => {
-    if (!me) return undefined;
+    // wait for a session, unless this server has no auth at all
+    if (authInstalled && !me) return undefined;
     refresh();
     const id = setInterval(() => {
       if (document.visibilityState === "visible") refresh();
     }, 15_000);
     return () => clearInterval(id);
-  }, [me]);
+  }, [authInstalled, me]);
 
   async function handleDelete(id) {
     // drop the row right away — the server erase of a big history can take
@@ -204,7 +211,9 @@ export default function App() {
     return <div style={{ minHeight: "100vh", background: T.soft }} />;
   }
   // The signed-out pages own the whole window — no header, no polling.
-  if (!me) {
+  // Skipped entirely when the server has no auth API: there is nothing to
+  // sign in to, and gating here would lock everyone out of a working app.
+  if (authInstalled && !me) {
     if (route.view === "register") {
       return <Register onSignedIn={onSignedIn} navigate={navigate} params={route.params} />;
     }
@@ -216,7 +225,7 @@ export default function App() {
     return <Login onSignedIn={onSignedIn} navigate={navigate} />;
   }
   // A signed-in user who lands on /login or /register belongs in the app.
-  if (PUBLIC_VIEWS.has(route.view)) {
+  if (PUBLIC_VIEWS.has(route.view) || (!authInstalled && route.view === "admin")) {
     navigate("/");
     return <div style={{ minHeight: "100vh", background: T.soft }} />;
   }
