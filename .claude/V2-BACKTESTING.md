@@ -64,6 +64,40 @@ the tag is rare by design. Sample compounds nightly with zero effort.
 GOTCHA (local dev): fav_store.put inside an open get_db() write txn loses
 rows silently-ish — never nest connections; prod paths never do.
 
+SEASON-WIDE EXPANSION (Aug 14, user's insight: "score is calculated before
+games so we don't need tick data"): favhistory.py now sweeps the FULL MLB
+schedule from SEASON_START 2026-03-25, not just backtest_games. Untracked
+games are stored with market_id=0 (sentinel — table keeps NOT NULL);
+fav_history_rows() LEFT JOINs; the engine prices them from payload
+t5_prices and settles from payload home_won (MLB's own final — no market
+data needed for outcomes AT ALL). They never enter gold/silver segments
+(those describe tick density) and only ride under segment "both". Strategy
+renamed "Clear Favorite — hold to win (all season games, no tick data
+needed)" — rename migration in store.init() targets the favorite_replay
+row by kind. Sweep call: /v1/schedule?date=D&gameType=R&hydrate=
+probablePitcher + fields -> pk/teams/scores/probables in ONE call per day.
+
+PRICE-SOURCE LADDER for untracked games (probed Aug 14, keep this):
+1. CLOB /prices-history interval=max fidelity=10 — ONLY RETAINS ~2 WEEKS
+   AFTER SETTLEMENT (Aug 1 ✓ 605 bars, Jul 1 ✗ 0, all older ✗). The V2
+   note "interval=max serves resolved markets" is true only inside that
+   window now.
+2. data-api.polymarket.com/trades?market=<conditionId> — the trade tape
+   RETAINS THE WHOLE SEASON (June probed ✓). NO timestamp params honored
+   (from/to/startTs/before all ignored) -> page newest-first, limit 1000 +
+   offset, until crossing T-5; cap 6 pages; last trade <= T-5 per outcome
+   = entry, oldest >= 10Z = day open; one-sided tape -> complement (100-x).
+   price_source tags: own_ticks | clob_10min_bars | trade_tape | none
+   (none -> market factor missing -> disqualified, skipped not invented).
+   Smoke-verified: Jun 15 MIA@PHI = 65.0c via tape, matches manual probe.
+Engine response adds outsideTickCorpus; buckets "Tick-tracked games" vs
+"Untracked games (settled market history)". Tests 35/35 in scratchpad
+test_favorite_replay.py. Commit 8f1dd10.
+DEPLOY PENDING (Aug 14 ~23:00): tarball uploaded to server /tmp, pre-check
+26/27, but extract+restart ssh was classifier-blocked — USER MUST RUN the
+one-liner from the transcript, then kick /api/backtest/favbackfill
+repeatedly (~120 games/pass, full season ~2k games) or let the 6h job chip.
+
 ## THE SEEDED STRATEGY IS THE COMEBACK-TAG REPLAY (user replaced it, Aug 14)
 
 "Potential comeback" no longer runs the checklist — params.kind =
