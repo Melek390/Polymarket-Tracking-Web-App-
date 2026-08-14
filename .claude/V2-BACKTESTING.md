@@ -31,7 +31,33 @@ auto-runs the SAVED params (the main display IS the default run); Save & run
 persists server-side then re-runs. Menu shows eligible games / ticks /
 backfilled spots / strategies.
 
-FIRST REAL RUN (Aug 14, defaults, 227 games / 2,419 spots, 225 gold — the
+## THE SEEDED STRATEGY IS THE COMEBACK-TAG REPLAY (user replaced it, Aug 14)
+
+"Potential comeback" no longer runs the checklist — params.kind =
+"comeback_replay" replays the Aug 13 Comeback Setup TAG over the corpus:
+minInning 7/8/9 (default 8), scoreStates down1/tied checkboxes,
+requireHomeNext toggle, fatigue stand-ins (season WHIP > 1.35 / walks-game
+>= 2 / pitches >= 85, minMatches 0-3; "pitched yesterday" NOT in spots —
+said so in the dialog). engine.run dispatches on kind; the checklist lives
+on as run_checklist + CHECKLIST_DEFAULTS for when the client's win
+definition lands. _trade() is the shared pricing core. SCHEMA v2 (meta
+version row, wipe+rebuild on bump): TIED spots now stored (home side,
+deficit 0, 80c net) — 3,457 spots after rebuild. home_settlements() reads
+each market's final pinned tick (>=90 home won / <=10 lost) so every run
+reports COMEBACK COMPLETED alongside the scalp. bySituation = the client's
+value-band sheet (Down1 <=20/21-25/26-30/>=31; Tied <=50/51-55/56-60/>=61)
+verified against history; comparison = one-knob sweeps (fatigue 0/saved/2,
+minInning 7/8/9). LOCAL-IMPORT TRAP: copying backtest tables to the dev DB
+makes comeback rates nonsense (settlements read local ticks) — prod is truth.
+
+TAG-REPLAY FIRST NUMBERS (defaults): 35 fires · scalp 62.9% / −$921 (same
+exit asymmetry as below) · COMEBACK COMPLETED 14/32 = 43.8%. Fatigue >=1
+does NOT lift completion (44% vs 43% unfiltered, n=116); >=2 checks n=4.
+Down1 <=20c ("Strong value"): completed 1/7 = 14% vs <=20% implied — the
+market was roughly right; Tied >=61c: 64% vs >=61% implied — also fair.
+Small n everywhere; say so before anyone trades on it.
+
+CHECKLIST FIRST RUN (Aug 14, defaults, 227 games / 2,419 spots, 225 gold — the
 corpus is now overwhelmingly live-collected; the tag verified by hand against
 raw medians): hard-rules-only = 518 spots, 64.1% win rate, P&L −$10,565.
 Score >=7 = 49 spots, 59.2%, −$1,200. EVERY variant loses money at a 60%+
