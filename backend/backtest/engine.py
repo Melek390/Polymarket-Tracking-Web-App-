@@ -365,7 +365,10 @@ def run_favorite(params: dict) -> dict:
     slippage therefore hit the entry leg only."""
     f, ex, stake = params["filter"], params["exec"], params["stake"]
     segment = params.get("corpus", {}).get("segment", "both")
-    locks = store.favorite_locks()
+    source = f.get("source", "both")
+    locks = store.favorite_locks() + store.fav_history_rows()
+    if source != "both":
+        locks = [L for L in locks if L["source"] == source]
     settlements = store.home_settlements()
 
     def evaluate(min_total=None, min_price=None, require_disq=None):
@@ -422,7 +425,7 @@ def run_favorite(params: dict) -> dict:
                             "bounce": 0.0, "fee": round(fee, 2),
                             "ts": L["locked_at"], "gold": L["gold"] or 0,
                             "entry": best["price"], "side": best["side"],
-                            "total": best["total"]})
+                            "total": best["total"], "source": L["source"]})
         return results, untracked, unsettled
 
     results, untracked, unsettled = evaluate()
@@ -458,6 +461,9 @@ def run_favorite(params: dict) -> dict:
         bucket("Favorite is the AWAY side", lambda r: r["side"] == "away"),
         bucket("Score 75–80", lambda r: 75 <= r["total"] < 80),
         bucket("Score 80+", lambda r: r["total"] >= 80),
+        bucket("Locked (real T-5 snapshots)", lambda r: r["source"] == "locked"),
+        bucket("Reconstructed (historical, approximations flagged)",
+               lambda r: r["source"] == "reconstructed"),
     ) if b["spots"] > 0]
 
     seg = {
@@ -473,7 +479,8 @@ def run_favorite(params: dict) -> dict:
         "bySituation": by_situation,
         "comparison": comparison,
         "segments": seg,
-        "lockedGames": len(locks),
+        "lockedGames": sum(1 for L in locks if L["source"] == "locked"),
+        "reconstructedGames": sum(1 for L in locks if L["source"] == "reconstructed"),
         "untrackedLocks": untracked,
         "unsettled": unsettled,
         "avgEntryCents": round(avg_entry, 1) if avg_entry is not None else None,

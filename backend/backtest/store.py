@@ -56,6 +56,18 @@ CREATE TABLE IF NOT EXISTS backtest_spots (
 );
 CREATE INDEX IF NOT EXISTS idx_backtest_spots_market ON backtest_spots(market_id);
 
+-- reconstructed Clear Favorite verdicts: the T-5 computation re-run for
+-- HISTORICAL games from as-of-then data (timecode boxscores, season
+-- schedules sliced to the date, our own pre-game ticks). Real locks live in
+-- favorite_verdicts; these carry synthetic=true and are never mixed silently.
+CREATE TABLE IF NOT EXISTS backtest_fav_history (
+    game_pk    INTEGER PRIMARY KEY,
+    market_id  INTEGER NOT NULL,
+    t5_ts      TEXT NOT NULL,
+    payload    TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
 CREATE TABLE IF NOT EXISTS backtest_strategies (
     id          INTEGER PRIMARY KEY,
     name        TEXT NOT NULL,
@@ -111,6 +123,9 @@ FAVORITE_DEFAULTS = {
         "maxPriceCents": 100,
         "requireNoDisqualifiers": True,   # price-related ones are re-checked
         "maxFlags": 1,                    # his rule: 2+ uncertainty flags kill it
+        # locked = the real T-5 snapshots (since Aug 13); reconstructed = the
+        # historical re-computation with its flagged approximations
+        "source": "both",                 # both | locked | reconstructed
     },
     "exec": {"slippageCentsPerSide": 1.0, "entryFee": "taker"},  # taker | maker
     "stake": {"mode": "flat_usd", "usd": 100},
@@ -309,6 +324,50 @@ def all_spots(segment: str = "both") -> list[dict]:
     return out
 
 
+def fav_history_rows() -> list[dict]:
+    """Reconstructed T-5 verdicts, same joined shape as favorite_locks() plus
+    source='reconstructed' and the stored T-5 prices."""
+    out = []
+    with get_db() as conn:
+        for r in conn.execute(
+                """SELECT h.game_pk, h.t5_ts, h.payload, h.market_id,
+                          g.gold, g.home_outcome_id, g.away_outcome_id
+                   FROM backtest_fav_history h
+                   JOIN backtest_games g ON g.market_id = h.market_id
+                   ORDER BY h.t5_ts"""):
+            try:
+                v = json.loads(r["payload"])
+            except json.JSONDecodeError:
+                continue
+            out.append({
+                "game_pk": r["game_pk"], "locked_at": r["t5_ts"], "verdict": v,
+                "market_id": r["market_id"], "gold": r["gold"],
+                "home_outcome_id": r["home_outcome_id"],
+                "away_outcome_id": r["away_outcome_id"],
+                "source": "reconstructed",
+            })
+    return out
+
+
+def save_fav_history(game_pk: int, market_id: int, t5_ts: str, payload: dict):
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO backtest_fav_history (game_pk, market_id, t5_ts, payload) "
+            "VALUES (?, ?, ?, ?)",
+            (game_pk, market_id, t5_ts, json.dumps(payload)))
+
+
+def fav_history_pending(limit: int = 500) -> list[dict]:
+    with get_db() as conn:
+        return [dict(r) for r in conn.execute(
+            """SELECT market_id, game_pk, home_outcome_id, away_outcome_id,
+                      mlb_home, mlb_away, gold
+               FROM backtest_games
+               WHERE status='done' AND game_pk IS NOT NULL
+                 AND game_pk NOT IN (SELECT game_pk FROM backtest_fav_history)
+               ORDER BY market_id LIMIT ?""", (limit,))]
+
+
 def favorite_locks() -> list[dict]:
     """The locked Clear Favorite verdicts joined to their tracked market, so
     each side has an outcome id (entry price) and a settlement. Only games we
@@ -333,6 +392,7 @@ def favorite_locks() -> list[dict]:
                 "gold": g["gold"] if g else None,
                 "home_outcome_id": g["home_outcome_id"] if g else None,
                 "away_outcome_id": g["away_outcome_id"] if g else None,
+                "source": "locked",
             })
     return out
 

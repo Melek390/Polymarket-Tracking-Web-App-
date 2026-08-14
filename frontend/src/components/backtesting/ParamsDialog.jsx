@@ -119,6 +119,11 @@ function FavoriteFields({ p, set }) {
       <Row label="Max uncertainty flags" hint="his rule kills a side at 2+">
         <Num value={p.filter.maxFlags} step={1} onChange={(v) => set("filter.maxFlags", v)} />
       </Row>
+      <Row label="Verdict source"
+        hint="locked = real T-5 snapshots (since Aug 13); reconstructed = historical re-computation, approximations flagged">
+        <Choice value={p.filter.source || "both"} onChange={(v) => set("filter.source", v)}
+          options={[["both", "Both"], ["locked", "Locked"], ["reconstructed", "Reconstructed"]]} />
+      </Row>
 
       <div style={{ ...lbl, marginTop: 18 }}>Entry costs — the exit is a fee-free redemption</div>
       <Row label="Slippage on entry (¢)">

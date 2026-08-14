@@ -14,7 +14,7 @@ import time
 
 from fastapi import APIRouter, HTTPException
 
-from backend.backtest import backfill, engine, store
+from backend.backtest import backfill, engine, favhistory, store
 from backend.database.db import get_db
 
 router = APIRouter(prefix="/api/backtest", tags=["backtest"])
@@ -61,6 +61,20 @@ async def kick_backfill():
 @router.get("/backfill/status")
 def backfill_status():
     return backfill.status()
+
+
+@router.post("/favbackfill")
+async def kick_favbackfill():
+    """Reconstruct historical T-5 favorite verdicts, one batch."""
+    if favhistory.status()["running"]:
+        return {"started": False, **favhistory.status()}
+    asyncio.get_event_loop().create_task(favhistory.run_batch())
+    return {"started": True}
+
+
+@router.get("/favbackfill/status")
+def favbackfill_status():
+    return favhistory.status()
 
 MIN_TICKS = 1000
 _cache: tuple[float, dict] | None = None

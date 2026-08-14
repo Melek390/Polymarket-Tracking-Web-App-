@@ -8,6 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from backend.config.settings import settings
 from backend.backtest import backfill as backtest_backfill
+from backend.backtest import favhistory as backtest_favhistory
 from backend.comeback import detector as comeback_detector
 from backend.comeback import outcomes as comeback_outcomes
 from backend.database import db
@@ -189,6 +190,12 @@ def start():
     scheduler.add_job(
         backtest_backfill.run_batch, "interval", hours=6, id="backtest-backfill",
         next_run_time=datetime.now(timezone.utc) + timedelta(seconds=180),
+    )
+    # reconstructed T-5 favorite verdicts ride the same cadence, offset so the
+    # spots backfill has first claim on the MLB API budget
+    scheduler.add_job(
+        backtest_favhistory.run_batch, "interval", hours=6, id="backtest-favhistory",
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=600),
     )
     scheduler.start()
 
