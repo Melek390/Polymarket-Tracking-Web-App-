@@ -183,6 +183,21 @@ def tick_at(conn, outcome_id: int, ts: str) -> float | None:
     return row["price"] if row else None
 
 
+def first_tick(conn, outcome_id: int, ts: str) -> tuple[float, float] | None:
+    """(price, lag_seconds) of the first tick at/after ts. The lag is what the
+    Aug 14 audit exists for: 2.4% of spots had their 'entry' minutes late
+    because the market had stopped ticking — the engine excludes those. A
+    sub-second NEGATIVE lag is normal (second-resolution ticks vs MLB's
+    millisecond stamps) and reported as 0."""
+    row = conn.execute(
+        "SELECT ts, price FROM ticks WHERE outcome_id=? AND ts>=? ORDER BY ts LIMIT 1",
+        (outcome_id, ts)).fetchone()
+    if not row:
+        return None
+    lag = (_ts(row["ts"]) - _ts(ts)).total_seconds()
+    return row["price"], max(0.0, round(lag, 1))
+
+
 def max_between(conn, outcome_id: int, t0: str, t1: str) -> float | None:
     row = conn.execute(
         "SELECT MAX(price) AS m FROM ticks WHERE outcome_id=? AND ts>? AND ts<=?",
@@ -240,13 +255,18 @@ async def build_spots(market_id: int, game_pk: int, gold: int,
             if deficit > MAX_DEFICIT_STORED:
                 continue
             oid = outcome_ids[trailing]
-            e0 = tick_at(conn, oid, h["ts"])
-            if e0 is None or e0 > net or e0 < 0.5:
+            ft = first_tick(conn, oid, h["ts"])
+            if ft is None:
+                continue
+            e0, lag = ft
+            if e0 > net or e0 < 0.5:
                 continue
 
             at = _ts(h["ts"])
             entries = {f"entry{d}": tick_at(conn, oid, _iso(at + timedelta(seconds=d)))
-                       for d in DELAYS}
+                       for d in DELAYS[1:]}
+            entries["entry0"] = e0
+            entries["entry_lag_s"] = lag
 
             # the compressed price path: k future half-ends
             path = {}

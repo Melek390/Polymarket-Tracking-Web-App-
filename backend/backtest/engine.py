@@ -17,6 +17,16 @@ top of the mid, and fees follow Polymarket's taker formula per leg
 
 from backend.backtest import store
 
+# An entry whose first available tick lagged the half end this far means the
+# market had stopped quoting — no real fill existed at the signal. The Aug 14
+# timestamp audit found 83 such spots (2.4%); they are excluded everywhere
+# and counted in the response as staleEntries.
+MAX_ENTRY_LAG_S = 120.0
+
+
+def _stale(spot: dict) -> bool:
+    return (spot.get("entry_lag_s") or 0.0) > MAX_ENTRY_LAG_S
+
 
 # ---- factor banding (client's bands; weights scale them) ------------------
 
@@ -165,7 +175,7 @@ def _simulate(spot: dict, prm: dict) -> dict | None:
     """Checklist kind: hard gates first, then the trade."""
     hf = prm["hardFilters"]
     e0 = spot["entry0"]
-    if e0 is None:
+    if e0 is None or _stale(spot):
         return None
     if not (hf["minPriceCents"] <= e0 <= hf["maxPriceCents"]):
         return None
@@ -250,7 +260,7 @@ def run_comeback(params: dict) -> dict:
         for s in spots:
             override_sit = dict(sit, minInning=min_inning if min_inning is not None
                                 else sit["minInning"])
-            if not _situation_ok(s, override_sit):
+            if _stale(s) or not _situation_ok(s, override_sit):
                 continue
             need = int(fg["minMatches"] if min_matches is None else min_matches)
             if _fatigue_matches(s, fg) < need:
@@ -340,6 +350,7 @@ def run_comeback(params: dict) -> dict:
         "comparison": comparison,
         "segments": seg,
         "gatedSpots": len(chosen),
+        "staleEntries": sum(1 for s in spots if _stale(s)),
     }
 
 
@@ -417,4 +428,5 @@ def run_checklist(params: dict) -> dict:
         "segments": seg,
         "factorUnknowns": unknown_counts,
         "gatedSpots": len(gated),
+        "staleEntries": sum(1 for s in spots if _stale(s)),
     }
