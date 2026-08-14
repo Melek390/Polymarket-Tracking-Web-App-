@@ -1,24 +1,55 @@
-# V2 BACKTESTING MODE — client spec (Aug 5, 2026). NO CODE YET, NO DECISIONS.
+# V2 BACKTESTING MODE — client spec (Aug 5, 2026). WIRED v1 Aug 14.
 
-## STATUS: ON HOLD (Aug 6) — gathering data. LAYOUT SHIPPED, STRATEGY NOT WIRED
+## STATUS: LIVE (Aug 14) — backend/backtest/, strategy "Potential comeback"
 
-User decision Aug 6: hold the backtesting build while the gold corpus grows
-(42 live-tick games today; every game tracked BEFORE first pitch adds one).
-Disk is resized (30G, 22G free) so collection can run for months. Remind the
-client to track game-day slates ahead of first pitch. Resume from the
-PROPOSED ARCHITECTURE section; the trade-tape depth check is still the first
-build task.
+The two-phase architecture below is BUILT and deployed:
+  store.py     backtest_games / backtest_spots / backtest_strategies (params
+               SERVER-SIDE per the Aug 5 multi-window lessons; defaults in
+               DEFAULT_PARAMS, single source, served with the strategy list)
+  replay.py    THE ALIGNMENT: playByPlay about.endTime and ticks.ts are the
+               same UTC clock — entry price = first tick at/after the half-
+               inning end; factors via ?timecode= boxscore/linescore (pitch
+               counts, walks, season ERA/WHIP for both CURRENT pitchers,
+               trailing team hits); due-up read off the play sequence (pinch
+               hitter -> slot honestly None). Per spot: entry mids at
+               +0/15/30/60s + path {k=1..6: max mid to the k-th future half-
+               end, mid AT it} — every win definition/delay/give-up replays
+               from that one row at query time.
+  backfill.py  6h job + POST /api/backtest/backfill, 40 games/pass, conc 4.
+               Wide net stored (<=45c, deficit <=6) so run-time gates can
+               loosen. Postponement guard: plays must overlap tick span.
+               gold = median tick gap <=10s over the live window. Errors carry
+               reasons and are NOT auto-retried (clear_game to redo one).
+  engine.py    pure arithmetic: client bands (cap 14), hard gates first, both
+               give-up rules (horizon exit vs full stake loss), slippage/side,
+               taker fee 0.05·p·(1−p) per leg (maker_exit/maker_both modes),
+               flat-$ or 100-share staking, gold/silver segments, factor-
+               unknown coverage, and ALWAYS the rules-only vs score>=5/6/7/8
+               comparison table (the spec's first deliverable).
+Frontend: strategies from GET /api/backtest/strategies; expanding the card
+auto-runs the SAVED params (the main display IS the default run); Save & run
+persists server-side then re-runs. Menu shows eligible games / ticks /
+backfilled spots / strategies.
 
-/backtesting is live behind a "Backtesting" nav button — design preview only,
-mock numbers, "Run backtest" disabled. Modular per the house rule:
-  views/Backtesting.jsx                      thin page
-  components/backtesting/StrategyCard.jsx    header row + expand
-  components/backtesting/StrategyStats.jsx   KPIs, equity, situation table
-  components/backtesting/ParamsDialog.jsx    hard filters / bounce / weights,
-                                             Restore defaults
-  api/backtestPreview.js                     mock data + DEFAULT_PARAMS
-Param edits are component-state only. When they become real they go SERVER-SIDE
-(presets shared, multi-window — see the Aug 5 localStorage lessons in V2.md).
+FIRST REAL RUN (Aug 14, defaults, 227 games / 2,419 spots, 225 gold — the
+corpus is now overwhelmingly live-collected; the tag verified by hand against
+raw medians): hard-rules-only = 518 spots, 64.1% win rate, P&L −$10,565.
+Score >=7 = 49 spots, 59.2%, −$1,200. EVERY variant loses money at a 60%+
+win rate because the DRAFT exit is asymmetric: a +5c bounce win pays ~$25 on
+a $100 stake while a no-bounce horizon exit on a collapsing trailer loses
+$50-80 — break-even needs ~75-85% wins. Winners' average max was 14.9c,
+3x past the +5c target. CONCLUSION THE LAB EXISTS TO PRODUCE: the win
+definition IS the strategy; the checklist mostly throttles volume rather
+than lifting hit rate (64.1 -> 59.2 at >=7) — but judge nothing until the
+client's real exit rule is in and factors 4/9 are replayable.
+
+V1 HONESTY LIMITS (tell the client): factors 4 (team form) and 9 (price vs
+history) stored NULL = scored 0 and reported as unknown coverage — they need
+per-date records and the WE table. Weather not replayed (park factor only).
+Win definition +5c/4 halves/horizon-exit and minInningsLeft=4 are STILL
+DRAFTS pending his answers. Trade-tape fill probe STILL not done (fills are
+mid + slippage model). ~2 markets skipped: outcome labels are Yes/No not team
+names (early May tracking) — mapping refused rather than guessed.
 
 ## THE STRATEGY IN PLAIN TERMS (for the client to confirm)
 
