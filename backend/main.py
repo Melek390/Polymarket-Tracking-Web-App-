@@ -12,6 +12,7 @@ from backend.api.routes import router
 from backend.auth import deps as auth_deps
 from backend.auth import store as auth_store
 from backend.auth.api import router as auth_router
+from backend.backtest.api import router as backtest_router
 from backend.comeback.api import router as comeback_router
 from backend.comeback import store as comeback_store
 from backend.favorite.api import router as favorite_router
@@ -93,6 +94,7 @@ app.include_router(router)
 app.include_router(traders_router)
 app.include_router(favorite_router)
 app.include_router(comeback_router)
+app.include_router(backtest_router)
 
 
 # The frontend uses real paths (not hashes), so a page opened directly at

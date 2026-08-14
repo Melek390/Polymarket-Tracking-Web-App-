@@ -1,13 +1,36 @@
-import { T, card, page, btn } from "../theme.js";
+import { useEffect, useState } from "react";
+import { T, card, page, btn, label, monoText } from "../theme.js";
 import StrategyCard from "../components/backtesting/StrategyCard.jsx";
 import { STRATEGIES } from "../api/backtestPreview.js";
+import { fetchBacktestCorpus } from "../api/client.js";
 
 // Backtesting — FIRST DRAFT, layout only (mock data in api/backtestPreview.js).
 // Strategies stack vertically per the client's sketch: header row with
 // "adjust params", stats underneath. The simulator itself is NOT wired; see
 // .claude/V2-BACKTESTING.md for the strategy spec and the open questions.
 
+// The header menu: the two numbers that size the lab before anything runs.
+// Eligible games is REAL — counted from the tracker's own tick store — so
+// even while the simulator is a mock, the corpus figure is the truth.
+function MenuStat({ title, value, sub }) {
+  return (
+    <div style={{ ...card, padding: "12px 18px", minWidth: 170 }}>
+      <div style={label}>{title}</div>
+      <div style={{ ...monoText, fontSize: 22, fontWeight: 700, marginTop: 2 }}>
+        {value}
+      </div>
+      {sub && <div style={{ fontSize: 11, color: T.faint, marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+}
+
 export default function Backtesting() {
+  // null = loading, false = fetch failed (server without the endpoint yet)
+  const [corpus, setCorpus] = useState(null);
+  useEffect(() => {
+    fetchBacktestCorpus().then(setCorpus).catch(() => setCorpus(false));
+  }, []);
+
   return (
     <main style={page}>
       <div style={{
@@ -33,6 +56,30 @@ export default function Backtesting() {
         >
           + New strategy
         </button>
+      </div>
+
+      {/* main menu — the size of the lab at a glance */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <MenuStat
+          title="Eligible games"
+          value={corpus === null ? "…" : corpus === false ? "—" : corpus.eligible_games.toLocaleString("en-US")}
+          sub={corpus && corpus.since
+            ? `tracked MLB games with recorded ticks · since ${corpus.since}`
+            : "tracked MLB games with recorded ticks"}
+        />
+        <MenuStat
+          title="Price ticks stored"
+          value={corpus === null ? "…" : corpus === false ? "—"
+            : corpus.total_ticks >= 1e6
+              ? `${(corpus.total_ticks / 1e6).toFixed(1)}M`
+              : corpus.total_ticks.toLocaleString("en-US")}
+          sub="1-second while live — what the replays run on"
+        />
+        <MenuStat
+          title="Strategies"
+          value={STRATEGIES.length}
+          sub="design previews until the simulator is wired"
+        />
       </div>
 
       {STRATEGIES.map((s, i) => (

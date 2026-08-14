@@ -152,6 +152,11 @@ export async function fetchFavorite(gamePk) {
   return request(`/api/favorite/${gamePk}`);
 }
 
+// GET /api/backtest/corpus — how many recorded games a backtest can replay
+export async function fetchBacktestCorpus() {
+  return request("/api/backtest/corpus");
+}
+
 // --- Comeback Setup (tired reliever protecting a late 1-run/tied lead) ----
 export async function fetchComebackActive() {
   return request(`/api/comeback/active?_=${Date.now()}`);
