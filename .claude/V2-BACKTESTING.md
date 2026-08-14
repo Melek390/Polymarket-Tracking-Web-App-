@@ -92,11 +92,23 @@ PRICE-SOURCE LADDER for untracked games (probed Aug 14, keep this):
    Smoke-verified: Jun 15 MIA@PHI = 65.0c via tape, matches manual probe.
 Engine response adds outsideTickCorpus; buckets "Tick-tracked games" vs
 "Untracked games (settled market history)". Tests 35/35 in scratchpad
-test_favorite_replay.py. Commit 8f1dd10.
-DEPLOY PENDING (Aug 14 ~23:00): tarball uploaded to server /tmp, pre-check
-26/27, but extract+restart ssh was classifier-blocked — USER MUST RUN the
-one-liner from the transcript, then kick /api/backtest/favbackfill
-repeatedly (~120 games/pass, full season ~2k games) or let the 6h job chip.
+test_favorite_replay.py. Commit 8f1dd10. Deployed Aug 15 ~00:00 UTC
+(user approved), healthcheck 27/27; sweep drained in 15 passes.
+
+FULL-SEASON RESULT (Aug 15, 1,826 games Mar 25-Aug 13, 1,599 outside the
+tick corpus, ~97% price recovery): saved thresholds (75/59c) -> 44 BETS,
+30-14 = 68.2% win rate vs 68.2% IMPLIED — a dead match; P&L -$86 ~= the
+$68 fees + slippage. The n=6 verdict holds at n=44: the filter finds real
+favorites, the market prices them almost perfectly, no detectable edge.
+Score bar sweeps confirm the bar earns its place (65 -> 98 bets 58.2%
+-$1,457; 80 -> 23 bets -$191; 75 is the sweet spot). ONE HOPEFUL BUCKET:
+entry 59-65c went 11/12 (+$475) — cheap qualifying favorites; n=12, could
+be noise, worth watching as locks compound. Away favorites 10/13 +$188 vs
+home 20/31 -$273. Tick-tracked (6 bets -$33) and untracked (38 bets -$52)
+agree — the reconstruction isn't the story, the market efficiency is.
+LATENT NOTE: a game with BOTH a real lock and a reconstructed row would
+double-count if both sides qualify (hasn't happened — 13 locks, 0
+qualifying yet); the source param separates them if it ever matters.
 
 ## THE SEEDED STRATEGY IS THE COMEBACK-TAG REPLAY (user replaced it, Aug 14)
 
