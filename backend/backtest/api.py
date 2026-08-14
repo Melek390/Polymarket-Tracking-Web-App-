@@ -31,11 +31,8 @@ def corpus():
     with get_db() as conn:
         row = conn.execute(
             """SELECT COUNT(*) AS games,
-                      COALESCE(SUM(n), 0) AS ticks,
-                      MIN(first_seen) AS since
-               FROM (SELECT m.id,
-                            SUM(tc.n) AS n,
-                            m.created_at AS first_seen
+                      COALESCE(SUM(n), 0) AS ticks
+               FROM (SELECT m.id, SUM(tc.n) AS n
                      FROM markets m
                      JOIN events e   ON e.id = m.event_id
                      JOIN outcomes o ON o.market_id = m.id
@@ -44,10 +41,16 @@ def corpus():
                      GROUP BY m.id
                      HAVING SUM(tc.n) >= ?)""",
             (MIN_TICKS,)).fetchone()
+        # NOT markets.created_at: a July migration backfilled that column with
+        # its own run date, which put "since July 17" on a corpus whose ticks
+        # demonstrably start May 4. MIN over the ts index is O(1) and honest
+        # (first tick the tracker ever stored, any sport — same day the MLB
+        # collection started).
+        first = conn.execute("SELECT MIN(ts) AS t FROM ticks").fetchone()
     result = {
         "eligible_games": row["games"],
         "total_ticks": row["ticks"],
-        "since": (row["since"] or "")[:10] or None,
+        "since": (first["t"] or "")[:10] or None,
         "min_ticks": MIN_TICKS,
     }
     _cache = (now, result)
