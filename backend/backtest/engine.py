@@ -315,7 +315,7 @@ def run_comeback(params: dict) -> dict:
                 "comebackRate": comeback_rate(sub)["rate"]}
 
     by_situation = [
-        bucket("Down 1 · entry ≤20¢ (his: Strong value)",
+        bucket("Down 1 · entry ≤20¢ (Strong value)",
                lambda s, r: s["deficit"] == 1 and r["entry"] <= 20),
         bucket("Down 1 · 21–25¢ (Decent)",
                lambda s, r: s["deficit"] == 1 and 20 < r["entry"] <= 25),
