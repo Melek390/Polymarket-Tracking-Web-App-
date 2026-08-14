@@ -41,12 +41,19 @@ def corpus():
                      GROUP BY m.id
                      HAVING SUM(tc.n) >= ?)""",
             (MIN_TICKS,)).fetchone()
-        # NOT markets.created_at: a July migration backfilled that column with
-        # its own run date, which put "since July 17" on a corpus whose ticks
-        # demonstrably start May 4. MIN over the ts index is O(1) and honest
-        # (first tick the tracker ever stored, any sport — same day the MLB
-        # collection started).
-        first = conn.execute("SELECT MIN(ts) AS t FROM ticks").fetchone()
+        # The since-date has two traps, both hit on the way here:
+        # markets.created_at was backfilled by a July migration with its own
+        # run date ("since July 17"), and a global MIN(ts) catches settled-
+        # market CLOB backfills whose history reaches back a YEAR ("since
+        # July 2025"). So: earliest tick of the MLB outcomes themselves —
+        # one (outcome_id, ts)-index seek per outcome, ~500 seeks, instant.
+        first = conn.execute(
+            """SELECT MIN((SELECT MIN(ts) FROM ticks t
+                           WHERE t.outcome_id = o.id)) AS t
+               FROM markets m
+               JOIN events e   ON e.id = m.event_id
+               JOIN outcomes o ON o.market_id = m.id
+               WHERE e.slug LIKE 'mlb-%'""").fetchone()
     result = {
         "eligible_games": row["games"],
         "total_ticks": row["ticks"],
