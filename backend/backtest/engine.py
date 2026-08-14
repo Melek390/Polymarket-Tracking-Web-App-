@@ -351,12 +351,142 @@ def run_comeback(params: dict) -> dict:
         "segments": seg,
         "gatedSpots": len(chosen),
         "staleEntries": sum(1 for s in spots if _stale(s)),
+        "comparisonTitle": "One knob at a time — fatigue filter and minimum inning",
+    }
+
+
+# ---- the Clear Favorite replay (locked T-5 verdicts, held to settlement) --
+
+def run_favorite(params: dict) -> dict:
+    """Replay the verdicts exactly as locked before first pitch. Thresholds
+    are re-applied over the stored payloads — both sides' full breakdowns are
+    in every lock, so lowering the bar to 65 re-scores the same history. A
+    winner exits by redemption, which is fee-free (V3 rule); fees and
+    slippage therefore hit the entry leg only."""
+    f, ex, stake = params["filter"], params["exec"], params["stake"]
+    segment = params.get("corpus", {}).get("segment", "both")
+    locks = store.favorite_locks()
+    settlements = store.home_settlements()
+
+    def evaluate(min_total=None, min_price=None, require_disq=None):
+        mt = f["minTotal"] if min_total is None else min_total
+        mp = f["minPriceCents"] if min_price is None else min_price
+        rd = f["requireNoDisqualifiers"] if require_disq is None else require_disq
+        results, untracked, unsettled = [], 0, 0
+        for L in locks:
+            if L["market_id"] is None:
+                untracked += 1
+                continue
+            if segment == "gold" and not L["gold"]:
+                continue
+            if segment == "silver" and L["gold"]:
+                continue
+            v = L["verdict"]
+            best = None
+            for side in ("away", "home"):
+                s = v.get(side) or {}
+                total = s.get("total") or 0
+                if total < mt:
+                    continue
+                # the stored "price below 59c" disqualifier encodes the OLD
+                # bar; price is re-checked against the params below, so only
+                # the non-price disqualifiers can still kill a side
+                disq = [d for d in (s.get("disqualifiers") or [])
+                        if "price below" not in d]
+                if rd and disq:
+                    continue
+                if len(s.get("flags") or []) > int(f["maxFlags"]):
+                    continue
+                oid = (L["home_outcome_id"] if side == "home"
+                       else L["away_outcome_id"])
+                price = store.tick_price_at(oid, L["locked_at"])
+                if price is None or not (mp <= price <= f["maxPriceCents"]):
+                    continue
+                if best is None or total > best["total"]:
+                    best = {"side": side, "total": total, "price": price}
+            if not best:
+                continue
+            hw = settlements.get(L["market_id"])
+            if hw is None:
+                unsettled += 1
+                continue
+            won = hw if best["side"] == "home" else (not hw)
+            slip = ex["slippageCentsPerSide"]
+            entry_exec = best["price"] + slip
+            shares = (stake["usd"] / (entry_exec / 100.0)
+                      if stake["mode"] == "flat_usd" else 100.0)
+            fee = (_taker_fee(entry_exec, shares)
+                   if ex.get("entryFee", "taker") == "taker" else 0.0)
+            pnl = shares * ((100.0 if won else 0.0) - entry_exec) / 100.0 - fee
+            results.append({"win": won, "pnl": round(pnl, 2), "hold": 0,
+                            "bounce": 0.0, "fee": round(fee, 2),
+                            "ts": L["locked_at"], "gold": L["gold"] or 0,
+                            "entry": best["price"], "side": best["side"],
+                            "total": best["total"]})
+        return results, untracked, unsettled
+
+    results, untracked, unsettled = evaluate()
+    overall = _aggregate(results)
+
+    comparison = []
+    for label, kwargs in (
+        ("Saved thresholds", {}),
+        ("Score bar 65", {"min_total": 65}),
+        ("Score bar 70", {"min_total": 70}),
+        ("Score bar 75", {"min_total": 75}),
+        ("Score bar 80", {"min_total": 80}),
+        ("Price floor 55¢", {"min_price": 55}),
+        ("Price floor 65¢", {"min_price": 65}),
+        ("Disqualifiers ignored", {"require_disq": False}),
+    ):
+        sub, _, _ = evaluate(**kwargs)
+        agg = _aggregate(sub)
+        comparison.append({"label": label,
+                           **{k: v for k, v in agg.items() if k != "equity"}})
+
+    def bucket(label, pred):
+        sub = [r for r in results if pred(r)]
+        agg = _aggregate(sub)
+        return {"label": label, "spots": agg["spots"],
+                "winRate": agg["winRate"], "pnl": agg["pnl"]}
+
+    by_situation = [b for b in (
+        bucket("Entry 59–65¢", lambda r: 59 <= r["entry"] <= 65),
+        bucket("Entry 65–72¢", lambda r: 65 < r["entry"] <= 72),
+        bucket("Entry 72¢+", lambda r: r["entry"] > 72),
+        bucket("Favorite is the HOME side", lambda r: r["side"] == "home"),
+        bucket("Favorite is the AWAY side", lambda r: r["side"] == "away"),
+        bucket("Score 75–80", lambda r: 75 <= r["total"] < 80),
+        bucket("Score 80+", lambda r: r["total"] >= 80),
+    ) if b["spots"] > 0]
+
+    seg = {
+        "gold": {k: v for k, v in _aggregate([r for r in results if r["gold"]]).items()
+                 if k != "equity"},
+        "silver": {k: v for k, v in _aggregate([r for r in results if not r["gold"]]).items()
+                   if k != "equity"},
+    }
+    avg_entry = (sum(r["entry"] for r in results) / len(results)) if results else None
+    return {
+        **overall,
+        "comparisonTitle": "Thresholds one at a time — score bar, price floor, disqualifiers",
+        "bySituation": by_situation,
+        "comparison": comparison,
+        "segments": seg,
+        "lockedGames": len(locks),
+        "untrackedLocks": untracked,
+        "unsettled": unsettled,
+        "avgEntryCents": round(avg_entry, 1) if avg_entry is not None else None,
+        # the number a hold-to-win bet must beat: its own price
+        "impliedWinRate": round(avg_entry / 100.0, 4) if avg_entry is not None else None,
     }
 
 
 def run(params: dict) -> dict:
     if params.get("kind") == "comeback_replay":
         return run_comeback(params)
+    if params.get("kind") == "favorite_replay":
+        return run_favorite(params)
     return run_checklist(params)
 
 

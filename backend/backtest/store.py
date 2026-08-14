@@ -98,6 +98,32 @@ DEFAULT_PARAMS = {
     "stake": {"mode": "flat_usd", "usd": 100},
 }
 
+# Strategy #2: the Clear Favorite verdicts, exactly as LOCKED ~5 min before
+# first pitch, replayed as bets held to settlement. The stored payload keeps
+# both sides' full breakdowns, so every threshold below is re-applied at
+# query time over the SAME locks — no recomputation, no look-ahead. Redeeming
+# a winner is fee-free (the V3 rule), so fees apply to the entry leg only.
+FAVORITE_DEFAULTS = {
+    "kind": "favorite_replay",
+    "filter": {
+        "minTotal": 75,            # the client's bar; sweeps show 65/70/80 too
+        "minPriceCents": 59,
+        "maxPriceCents": 100,
+        "requireNoDisqualifiers": True,   # price-related ones are re-checked
+        "maxFlags": 1,                    # his rule: 2+ uncertainty flags kill it
+    },
+    "exec": {"slippageCentsPerSide": 1.0, "entryFee": "taker"},  # taker | maker
+    "stake": {"mode": "flat_usd", "usd": 100},
+    "corpus": {"segment": "both"},
+}
+
+FAVORITE_SEED = (
+    "Clear Favorite — hold to win",
+    "Replays the verdicts exactly as locked ~5 minutes before first pitch: "
+    "back the qualifying side, hold to settlement. Thresholds are re-applied "
+    "over the stored locks, so every knob re-scores the same history.")
+
+
 # The Aug 5 checklist strategy's defaults — the engine still runs this kind;
 # it returns to the page when the client's win definition lands.
 CHECKLIST_DEFAULTS = {
@@ -177,6 +203,13 @@ def init():
                     conn.execute(
                         "UPDATE backtest_strategies SET params=?, description=? WHERE id=?",
                         (json.dumps(DEFAULT_PARAMS), SEED_DESCRIPTION, r["id"]))
+        # strategy #2 (Aug 14): the Clear Favorite locks, once
+        kinds = [json.loads(r["params"]).get("kind")
+                 for r in conn.execute("SELECT params FROM backtest_strategies")]
+        if "favorite_replay" not in kinds:
+            conn.execute(
+                "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",
+                (*FAVORITE_SEED, json.dumps(FAVORITE_DEFAULTS)))
 
 
 # ---- backfill bookkeeping -------------------------------------------------
@@ -274,6 +307,51 @@ def all_spots(segment: str = "both") -> list[dict]:
         d["path"] = json.loads(d["path"])
         out.append(d)
     return out
+
+
+def favorite_locks() -> list[dict]:
+    """The locked Clear Favorite verdicts joined to their tracked market, so
+    each side has an outcome id (entry price) and a settlement. Only games we
+    hold ticks for can be replayed; the rest are counted, not silently lost."""
+    out = []
+    with get_db() as conn:
+        for r in conn.execute(
+                "SELECT game_pk, locked_at, payload FROM favorite_verdicts "
+                "ORDER BY locked_at"):
+            try:
+                v = json.loads(r["payload"])
+            except json.JSONDecodeError:
+                continue
+            g = conn.execute(
+                """SELECT market_id, gold, home_outcome_id, away_outcome_id
+                   FROM backtest_games WHERE game_pk=? AND status='done'""",
+                (r["game_pk"],)).fetchone()
+            out.append({
+                "game_pk": r["game_pk"], "locked_at": r["locked_at"],
+                "verdict": v,
+                "market_id": g["market_id"] if g else None,
+                "gold": g["gold"] if g else None,
+                "home_outcome_id": g["home_outcome_id"] if g else None,
+                "away_outcome_id": g["away_outcome_id"] if g else None,
+            })
+    return out
+
+
+def tick_price_at(outcome_id: int, ts: str,
+                  max_lag_s: float = 300.0) -> float | None:
+    """The mid at/after a moment, refused if the first tick is too stale —
+    the same honesty rule the spots table enforces via entry_lag_s."""
+    from datetime import datetime
+
+    def parse(t):
+        return datetime.fromisoformat(t.replace("Z", "+00:00")).timestamp()
+    with get_db() as conn:
+        r = conn.execute(
+            "SELECT ts, price FROM ticks WHERE outcome_id=? AND ts>=? "
+            "ORDER BY ts LIMIT 1", (outcome_id, ts)).fetchone()
+    if not r or parse(r["ts"]) - parse(ts) > max_lag_s:
+        return None
+    return r["price"]
 
 
 def home_settlements() -> dict[int, bool | None]:

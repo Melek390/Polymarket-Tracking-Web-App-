@@ -96,6 +96,42 @@ function ComebackFields({ p, set }) {
   );
 }
 
+// The Clear Favorite replay's sheet: the verdict thresholds, re-applied over
+// the locks. No exit section — a favorite bet holds to settlement, and the
+// winning redemption is fee-free, so only the entry leg has costs.
+function FavoriteFields({ p, set }) {
+  return (
+    <>
+      <div style={{ ...lbl, marginTop: 16 }}>The verdict thresholds — re-applied over the stored locks</div>
+      <Row label="Minimum total score (/100)" hint="the client's bar is 75; the sweep table shows 65/70/80 regardless">
+        <Num value={p.filter.minTotal} step={1} onChange={(v) => set("filter.minTotal", v)} />
+      </Row>
+      <Row label="Price floor (¢)" hint="his rule: 59¢ or better">
+        <Num value={p.filter.minPriceCents} step={1} onChange={(v) => set("filter.minPriceCents", v)} />
+      </Row>
+      <Row label="Price ceiling (¢)" hint="skip favorites already priced near certainty">
+        <Num value={p.filter.maxPriceCents} step={1} onChange={(v) => set("filter.maxPriceCents", v)} />
+      </Row>
+      <Row label="Require no disqualifiers" hint="bullpen game / missing data / unannounced starter — price ones are re-checked above">
+        <input type="checkbox" checked={!!p.filter.requireNoDisqualifiers}
+          onChange={(e) => set("filter.requireNoDisqualifiers", e.target.checked)} />
+      </Row>
+      <Row label="Max uncertainty flags" hint="his rule kills a side at 2+">
+        <Num value={p.filter.maxFlags} step={1} onChange={(v) => set("filter.maxFlags", v)} />
+      </Row>
+
+      <div style={{ ...lbl, marginTop: 18 }}>Entry costs — the exit is a fee-free redemption</div>
+      <Row label="Slippage on entry (¢)">
+        <Num value={p.exec.slippageCentsPerSide} step={0.5} onChange={(v) => set("exec.slippageCentsPerSide", v)} />
+      </Row>
+      <Row label="Entry fee">
+        <Choice value={p.exec.entryFee} onChange={(v) => set("exec.entryFee", v)}
+          options={[["taker", "Taker"], ["maker", "Maker (free)"]]} />
+      </Row>
+    </>
+  );
+}
+
 export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
   const [p, setP] = useState(strategy.params);
   const set = (path, value) => {
@@ -109,7 +145,8 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
     });
   };
   const isComeback = p.kind === "comeback_replay";
-  const totalWeight = isComeback ? 0
+  const isFavorite = p.kind === "favorite_replay";
+  const totalWeight = (isComeback || isFavorite) ? 0
     : Object.values(p.weights).reduce((a, b) => a + b, 0);
 
   return (
@@ -126,8 +163,9 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
         </div>
 
         {isComeback && <ComebackFields p={p} set={set} />}
+        {isFavorite && <FavoriteFields p={p} set={set} />}
 
-        {!isComeback && (<>
+        {!isComeback && !isFavorite && (<>
         <div style={{ ...lbl, marginTop: 16 }}>Hard filters — applied first; a failed filter means the spot is never scored</div>
         <Row label="Max price of the trailing team (¢)">
           <Num value={p.hardFilters.maxPriceCents} step={1} onChange={(v) => set("hardFilters.maxPriceCents", v)} />
@@ -150,6 +188,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
         </Row>
         </>)}
 
+        {!isFavorite && (<>
         <div style={{ ...lbl, marginTop: 18 }}>Exit — what counts as a win (drafts pending the client)</div>
         <Row label="Bounce target (¢ above entry)">
           <Num value={p.bounce.targetCents} step={0.5} onChange={(v) => set("bounce.targetCents", v)} />
@@ -175,6 +214,8 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
             options={[["taker_both", "Taker both"], ["maker_exit", "Maker exit"], ["maker_both", "Maker both"]]} />
         </Row>
 
+        </>)}
+
         <div style={{ ...lbl, marginTop: 18 }}>Run controls</div>
         <Row label="Corpus" hint="gold = live-collected 1-10s ticks; silver = minute bars">
           <Choice value={p.corpus.segment} onChange={(v) => set("corpus.segment", v)}
@@ -190,7 +231,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
           </span>
         </Row>
 
-        {!isComeback && (<>
+        {!isComeback && !isFavorite && (<>
         <div style={{ ...lbl, marginTop: 18 }}>
           Checklist — total {totalWeight.toFixed(1)} pts
         </div>

@@ -73,9 +73,10 @@ export default function StrategyStats({ stats }) {
         return (
           <>
             <div style={{ ...lbl, margin: "14px 0 4px" }}>
-              {hasCb
-                ? "One knob at a time — fatigue filter and minimum inning"
-                : "Does the checklist earn its place? — same gate, rising score cutoffs"}
+              {s.comparisonTitle
+                || (hasCb
+                  ? "One knob at a time — fatigue filter and minimum inning"
+                  : "Does the checklist earn its place? — same gate, rising score cutoffs")}
             </div>
             <div style={{ ...card, overflow: "hidden" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
