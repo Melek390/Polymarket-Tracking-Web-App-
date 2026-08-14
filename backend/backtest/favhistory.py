@@ -1,27 +1,21 @@
-"""Reconstruct the Clear Favorite verdict at T-5 for HISTORICAL games.
+"""Reconstruct the Clear Favorite verdict at T-5 — for the WHOLE season.
 
-The live system only started locking verdicts on Aug 13; the corpus reaches
-back to May. This module re-runs the same 100-point computation for each past
-game at five minutes before its first pitch, from data as it stood THEN:
+The user's observation that unlocked this: the score is computed BEFORE the
+game, so 1-second tick data is not needed. Only two inputs sit outside the
+MLB API, and both have season-deep sources:
 
-  market    our own pre-game ticks: the price at T-5 and the day's opening
-            price (first tick after 10:00 UTC on the game's date)
-  sp        both probables' season lines from the game's own boxscore
-            seasonStats — MLB stamps those as-of that game, so a June start
-            carries June numbers, not September's
-  lineup    starters from the boxscore battingOrder; "top five bats" ranked
-            by as-of OPS from the same boxscore
-  strength/ team season schedules sliced to the date: Pythagorean from
-  form/rest to-date runs, last-10 form, rest days + park-to-park miles
-  park      the static park table; historical weather is NOT replayed
+  entry price   tracked games use our own ticks (exact); every other game
+                uses CLOB's settled-market history via the Gamma slug lookup
+                — 10-minute bars, which pre-game prices drift slowly enough
+                to make an honest T-5 approximation (price_source says which)
+  the outcome   MLB's own final score — no market data needed at all
 
-APPROXIMATIONS, carried in every payload rather than hidden:
-  - the SD scale for pitcher ratings uses the CURRENT league distribution
-    (player values are as-of; only the yardstick is season-end)
-  - bullpen quality uses the CURRENT season rank; 3-day workload is unknown
-  - weather unknown -> the park factor's conservative 2, no extreme flag
-  - a pre-game ?timecode= boxscore is used when MLB serves one; otherwise the
-    final boxscore stands in (seasonStats then include the game itself)
+Coverage is therefore every Final regular-season game since Opening Day,
+not just the 232 tracked ones. Factor sources as before, all as-of-then:
+boxscore seasonStats (MLB stamps them per game), season schedules sliced to
+the date, our park table. The same APPROXIMATIONS ride in every payload:
+current-league SD scale for pitchers, current bullpen rank with workload
+unknown, weather not replayed.
 """
 
 import asyncio
@@ -32,12 +26,14 @@ from datetime import datetime, timedelta, timezone
 from backend.backtest import store
 from backend.database.db import get_db
 from backend.favorite import market as fav_market
-from backend.favorite.data import STADIUMS, game_info, league_pitching, park_miles
+from backend.favorite.data import STADIUMS, league_pitching, park_miles
 from backend.mlb import client
+from backend.polymarket import clob, gamma
 
 log = logging.getLogger(__name__)
 
-CONCURRENCY = 4
+SEASON_START = "2026-03-25"          # Opening Day, with a day of slack
+CONCURRENCY = 3                      # three upstream APIs share this budget
 T5_MIN = 5
 APPROXIMATIONS = [
     "pitcher SD scale = current league distribution",
@@ -48,9 +44,21 @@ APPROXIMATIONS = [
 _BOX_FIELDS = ("teams,away,home,players,person,id,battingOrder,seasonStats,"
                "batting,ops,plateAppearances,pitching,era,whip,strikeOuts,"
                "inningsPitched")
+_SWEEP_FIELDS = ("dates,date,games,gamePk,gameType,gameDate,status,"
+                 "abstractGameState,teams,away,home,team,id,name,score,"
+                 "probablePitcher")
 
-_sched_cache: dict[int, list[dict]] = {}     # team_id -> season schedule rows
+_sched_cache: dict[int, list[dict]] = {}
 _league_scale: dict | None = None
+_abbr_cache: dict[str, str] | None = None
+
+# Polymarket's slug abbreviations, where they differ from MLB's (the
+# Athletics rebrand gotcha and friends — mirrors timeline._ABBR_ALIASES)
+_SLUG_FORMS = {
+    "ATH": ["oak", "ath"], "AZ": ["ari", "az"], "CWS": ["cws", "chw"],
+    "WSH": ["wsh", "was"], "SD": ["sd", "sdp"], "SF": ["sf", "sfg"],
+    "TB": ["tb", "tbr"], "KC": ["kc", "kcr"],
+}
 
 
 def _iso(dt: datetime) -> str:
@@ -66,8 +74,6 @@ def _ip(text) -> float:
 
 
 async def _league_sd_scale() -> dict:
-    """Mean/SD of ERA, WHIP and K9 over the current starters table — the
-    yardstick the as-of pitcher values are rated against (flagged approx)."""
     global _league_scale
     if _league_scale:
         return _league_scale
@@ -75,23 +81,19 @@ async def _league_sd_scale() -> dict:
     rows = [p for p in table.values() if p.get("regular_starter", True)]
     def ms(vals):
         return (statistics.mean(vals), statistics.pstdev(vals) or 1.0)
-    _league_scale = {
-        "era": ms([p["era"] for p in rows]),
-        "whip": ms([p["whip"] for p in rows]),
-        "k9": ms([p["k9"] for p in rows]),
-    }
+    _league_scale = {"era": ms([p["era"] for p in rows]),
+                     "whip": ms([p["whip"] for p in rows]),
+                     "k9": ms([p["k9"] for p in rows])}
     return _league_scale
 
 
-def _rating(scale: dict, era: float, whip: float, k9: float) -> float:
+def _rating(scale, era, whip, k9):
     return (((scale["era"][0] - era) / scale["era"][1])
             + ((scale["whip"][0] - whip) / scale["whip"][1])
             + ((k9 - scale["k9"][0]) / scale["k9"][1])) / 3
 
 
 async def _team_season(team_id: int, season: int) -> list[dict]:
-    """The team's whole regular season, one cached fetch — sliced per date by
-    the callers."""
     if team_id in _sched_cache:
         return _sched_cache[team_id]
     r = await client._http().get(
@@ -106,33 +108,29 @@ async def _team_season(team_id: int, season: int) -> list[dict]:
             t = g["teams"]
             mine = "home" if t["home"]["team"]["id"] == team_id else "away"
             other = "away" if mine == "home" else "home"
-            rows.append({
-                "date": d.get("date"),
-                "final": g["status"]["abstractGameState"] == "Final",
-                "home": mine == "home",
-                "opp_id": t[other]["team"]["id"],
-                "won": bool(t[mine].get("isWinner")),
-                "my_runs": t[mine].get("score"),
-                "opp_runs": t[other].get("score"),
-            })
+            rows.append({"date": d.get("date"),
+                         "final": g["status"]["abstractGameState"] == "Final",
+                         "home": mine == "home",
+                         "opp_id": t[other]["team"]["id"],
+                         "won": bool(t[mine].get("isWinner")),
+                         "my_runs": t[mine].get("score"),
+                         "opp_runs": t[other].get("score")})
     rows.sort(key=lambda x: x["date"] or "")
     _sched_cache[team_id] = rows
     return rows
 
 
-def _prior(rows: list[dict], date: str) -> list[dict]:
+def _prior(rows, date):
     return [g for g in rows if g["final"] and (g["date"] or "") < date]
 
 
-# ---- per-factor reconstructions (bands mirror backend/favorite/*) ---------
+# ---- factor bands (mirror backend/favorite/*) -----------------------------
 
 def _strength(prior_mine, prior_theirs) -> dict:
     def pyth(rows):
         rs = sum(g["my_runs"] or 0 for g in rows)
         ra = sum(g["opp_runs"] or 0 for g in rows)
-        if not rs or not ra:
-            return 0.5
-        return rs ** 1.83 / (rs ** 1.83 + ra ** 1.83)
+        return 0.5 if not rs or not ra else rs ** 1.83 / (rs ** 1.83 + ra ** 1.83)
     if len(prior_mine) < 10 or len(prior_theirs) < 10:
         return {"key": "strength", "points": 0, "max": 12, "ok": False,
                 "detail": "to-date sample too thin"}
@@ -239,9 +237,8 @@ def _lineup(box_side) -> dict:
     players = box_side.get("players") or {}
     starters, bats = [], []
     for p in players.values():
-        order = p.get("battingOrder")
         try:
-            order = int(order)
+            order = int(p.get("battingOrder"))
         except (TypeError, ValueError):
             continue
         pid = (p.get("person") or {}).get("id")
@@ -275,29 +272,160 @@ def _park(home_id) -> dict:
             "detail": f"park factor {pf}, weather unknown"}
 
 
-async def _one_game(g: dict, scale: dict, pen_rank: dict):
-    pk, mid = g["game_pk"], g["market_id"]
-    info = await game_info(pk)
-    if not info or not info.get("game_date"):
-        return
-    first_pitch = datetime.fromisoformat(info["game_date"].replace("Z", "+00:00"))
+# ---- price sources --------------------------------------------------------
+
+async def _abbrs() -> dict:
+    global _abbr_cache
+    if _abbr_cache is None:
+        _abbr_cache = await client.team_abbreviations()   # full name -> abbr
+    return _abbr_cache
+
+
+def _slug_forms(abbr: str) -> list[str]:
+    return _SLUG_FORMS.get((abbr or "").upper(), [(abbr or "").lower()])
+
+
+_MAX_TAPE_PAGES = 6
+
+
+async def _tape_prices(condition_id, home_name, away_name, t5_ts, open_ts):
+    """T-5 + day-open prices from the data-api trade tape — the fallback for
+    markets older than CLOB's ~2-week settled-history retention (probed
+    Aug 14: Aug 1 games have bars, Jul 1 and older return zero, while the
+    tape still serves June). No timestamp filter is honored, so page
+    newest-first until we cross T-5; a page cap bounds the cost."""
+    from backend.polymarket.clob import _http as _clob_http  # shared client
+    pre, off = [], 0
+    for _ in range(_MAX_TAPE_PAGES):
+        r = await _clob_http().get("https://data-api.polymarket.com/trades",
+                                   params={"market": condition_id,
+                                           "limit": 1000, "offset": off})
+        r.raise_for_status()
+        rows = r.json()
+        if not isinstance(rows, list) or not rows:
+            break
+        pre.extend(t for t in rows
+                   if open_ts <= (t.get("timestamp") or 0) <= t5_ts)
+        off += len(rows)
+        if rows[-1].get("timestamp", 0) < open_ts:
+            break
+    else:
+        return None                      # never reached T-5 within the cap
+    if not pre:
+        return None
+    pre.sort(key=lambda t: t["timestamp"])
+    hn, an = home_name.lower(), away_name.lower()
+    t5_prices, day_open = {}, {}
+    for t in pre:                        # oldest → newest: last write wins T-5
+        name = str(t.get("outcome", "")).lower()
+        side = ("home" if name and (name in hn or hn in name)
+                else "away" if name and (name in an or an in name) else None)
+        if side is None:
+            continue
+        px = round(float(t["price"]) * 100, 2)
+        day_open.setdefault(side, px)
+        t5_prices[side] = px
+    if not t5_prices:
+        return None
+    # a one-sided tape still prices both: the complement of the other side
+    for side, other in (("home", "away"), ("away", "home")):
+        if side not in t5_prices:
+            t5_prices[side] = round(100 - t5_prices[other], 2)
+    return t5_prices, day_open, "trade_tape"
+
+
+async def _gamma_prices(away_name, home_name, date, t5_iso):
+    """(t5_prices, day_open, source_note) from Polymarket's settled history —
+    the no-tick path. None when the event or its prices cannot be found."""
+    abbr = await _abbrs()
+    event = None
+    for a in _slug_forms(abbr.get(away_name, "")):
+        for h in _slug_forms(abbr.get(home_name, "")):
+            try:
+                event = await gamma.lookup_event(f"mlb-{a}-{h}-{date}")
+            except Exception:
+                event = None
+            if event:
+                break
+        if event:
+            break
+    if not event:
+        return None
+
+    # the moneyline market: its two outcome labels are the team names
+    # (lookup_event already normalizes to [{label, token_id}])
+    tokens, cond_id = {}, None
+    hn, an = home_name.lower(), away_name.lower()
+    for m in event.get("markets") or []:
+        outs = m.get("outcomes") or []
+        if len(outs) != 2:
+            continue
+        cand = {}
+        for o in outs:
+            name = str(o.get("label", "")).lower()
+            if name and (name in hn or hn in name):
+                cand["home"] = o.get("token_id")
+            elif name and (name in an or an in name):
+                cand["away"] = o.get("token_id")
+        if len(cand) == 2 and all(cand.values()):
+            tokens, cond_id = cand, m.get("condition_id")
+            break
+    if len(tokens) != 2:
+        return None
+
+    t5_ts = int(datetime.fromisoformat(t5_iso.replace("Z", "+00:00")).timestamp())
+    open_ts = int(datetime.fromisoformat(f"{date}T10:00:00+00:00").timestamp())
+
+    # first choice: CLOB 10-min bars (recent settled markets only)
+    t5_prices, day_open, ok = {}, {}, True
+    for side, tok in tokens.items():
+        bars = await clob.fetch_full_price_history(tok, fidelity=10)
+        before = [b for b in bars if b[0] <= t5_ts]
+        # the last bar at/before T-5; a bar more than an hour old means the
+        # history has a hole there — fall through rather than guess
+        if not before or t5_ts - before[-1][0] > 3600:
+            ok = False
+            break
+        t5_prices[side] = round(before[-1][1] * 100, 2)
+        after_open = [b for b in bars if b[0] >= open_ts]
+        day_open[side] = round(after_open[0][1] * 100, 2) if after_open else None
+    if ok:
+        return t5_prices, day_open, "clob_10min_bars"
+
+    # fallback: the trade tape, which retains the whole season
+    if cond_id:
+        return await _tape_prices(cond_id, home_name, away_name, t5_ts, open_ts)
+    return None
+
+
+# ---- the build ------------------------------------------------------------
+
+async def _build(g: dict, scale: dict, pen_rank: dict):
+    """g: {game_pk, market_id(0=untracked), home_id, away_id, home_name,
+    away_name, first_pitch, date, probables{away,home}, home_won,
+    home_outcome_id?, away_outcome_id?}"""
+    pk = g["game_pk"]
+    first_pitch = datetime.fromisoformat(g["first_pitch"].replace("Z", "+00:00"))
     t5 = _iso(first_pitch - timedelta(minutes=T5_MIN))
-    date = (info.get("official_date") or "")[:10]
-    if not date:
-        return
+    date = g["date"]
 
-    # our own pre-game prices
-    t5_home = store.tick_price_at(g["home_outcome_id"], t5)
-    t5_away = store.tick_price_at(g["away_outcome_id"], t5)
-    day_open = {}
-    for side, oid in (("home", g["home_outcome_id"]), ("away", g["away_outcome_id"])):
-        day_open[side] = store.tick_price_at(oid, f"{date}T10:00:00Z", max_lag_s=8 * 3600)
+    if g.get("home_outcome_id"):        # tracked: exact ticks
+        t5_prices = {"home": store.tick_price_at(g["home_outcome_id"], t5),
+                     "away": store.tick_price_at(g["away_outcome_id"], t5)}
+        day_open = {s: store.tick_price_at(g[f"{s}_outcome_id"],
+                                           f"{date}T10:00:00Z", max_lag_s=8 * 3600)
+                    for s in ("home", "away")}
+        price_source = "own_ticks"
+    else:                               # untracked: settled CLOB bars
+        got = await _gamma_prices(g["away_name"], g["home_name"], date, t5)
+        if got:
+            t5_prices, day_open, price_source = got
+        else:
+            t5_prices, day_open, price_source = {"home": None, "away": None}, {}, "none"
 
-    # boxscore as of T-5 when MLB serves it; the final boxscore otherwise
     box = None
     for params in ({"timecode": first_pitch.strftime("%Y%m%d_%H%M%S"),
-                    "fields": _BOX_FIELDS},
-                   {"fields": _BOX_FIELDS}):
+                    "fields": _BOX_FIELDS}, {"fields": _BOX_FIELDS}):
         try:
             r = await client._http().get(f"{client.BASE}/v1/game/{pk}/boxscore",
                                          params=params)
@@ -313,25 +441,23 @@ async def _one_game(g: dict, scale: dict, pen_rank: dict):
                    ((box.get("home") or {}).get("players") or {})]
 
     season = int(date[:4])
-    sched = {}
-    for side in ("away", "home"):
-        sched[side] = _prior(await _team_season(info[f"{side}_id"], season), date)
+    sched = {s: _prior(await _team_season(g[f"{s}_id"], season), date)
+             for s in ("away", "home")}
 
     sides = {}
     for side in ("away", "home"):
         opp = "home" if side == "away" else "away"
-        price = t5_home if side == "home" else t5_away
         factors = [
-            fav_market.score(price, day_open.get(side)),
-            _sp(scale, box_players, info["probables"].get(side),
-                info["probables"].get(opp)),
-            _bullpen(pen_rank, info[f"{side}_id"]),
+            fav_market.score(t5_prices.get(side), (day_open or {}).get(side)),
+            _sp(scale, box_players, (g["probables"] or {}).get(side),
+                (g["probables"] or {}).get(opp)),
+            _bullpen(pen_rank, g[f"{side}_id"]),
             _strength(sched[side], sched[opp]),
-            _rest(sched[side], sched[opp], info[f"{side}_id"], info[f"{opp}_id"],
-                  info["home_id"], date),
+            _rest(sched[side], sched[opp], g[f"{side}_id"], g[f"{opp}_id"],
+                  g["home_id"], date),
             _lineup(box.get(side) or {}),
             _form(sched[side]),
-            _park(info["home_id"]),
+            _park(g["home_id"]),
         ]
         total = sum(f["points"] for f in factors)
         top4_missing = [f["key"] for f in factors
@@ -359,20 +485,91 @@ async def _one_game(g: dict, scale: dict, pen_rank: dict):
     elif sides["home"]["qualifies"]:
         favorite = "home"
 
-    store.save_fav_history(pk, mid, t5, {
+    store.save_fav_history(pk, g["market_id"], t5, {
         "game_pk": pk, "favorite": favorite, "synthetic": True,
-        "away_name": g["mlb_away"], "home_name": g["mlb_home"],
-        "game_date": date, "first_pitch": info["game_date"],
+        "away_name": g["away_name"], "home_name": g["home_name"],
+        "game_date": date, "first_pitch": g["first_pitch"],
         "away": sides["away"], "home": sides["home"],
-        "t5_prices": {"home": t5_home, "away": t5_away},
+        "t5_prices": t5_prices, "price_source": price_source,
+        "home_won": g.get("home_won"),
         "approximations": APPROXIMATIONS,
     })
-    log.info("fav history: %s reconstructed (away %s / home %s%s)",
-             pk, sides["away"]["total"], sides["home"]["total"],
-             f", favorite={favorite}" if favorite else "")
 
 
-_status = {"running": False}
+# ---- pending discovery ----------------------------------------------------
+
+async def _sweep_day(date: str) -> list[dict]:
+    """Every Final regular-season game on a date, with everything _build
+    needs and no further MLB calls."""
+    r = await client._http().get(
+        f"{client.BASE}/v1/schedule",
+        params={"sportId": 1, "date": date, "gameType": "R",
+                "hydrate": "probablePitcher", "fields": _SWEEP_FIELDS})
+    r.raise_for_status()
+    out = []
+    for d in r.json().get("dates", []):
+        for g in d.get("games", []):
+            if g.get("gameType") != "R":
+                continue
+            if (g.get("status") or {}).get("abstractGameState") != "Final":
+                continue
+            t = g["teams"]
+            hs, as_ = t["home"].get("score"), t["away"].get("score")
+            if hs is None or as_ is None:
+                continue
+            out.append({
+                "game_pk": g["gamePk"], "market_id": 0,
+                "home_id": t["home"]["team"]["id"],
+                "away_id": t["away"]["team"]["id"],
+                "home_name": t["home"]["team"]["name"],
+                "away_name": t["away"]["team"]["name"],
+                "first_pitch": g.get("gameDate"), "date": date,
+                "probables": {s: ((t[s].get("probablePitcher") or {}).get("id"))
+                              for s in ("away", "home")},
+                "home_won": hs > as_,
+            })
+    return out
+
+
+async def _pending(limit: int) -> list[dict]:
+    """Oldest-first: tracked games missing history (exact prices), then the
+    season sweep for everything else."""
+    out = []
+    for g in store.fav_history_pending(limit):
+        # enrich the tracked rows to the _build shape
+        from backend.favorite.data import game_info
+        info = await game_info(g["game_pk"])
+        if not info or not info.get("game_date"):
+            continue
+        out.append({"game_pk": g["game_pk"], "market_id": g["market_id"],
+                    "home_id": info["home_id"], "away_id": info["away_id"],
+                    "home_name": info["home_name"], "away_name": info["away_name"],
+                    "first_pitch": info["game_date"],
+                    "date": (info.get("official_date") or "")[:10],
+                    "probables": info.get("probables") or {},
+                    "home_won": None,
+                    "home_outcome_id": g["home_outcome_id"],
+                    "away_outcome_id": g["away_outcome_id"]})
+        if len(out) >= limit:
+            return out
+
+    with get_db() as conn:
+        have = {r["game_pk"] for r in conn.execute(
+            "SELECT game_pk FROM backtest_fav_history")}
+    day = datetime.strptime(SEASON_START, "%Y-%m-%d").date()
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+    while day <= yesterday and len(out) < limit:
+        try:
+            for g in await _sweep_day(day.isoformat()):
+                if g["game_pk"] not in have and len(out) < limit:
+                    out.append(g)
+        except Exception as e:
+            log.warning("fav history: sweep %s failed: %s", day, e)
+        day += timedelta(days=1)
+    return out
+
+
+_status = {"running": False, "last_batch": 0}
 
 
 async def run_batch(limit: int = 120) -> dict:
@@ -380,7 +577,8 @@ async def run_batch(limit: int = 120) -> dict:
         return {"running": True}
     _status["running"] = True
     try:
-        pending = store.fav_history_pending(limit)
+        pending = await _pending(limit)
+        _status["last_batch"] = len(pending)
         if not pending:
             return {"running": False, "batch": 0}
         log.info("fav history: %d game(s) this pass", len(pending))
@@ -391,7 +589,7 @@ async def run_batch(limit: int = 120) -> dict:
         async def one(g):
             async with sem:
                 try:
-                    await _one_game(g, scale, pen_rank)
+                    await _build(g, scale, pen_rank)
                 except Exception as e:  # noqa: BLE001
                     log.warning("fav history: %s failed: %s", g["game_pk"], e)
 
@@ -404,5 +602,10 @@ async def run_batch(limit: int = 120) -> dict:
 def status() -> dict:
     with get_db() as conn:
         done = conn.execute("SELECT COUNT(*) c FROM backtest_fav_history").fetchone()["c"]
+        priced = conn.execute(
+            "SELECT COUNT(*) c FROM backtest_fav_history "
+            "WHERE payload LIKE '%own_ticks%' OR payload LIKE '%clob_10min%' "
+            "OR payload LIKE '%trade_tape%'"
+        ).fetchone()["c"]
     return {"running": _status["running"], "reconstructed": done,
-            "pending": len(store.fav_history_pending(10_000))}
+            "with_price": priced, "last_batch": _status["last_batch"]}

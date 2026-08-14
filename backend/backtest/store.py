@@ -133,10 +133,14 @@ FAVORITE_DEFAULTS = {
 }
 
 FAVORITE_SEED = (
-    "Clear Favorite — hold to win",
+    "Clear Favorite — hold to win (all season games, no tick data needed)",
     "Replays the verdicts exactly as locked ~5 minutes before first pitch: "
-    "back the qualifying side, hold to settlement. Thresholds are re-applied "
-    "over the stored locks, so every knob re-scores the same history.")
+    "back the qualifying side, hold to settlement. Because the score is "
+    "computed pre-game, this strategy needs no tick data — coverage is every "
+    "final regular-season game since Opening Day, with entry prices from "
+    "Polymarket's settled price history and outcomes from MLB finals. "
+    "Thresholds are re-applied over the stored verdicts, so every knob "
+    "re-scores the same history.")
 
 
 # The Aug 5 checklist strategy's defaults — the engine still runs this kind;
@@ -225,6 +229,15 @@ def init():
             conn.execute(
                 "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",
                 (*FAVORITE_SEED, json.dumps(FAVORITE_DEFAULTS)))
+        else:
+            # Aug 14 rename: the title now carries the scope parenthetical —
+            # this strategy covers the whole season, not just tracked games
+            for r in conn.execute("SELECT id, name, params FROM backtest_strategies"):
+                if (json.loads(r["params"]).get("kind") == "favorite_replay"
+                        and r["name"] != FAVORITE_SEED[0]):
+                    conn.execute(
+                        "UPDATE backtest_strategies SET name=?, description=? WHERE id=?",
+                        (*FAVORITE_SEED, r["id"]))
 
 
 # ---- backfill bookkeeping -------------------------------------------------
@@ -326,14 +339,18 @@ def all_spots(segment: str = "both") -> list[dict]:
 
 def fav_history_rows() -> list[dict]:
     """Reconstructed T-5 verdicts, same joined shape as favorite_locks() plus
-    source='reconstructed' and the stored T-5 prices."""
+    source='reconstructed' and the stored T-5 prices.
+
+    LEFT JOIN: market_id=0 marks games outside the tick corpus (the score
+    needs no ticks — entry prices came from CLOB's settled 10-min bars and
+    the outcome from MLB's final, both already in the payload)."""
     out = []
     with get_db() as conn:
         for r in conn.execute(
                 """SELECT h.game_pk, h.t5_ts, h.payload, h.market_id,
                           g.gold, g.home_outcome_id, g.away_outcome_id
                    FROM backtest_fav_history h
-                   JOIN backtest_games g ON g.market_id = h.market_id
+                   LEFT JOIN backtest_games g ON g.market_id = h.market_id
                    ORDER BY h.t5_ts"""):
             try:
                 v = json.loads(r["payload"])

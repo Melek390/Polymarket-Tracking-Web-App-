@@ -380,11 +380,19 @@ def run_favorite(params: dict) -> dict:
             if L["market_id"] is None:
                 untracked += 1
                 continue
-            if segment == "gold" and not L["gold"]:
-                continue
-            if segment == "silver" and L["gold"]:
-                continue
             v = L["verdict"]
+            # market_id 0 = a game outside the tick corpus: prices came from
+            # CLOB's settled 10-min bars, the outcome from MLB's final — the
+            # score itself never needed ticks. Gold/silver describes tick
+            # density, so these only ride under segment "both".
+            outside = not L["market_id"]
+            if outside and segment != "both":
+                continue
+            if not outside:
+                if segment == "gold" and not L["gold"]:
+                    continue
+                if segment == "silver" and L["gold"]:
+                    continue
             best = None
             for side in ("away", "home"):
                 s = v.get(side) or {}
@@ -402,14 +410,20 @@ def run_favorite(params: dict) -> dict:
                     continue
                 oid = (L["home_outcome_id"] if side == "home"
                        else L["away_outcome_id"])
-                price = store.tick_price_at(oid, L["locked_at"])
+                if oid:
+                    price = store.tick_price_at(oid, L["locked_at"])
+                else:   # outside the tick corpus: the stored T-5 bar price
+                    price = (v.get("t5_prices") or {}).get(side)
                 if price is None or not (mp <= price <= f["maxPriceCents"]):
                     continue
                 if best is None or total > best["total"]:
                     best = {"side": side, "total": total, "price": price}
             if not best:
                 continue
-            hw = settlements.get(L["market_id"])
+            # settlement: last pinned tick for tracked markets, MLB's own
+            # final score for games outside the tick corpus
+            hw = (settlements.get(L["market_id"]) if L["market_id"]
+                  else v.get("home_won"))
             if hw is None:
                 unsettled += 1
                 continue
@@ -425,7 +439,8 @@ def run_favorite(params: dict) -> dict:
                             "bounce": 0.0, "fee": round(fee, 2),
                             "ts": L["locked_at"], "gold": L["gold"] or 0,
                             "entry": best["price"], "side": best["side"],
-                            "total": best["total"], "source": L["source"]})
+                            "total": best["total"], "source": L["source"],
+                            "outside": outside})
         return results, untracked, unsettled
 
     results, untracked, unsettled = evaluate()
@@ -464,13 +479,18 @@ def run_favorite(params: dict) -> dict:
         bucket("Locked (real T-5 snapshots)", lambda r: r["source"] == "locked"),
         bucket("Reconstructed (historical, approximations flagged)",
                lambda r: r["source"] == "reconstructed"),
+        bucket("Tick-tracked games (exact T-5 prices)", lambda r: not r["outside"]),
+        bucket("Untracked games (settled market history)",
+               lambda r: r["outside"]),
     ) if b["spots"] > 0]
 
-    seg = {
-        "gold": {k: v for k, v in _aggregate([r for r in results if r["gold"]]).items()
-                 if k != "equity"},
-        "silver": {k: v for k, v in _aggregate([r for r in results if not r["gold"]]).items()
-                   if k != "equity"},
+    seg = {   # tick-density labels — only meaningful for tick-corpus games
+        "gold": {k: v for k, v in _aggregate(
+            [r for r in results if not r["outside"] and r["gold"]]).items()
+            if k != "equity"},
+        "silver": {k: v for k, v in _aggregate(
+            [r for r in results if not r["outside"] and not r["gold"]]).items()
+            if k != "equity"},
     }
     avg_entry = (sum(r["entry"] for r in results) / len(results)) if results else None
     return {
@@ -481,6 +501,8 @@ def run_favorite(params: dict) -> dict:
         "segments": seg,
         "lockedGames": sum(1 for L in locks if L["source"] == "locked"),
         "reconstructedGames": sum(1 for L in locks if L["source"] == "reconstructed"),
+        # games covered WITHOUT tick data — the whole point of this strategy
+        "outsideTickCorpus": sum(1 for L in locks if L["market_id"] == 0),
         "untrackedLocks": untracked,
         "unsettled": unsettled,
         "avgEntryCents": round(avg_entry, 1) if avg_entry is not None else None,

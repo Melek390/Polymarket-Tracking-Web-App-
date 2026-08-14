@@ -52,6 +52,22 @@ export default function StrategyStats({ stats }) {
           {pct(s.segments.silver.winRate)} win rate, {usd(s.segments.silver.pnl)}
         </div>
       )}
+      {/* Clear Favorite coverage: the score is pre-game, so this strategy
+          reaches games with NO tick data — say how far it reached */}
+      {s.lockedGames != null && (
+        <div style={{ fontSize: 12, color: T.sub, marginTop: 10 }}>
+          Coverage: <b>{s.lockedGames}</b> real T-5 locks ·{" "}
+          <b>{s.reconstructedGames}</b> reconstructed
+          {s.outsideTickCorpus > 0 && (
+            <> — <b>{s.outsideTickCorpus}</b> of them outside the tick corpus
+              (entry from Polymarket's settled history, outcome from MLB finals)</>
+          )}
+          {s.unsettled > 0 && <> · {s.unsettled} unsettled skipped</>}
+          {s.avgEntryCents != null && (
+            <> · avg entry {s.avgEntryCents}¢ (implied {pct(s.impliedWinRate)})</>
+          )}
+        </div>
+      )}
       {s.factorUnknowns && Object.keys(s.factorUnknowns).length > 0 && (
         <div style={{ fontSize: 11, color: T.faint, marginTop: 4 }}>
           Factors scored as unknown (0 pts, never invented):{" "}
