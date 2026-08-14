@@ -50,7 +50,19 @@ verified against history; comparison = one-knob sweeps (fatigue 0/saved/2,
 minInning 7/8/9). LOCAL-IMPORT TRAP: copying backtest tables to the dev DB
 makes comeback rates nonsense (settlements read local ticks) — prod is truth.
 
-TAG-REPLAY FIRST NUMBERS (defaults): 35 fires · scalp 62.9% / −$921 (same
+TIMESTAMP AUDIT (Aug 14, all green + one fix): every tick ts is the same
+20-char UTC shape (string compare proven at both ms/second edges); all 3,457
+entries re-derived exactly; delay entries exact; paths ordered; worst
+negative lag -0.999s = second-resolution artifact, not look-ahead. THE FIX:
+83 spots (2.4%) had their first tick 2-20min after the half end (market
+stopped quoting) — schema v3 stores entry_lag_s, both engine kinds exclude
+lag > 120s (MAX_ENTRY_LAG_S), reported as staleEntries. Post-fix replay:
+33 fires, scalp 54.5%, comeback 10/29 = 34.5% (corpus also gained ~14 new
+games in the same rebuild). Benign by design: horizon exit may exceed the
+window max (boundary tick outside (t0,t1]); with delay>0 the bounce window
+still opens at the signal (sub-15s optimism, v2 = per-delay maxes).
+
+TAG-REPLAY FIRST NUMBERS (pre-audit, defaults): 35 fires · scalp 62.9% / −$921 (same
 exit asymmetry as below) · COMEBACK COMPLETED 14/32 = 43.8%. Fatigue >=1
 does NOT lift completion (44% vs 43% unfiltered, n=116); >=2 checks n=4.
 Down1 <=20c ("Strong value"): completed 1/7 = 14% vs <=20% implied — the
