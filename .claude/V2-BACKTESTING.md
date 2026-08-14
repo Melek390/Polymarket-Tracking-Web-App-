@@ -43,6 +43,21 @@ locked_at (300s staleness guard); exit = settlement redemption, FEE-FREE, so
 costs hit the entry leg only. Sweeps: score bar 65/70/75/80, floor 55/65,
 disq-ignored. Response: lockedGames/untrackedLocks/unsettled accounting +
 avgEntryCents + impliedWinRate (the number hold-to-win must beat).
+RECONSTRUCTED HISTORY (favhistory.py, Aug 14, user pushed for it): the
+T-5 verdict re-computed for all 227 past corpus games from as-of-then data —
+own pre-game ticks (T-5 price + day open after 10Z), the game's boxscore
+seasonStats (as-of stamps), season schedules sliced to the date (Pythagorean
+/ form / rest), static park. APPROXIMATIONS IN EVERY PAYLOAD: pitcher SD
+scale = current league dist, bullpen rank = current + workload unknown,
+weather unknown. source param locked|reconstructed|both, per-source buckets,
+never mixed silently. backtest_fav_history table; 6h job offset 10 min after
+the spots backfill; POST /api/backtest/favbackfill.
+FULL-CORPUS RESULT (232 games): the 75/59c filter fired 6 TIMES in 3.5
+months (rarity confirmed at scale; median best-side total 41, p90 64, max
+85). 4-2 = 66.7% vs 68.2% implied — the market had these priced almost
+exactly; P&L -$33 ~= the fees. Bar 65 -> 15 bets, 60%, -$183 (looser is
+worse). VERDICT SO FAR: a real-favorites screen, not a detectable edge —
+n=6 cannot separate small edge from none; locks compound nightly.
 DAY-ONE REALITY: 5 locks exist (T-5 system is a day old), best side 64/100
 -> zero bets even at bar 65 — HONEST, verified by dumping all five locks;
 the tag is rare by design. Sample compounds nightly with zero effort.
