@@ -31,6 +31,24 @@ auto-runs the SAVED params (the main display IS the default run); Save & run
 persists server-side then re-runs. Menu shows eligible games / ticks /
 backfilled spots / strategies.
 
+## STRATEGY #2 (Aug 14): CLEAR FAVORITE LOCKS, HELD TO WIN
+
+kind "favorite_replay": replays favorite_verdicts EXACTLY as locked at T-5 —
+genuinely pre-game, zero look-ahead by construction. Both sides' breakdowns
+live in every lock, so thresholds (minTotal 75, price floor 59 / ceiling
+100, requireNoDisqualifiers, maxFlags 1) re-apply at query time; the stored
+"price below 59c" disqualifier encodes the OLD bar and is superseded by the
+params' own price check (real disqualifiers still kill). Entry = our tick at
+locked_at (300s staleness guard); exit = settlement redemption, FEE-FREE, so
+costs hit the entry leg only. Sweeps: score bar 65/70/75/80, floor 55/65,
+disq-ignored. Response: lockedGames/untrackedLocks/unsettled accounting +
+avgEntryCents + impliedWinRate (the number hold-to-win must beat).
+DAY-ONE REALITY: 5 locks exist (T-5 system is a day old), best side 64/100
+-> zero bets even at bar 65 — HONEST, verified by dumping all five locks;
+the tag is rare by design. Sample compounds nightly with zero effort.
+GOTCHA (local dev): fav_store.put inside an open get_db() write txn loses
+rows silently-ish — never nest connections; prod paths never do.
+
 ## THE SEEDED STRATEGY IS THE COMEBACK-TAG REPLAY (user replaced it, Aug 14)
 
 "Potential comeback" no longer runs the checklist — params.kind =
