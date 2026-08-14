@@ -13,6 +13,7 @@ from backend.auth import deps as auth_deps
 from backend.auth import store as auth_store
 from backend.auth.api import router as auth_router
 from backend.backtest.api import router as backtest_router
+from backend.backtest import store as backtest_store
 from backend.comeback.api import router as comeback_router
 from backend.comeback import store as comeback_store
 from backend.favorite.api import router as favorite_router
@@ -41,6 +42,7 @@ async def lifespan(app: FastAPI):
     traders_store.init()
     favorite_store.init()
     comeback_store.init()
+    backtest_store.init()
     auth_store.init()
     auth_store.purge_expired()
     if auth_store.user_count() == 0:

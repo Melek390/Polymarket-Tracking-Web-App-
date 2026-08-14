@@ -9,13 +9,58 @@ the day-one audit found no genuine game under 5,000 ticks, so 1,000 is a
 generous floor that only excludes junk.
 """
 
+import asyncio
 import time
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
+from backend.backtest import backfill, engine, store
 from backend.database.db import get_db
 
 router = APIRouter(prefix="/api/backtest", tags=["backtest"])
+
+
+@router.get("/strategies")
+def strategies():
+    """The saved strategies with their params, plus the defaults the dialog's
+    Restore button reverts to — one source of truth, server-side."""
+    return {"strategies": store.strategies(), "defaults": store.DEFAULT_PARAMS}
+
+
+@router.put("/strategies/{strategy_id}")
+def save_strategy(strategy_id: int, body: dict):
+    params = body.get("params")
+    if not isinstance(params, dict):
+        raise HTTPException(400, "params object required")
+    if not store.save_params(strategy_id, params):
+        raise HTTPException(404, "no such strategy")
+    return {"ok": True}
+
+
+@router.post("/run")
+def run(body: dict):
+    """Arithmetic over the stored spots — milliseconds, no upstream calls."""
+    params = body.get("params")
+    if not isinstance(params, dict):
+        raise HTTPException(400, "params object required")
+    try:
+        return engine.run(params)
+    except KeyError as e:
+        raise HTTPException(400, f"missing param: {e}")
+
+
+@router.post("/backfill")
+async def kick_backfill():
+    """Start one backfill pass in the background and return immediately."""
+    if backfill.status()["running"]:
+        return {"started": False, "reason": "already running", **backfill.status()}
+    asyncio.get_event_loop().create_task(backfill.run_batch())
+    return {"started": True}
+
+
+@router.get("/backfill/status")
+def backfill_status():
+    return backfill.status()
 
 MIN_TICKS = 1000
 _cache: tuple[float, dict] | None = None

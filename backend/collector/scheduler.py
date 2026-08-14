@@ -2,11 +2,12 @@
 Runs inside the FastAPI process and keeps polling with the browser closed."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from backend.config.settings import settings
+from backend.backtest import backfill as backtest_backfill
 from backend.comeback import detector as comeback_detector
 from backend.comeback import outcomes as comeback_outcomes
 from backend.database import db
@@ -181,6 +182,13 @@ def start():
     # a couple of CLOB tokens per open trigger, so the volume is negligible
     scheduler.add_job(
         comeback_outcomes.record, "interval", seconds=60, id="comeback-outcomes",
+    )
+    # backtest backfill: one bounded batch every 6h keeps the spots table
+    # tracking the corpus (a fresh install drains in a handful of passes);
+    # first pass a couple of minutes after boot so startup stays calm
+    scheduler.add_job(
+        backtest_backfill.run_batch, "interval", hours=6, id="backtest-backfill",
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=180),
     )
     scheduler.start()
 

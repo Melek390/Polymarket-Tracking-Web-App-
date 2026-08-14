@@ -1,0 +1,231 @@
+"""Storage for the backtesting lab: per-game backfill state, the spots table
+every run computes over, and the strategies with their saved parameters.
+
+The two-phase design from .claude/V2-BACKTESTING.md lives here:
+  backtest_spots is written ONCE per game by the backfill (slow, MLB replay +
+  tick alignment) and holds RAW factors plus a compressed price path. Every
+  "Run backtest" is then pure arithmetic over these rows — weights, bounce
+  definition, fees and delay are all applied at query time, so parameter
+  tweaks re-score history for free and win definitions can be COMPARED
+  instead of picked blind.
+"""
+
+import json
+
+from backend.database.db import get_db
+
+SCHEMA = """
+-- one row per tracked MLB market the backfill has looked at, whatever the
+-- outcome — errors are recorded, not retried forever
+CREATE TABLE IF NOT EXISTS backtest_games (
+    market_id       INTEGER PRIMARY KEY,
+    game_pk         INTEGER,
+    slug            TEXT,
+    gold            INTEGER,             -- 1 = live-collected 1-10s ticks; 0 = minute bars
+    mlb_home        TEXT,
+    mlb_away        TEXT,
+    home_outcome_id INTEGER,
+    away_outcome_id INTEGER,
+    status          TEXT NOT NULL,       -- done | error:<reason>
+    spots           INTEGER NOT NULL DEFAULT 0,
+    backfilled_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+-- one row per qualifying moment: a completed half-inning with one side
+-- trailing and its price under the WIDE net (45c) — run-time gates narrow
+CREATE TABLE IF NOT EXISTS backtest_spots (
+    id              INTEGER PRIMARY KEY,
+    market_id       INTEGER NOT NULL,
+    game_pk         INTEGER NOT NULL,
+    gold            INTEGER NOT NULL,
+    ts              TEXT NOT NULL,       -- half-inning end (about.endTime, UTC)
+    inning          INTEGER NOT NULL,
+    next_half       TEXT NOT NULL,       -- 'top' | 'bottom' about to start
+    trailing_side   TEXT NOT NULL,       -- MLB 'home' | 'away'
+    trailing_is_home INTEGER NOT NULL,
+    deficit         INTEGER NOT NULL,
+    innings_left    INTEGER NOT NULL,    -- regulation innings still to play
+    halves_left     INTEGER NOT NULL,    -- offensive halves the trailer still gets
+    entry0          REAL,                -- trailing mid at ts (+15/+30/+60s)
+    entry15         REAL,
+    entry30         REAL,
+    entry60         REAL,
+    factors         TEXT NOT NULL,       -- raw checklist inputs, JSON
+    path            TEXT NOT NULL        -- {"1":{"ts","max","at"},..,"6"} JSON
+);
+CREATE INDEX IF NOT EXISTS idx_backtest_spots_market ON backtest_spots(market_id);
+
+CREATE TABLE IF NOT EXISTS backtest_strategies (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    params      TEXT NOT NULL,           -- JSON
+    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+"""
+
+# The client's defaults. Values marked as drafts in V2-BACKTESTING.md stay
+# drafts — the run compares alternatives instead of betting on one.
+DEFAULT_PARAMS = {
+    "hardFilters": {
+        "maxPriceCents": 25,
+        "minPriceCents": 5,
+        "minInningsLeft": 4,      # DRAFT — client never fixed the number
+        "maxDeficit": 3,
+        "side": "both",           # both | home | away (trailing side)
+    },
+    "bounce": {
+        "targetCents": 5,         # DRAFT
+        "horizonHalfInnings": 4,  # DRAFT
+        "giveUp": "horizon",      # horizon = exit at horizon price | stake = full loss
+    },
+    "useScore": True,
+    "minScore": 7,
+    "weights": {
+        "remainingInnings": 2,
+        "scoreDeficit": 2,
+        "trailingTeamHome": 1.5,
+        "teamQualityForm": 2,     # factor UNKNOWN in v1 backfill (see replay.py)
+        "leadingPitcher": 1.5,
+        "trailingPitcher": 1.5,
+        "dueUpOrder": 1,
+        "parkWeather": 1,
+        "priceVsHistory": 1,      # factor UNKNOWN in v1 (needs the WE table)
+        "contactBonus": 0.5,
+    },
+    "exec": {
+        "delaySeconds": 15,       # 0 | 15 | 30 | 60 — the stored grid
+        "slippageCentsPerSide": 1.0,
+        "feeMode": "taker_both",  # taker_both | maker_exit | maker_both
+    },
+    "corpus": {"segment": "both"},  # gold | silver | both
+    "stake": {"mode": "flat_usd", "usd": 100},
+}
+
+
+def init():
+    with get_db() as conn:
+        conn.executescript(SCHEMA)
+        if not conn.execute("SELECT 1 FROM backtest_strategies").fetchone():
+            conn.execute(
+                "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",
+                ("Potential comeback",
+                 "Buy the trailing side right after a half-inning ends; exit on a "
+                 "bounce. Exit/horizon defaults are drafts pending the client's "
+                 "confirmed win definition.",
+                 json.dumps(DEFAULT_PARAMS)))
+
+
+# ---- backfill bookkeeping -------------------------------------------------
+
+def games_pending(min_ticks: int, limit: int) -> list[dict]:
+    """Tracked MLB markets with real ticks that the backfill has not finished.
+    Errors are NOT retried automatically — they carry their reason and wait
+    for a human (or a code fix + manual reset)."""
+    with get_db() as conn:
+        return [dict(r) for r in conn.execute(
+            """SELECT m.id AS market_id, e.slug
+               FROM markets m
+               JOIN events e ON e.id = m.event_id
+               WHERE e.slug LIKE 'mlb-%'
+                 AND m.id NOT IN (SELECT market_id FROM backtest_games)
+                 AND (SELECT COALESCE(SUM(tc.n), 0) FROM outcomes o
+                      JOIN tick_counts tc ON tc.outcome_id = o.id
+                      WHERE o.market_id = m.id) >= ?
+               ORDER BY m.id LIMIT ?""",
+            (min_ticks, limit))]
+
+
+def save_game(market_id: int, status: str, *, game_pk=None, slug=None, gold=None,
+              mlb_home=None, mlb_away=None, home_outcome_id=None,
+              away_outcome_id=None, spots=0):
+    with get_db() as conn:
+        conn.execute(
+            """INSERT INTO backtest_games
+                   (market_id, game_pk, slug, gold, mlb_home, mlb_away,
+                    home_outcome_id, away_outcome_id, status, spots)
+               VALUES (?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(market_id) DO UPDATE SET
+                   game_pk=excluded.game_pk, slug=excluded.slug,
+                   gold=excluded.gold, mlb_home=excluded.mlb_home,
+                   mlb_away=excluded.mlb_away,
+                   home_outcome_id=excluded.home_outcome_id,
+                   away_outcome_id=excluded.away_outcome_id,
+                   status=excluded.status, spots=excluded.spots,
+                   backfilled_at=strftime('%Y-%m-%dT%H:%M:%SZ','now')""",
+            (market_id, game_pk, slug, gold, mlb_home, mlb_away,
+             home_outcome_id, away_outcome_id, status, spots))
+
+
+def insert_spots(rows: list[dict]):
+    if not rows:
+        return
+    with get_db() as conn:
+        conn.executemany(
+            """INSERT INTO backtest_spots
+                   (market_id, game_pk, gold, ts, inning, next_half,
+                    trailing_side, trailing_is_home, deficit, innings_left,
+                    halves_left, entry0, entry15, entry30, entry60,
+                    factors, path)
+               VALUES (:market_id, :game_pk, :gold, :ts, :inning, :next_half,
+                       :trailing_side, :trailing_is_home, :deficit,
+                       :innings_left, :halves_left, :entry0, :entry15,
+                       :entry30, :entry60, :factors, :path)""",
+            rows)
+
+
+def clear_game(market_id: int):
+    """Remove a game's spots before re-backfilling it, so a retry can never
+    double-count."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM backtest_spots WHERE market_id=?", (market_id,))
+        conn.execute("DELETE FROM backtest_games WHERE market_id=?", (market_id,))
+
+
+def backfill_summary() -> dict:
+    with get_db() as conn:
+        done = conn.execute(
+            "SELECT COUNT(*) c, COALESCE(SUM(spots),0) s FROM backtest_games "
+            "WHERE status='done'").fetchone()
+        errors = [dict(r) for r in conn.execute(
+            "SELECT market_id, slug, status FROM backtest_games "
+            "WHERE status != 'done' ORDER BY market_id DESC LIMIT 20")]
+        golds = conn.execute(
+            "SELECT COUNT(*) c FROM backtest_games WHERE status='done' AND gold=1"
+        ).fetchone()
+    return {"games_done": done["c"], "gold_games": golds["c"],
+            "spots": done["s"], "recent_errors": errors}
+
+
+def all_spots(segment: str = "both") -> list[dict]:
+    """Every stored spot, oldest first — the run engine's working set. A few
+    thousand small rows: loading them wholesale is faster than being clever."""
+    where = "" if segment == "both" else f"WHERE gold={1 if segment == 'gold' else 0}"
+    with get_db() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM backtest_spots {where} ORDER BY ts").fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["factors"] = json.loads(d["factors"])
+        d["path"] = json.loads(d["path"])
+        out.append(d)
+    return out
+
+
+# ---- strategies -----------------------------------------------------------
+
+def strategies() -> list[dict]:
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT id, name, description, params FROM backtest_strategies ORDER BY id"
+        ).fetchall()
+    return [{**dict(r), "params": json.loads(r["params"])} for r in rows]
+
+
+def save_params(strategy_id: int, params: dict) -> bool:
+    with get_db() as conn:
+        cur = conn.execute(
+            "UPDATE backtest_strategies SET params=? WHERE id=?",
+            (json.dumps(params), strategy_id))
+        return cur.rowcount == 1

@@ -157,6 +157,22 @@ export async function fetchBacktestCorpus() {
   return request("/api/backtest/corpus");
 }
 
+// strategies + their saved params live server-side; defaults ride along so
+// "Restore defaults" has one source of truth
+export async function fetchBacktestStrategies() {
+  return request("/api/backtest/strategies");
+}
+export const saveBacktestStrategy = (id, params) =>
+  request(`/api/backtest/strategies/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ params }),
+  });
+export const runBacktest = (params) => post("/api/backtest/run", { params });
+export async function fetchBackfillStatus() {
+  return request("/api/backtest/backfill/status");
+}
+
 // --- Comeback Setup (tired reliever protecting a late 1-run/tied lead) ----
 export async function fetchComebackActive() {
   return request(`/api/comeback/active?_=${Date.now()}`);
