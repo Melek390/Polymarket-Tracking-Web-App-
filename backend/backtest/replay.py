@@ -226,15 +226,22 @@ async def build_spots(market_id: int, game_pk: int, gold: int,
     with get_db() as conn:
         for i, h in enumerate(hs[:-1]):          # after the game's final half there is no trade
             away_runs, home_runs = h.get("away"), h.get("home")
-            if away_runs is None or home_runs is None or away_runs == home_runs:
+            if away_runs is None or home_runs is None:
                 continue
-            trailing = "home" if home_runs < away_runs else "away"
-            deficit = abs(away_runs - home_runs)
+            # TIED moments are stored too (as the HOME side, deficit 0): the
+            # Comeback Setup trigger treats a tied game as a buy-home spot, so
+            # its replay needs them. The wide net is higher because a tied
+            # home side prices ~35-65c, not ~10-40c.
+            if away_runs == home_runs:
+                trailing, deficit, net = "home", 0, 80.0
+            else:
+                trailing = "home" if home_runs < away_runs else "away"
+                deficit, net = abs(away_runs - home_runs), WIDE_NET_CENTS
             if deficit > MAX_DEFICIT_STORED:
                 continue
             oid = outcome_ids[trailing]
             e0 = tick_at(conn, oid, h["ts"])
-            if e0 is None or e0 > WIDE_NET_CENTS or e0 < 0.5:
+            if e0 is None or e0 > net or e0 < 0.5:
                 continue
 
             at = _ts(h["ts"])

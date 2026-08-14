@@ -32,6 +32,13 @@ export default function StrategyStats({ stats }) {
         <Kpi title="Avg hold" value={`${s.avgHoldHalfInnings} half-inn`} />
         <Kpi title="Max drawdown" value={usd(s.maxDrawdown)} color={T.red} />
         {s.feesPaid != null && <Kpi title="Fees paid" value={usd(-s.feesPaid)} color={T.sub} />}
+        {/* the tag's other verdict: did the comeback actually complete —
+            read from each market's own settlement, not from the scalp */}
+        {s.comebackRate != null && (
+          <Kpi title="Comeback completed"
+            value={`${pct(s.comebackRate)} (${s.comebackWon}/${s.comebackDecided})`}
+            color={s.comebackRate >= 0.5 ? T.green : T.ink} />
+        )}
       </div>
 
       {/* gold = live-collected 1-10s ticks, silver = minute bars backfilled
@@ -59,53 +66,67 @@ export default function StrategyStats({ stats }) {
 
       {/* rules-only vs score cutoffs, side by side — the spec's FIRST
           deliverable: the score has to EARN its place */}
-      {s.comparison && (
-        <>
-          <div style={{ ...lbl, margin: "14px 0 4px" }}>
-            Does the checklist earn its place? — same gate, rising score cutoffs
-          </div>
-          <div style={{ ...card, overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {["Variant", "Spots", "Wins", "Win rate", "P&L", "Fees"].map((h, i) => (
-                    <th key={h} style={{ ...lbl, padding: "8px 12px",
-                      textAlign: i === 0 ? "left" : "right" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {s.comparison.map((row) => (
-                  <tr key={row.label} style={{ borderTop: `1px solid ${T.border}` }}>
-                    <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>{row.label}</td>
-                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>{row.spots}</td>
-                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>{row.wins}</td>
-                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
-                      fontWeight: 700, color: row.winRate >= 0.5 ? T.green : T.red }}>
-                      {pct(row.winRate)}
-                    </td>
-                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
-                      color: row.pnl >= 0 ? T.green : T.red }}>
-                      {usd(row.pnl)}
-                    </td>
-                    <td style={{ ...monoText, fontSize: 12, padding: "7px 12px", textAlign: "right",
-                      color: T.sub }}>
-                      {usd(-(row.feesPaid ?? 0))}
-                    </td>
+      {s.comparison && (() => {
+        const hasCb = s.comparison.some((r) => r.comebackRate != null);
+        const heads = ["Variant", "Spots", "Wins", "Win rate", "P&L", "Fees",
+          ...(hasCb ? ["Comeback"] : [])];
+        return (
+          <>
+            <div style={{ ...lbl, margin: "14px 0 4px" }}>
+              {hasCb
+                ? "One knob at a time — fatigue filter and minimum inning"
+                : "Does the checklist earn its place? — same gate, rising score cutoffs"}
+            </div>
+            <div style={{ ...card, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {heads.map((h, i) => (
+                      <th key={h} style={{ ...lbl, padding: "8px 12px",
+                        textAlign: i === 0 ? "left" : "right" }}>{h}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
+                </thead>
+                <tbody>
+                  {s.comparison.map((row) => (
+                    <tr key={row.label} style={{ borderTop: `1px solid ${T.border}` }}>
+                      <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>{row.label}</td>
+                      <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>{row.spots}</td>
+                      <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>{row.wins}</td>
+                      <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
+                        fontWeight: 700, color: row.winRate >= 0.5 ? T.green : T.red }}>
+                        {pct(row.winRate)}
+                      </td>
+                      <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
+                        color: row.pnl >= 0 ? T.green : T.red }}>
+                        {usd(row.pnl)}
+                      </td>
+                      <td style={{ ...monoText, fontSize: 12, padding: "7px 12px", textAlign: "right",
+                        color: T.sub }}>
+                        {usd(-(row.feesPaid ?? 0))}
+                      </td>
+                      {hasCb && (
+                        <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                          {row.comebackRate != null ? pct(row.comebackRate) : "—"}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        );
+      })()}
 
       <div style={{ ...lbl, margin: "14px 0 4px" }}>Where it wins — by situation</div>
       <div style={{ ...card, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Situation", "Spots", "Win rate", "P&L"].map((h, i) => (
+              {["Situation", "Spots", "Win rate", "P&L",
+                ...(s.bySituation.some((r) => r.comebackRate != null) ? ["Comeback"] : []),
+              ].map((h, i) => (
                 <th key={h} style={{ ...lbl, padding: "8px 12px",
                   textAlign: i === 0 ? "left" : "right" }}>{h}</th>
               ))}
@@ -124,6 +145,11 @@ export default function StrategyStats({ stats }) {
                   color: row.pnl >= 0 ? T.green : T.red }}>
                   {usd(row.pnl)}
                 </td>
+                {row.comebackRate != null && (
+                  <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                    {pct(row.comebackRate)}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

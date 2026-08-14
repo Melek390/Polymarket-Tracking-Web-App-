@@ -65,9 +65,16 @@ export default function StrategyCard({ strategy, defaults, defaultOpen = false }
           <div style={{ fontSize: 12, color: T.sub }}>{strategy.description}</div>
         </div>
         <div style={{ ...monoText, fontSize: 11, color: T.faint, whiteSpace: "nowrap" }}>
-          gate {params.hardFilters.minPriceCents}–{params.hardFilters.maxPriceCents}¢
-          {params.useScore ? ` · score ≥${params.minScore}` : " · rules only"}
-          {" · "}+{params.bounce.targetCents}¢/{params.bounce.horizonHalfInnings}hi
+          {params.kind === "comeback_replay" ? (
+            <>inn ≥{params.situation.minInning}
+              {" · "}{(params.situation.scoreStates || []).map((s) => s === "down1" ? "down 1" : s).join(" / ") || "no state?"}
+              {" · tired ≥"}{params.fatigue.minMatches}
+              {" · +"}{params.bounce.targetCents}¢/{params.bounce.horizonHalfInnings}hi</>
+          ) : (
+            <>gate {params.hardFilters.minPriceCents}–{params.hardFilters.maxPriceCents}¢
+              {params.useScore ? ` · score ≥${params.minScore}` : " · rules only"}
+              {" · "}+{params.bounce.targetCents}¢/{params.bounce.horizonHalfInnings}hi</>
+          )}
         </div>
         <button
           onClick={() => setEditing(true)}

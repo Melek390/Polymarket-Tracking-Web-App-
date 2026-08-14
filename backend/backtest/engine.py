@@ -102,31 +102,20 @@ def _taker_fee(price_cents: float, shares: float) -> float:
     return shares * 0.05 * p * (1 - p)
 
 
-def _simulate(spot: dict, prm: dict) -> dict | None:
-    """One spot -> trade result under the params, or None if gated out."""
-    hf, ex = prm["hardFilters"], prm["exec"]
+def _trade(spot: dict, bounce: dict, ex: dict, stake: dict) -> dict | None:
+    """The trade itself — shared by every strategy kind. Delay picks the
+    stored fill; win test, both give-up rules, slippage and fees as settled
+    Aug 5. None only when no entry price exists."""
     e0 = spot["entry0"]
     if e0 is None:
         return None
-    if not (hf["minPriceCents"] <= e0 <= hf["maxPriceCents"]):
-        return None
-    if spot["innings_left"] < hf["minInningsLeft"]:
-        return None
-    if spot["deficit"] > hf["maxDeficit"]:
-        return None
-    if hf["side"] == "home" and not spot["trailing_is_home"]:
-        return None
-    if hf["side"] == "away" and spot["trailing_is_home"]:
-        return None
-
     delay = int(ex.get("delaySeconds") or 0)
-    fill_mid = spot.get(f"entry{delay}") if delay in (0, 15, 30, 60) else spot["entry0"]
+    fill_mid = spot.get(f"entry{delay}") if delay in (0, 15, 30, 60) else e0
     if fill_mid is None:
         fill_mid = e0
 
-    b = prm["bounce"]
-    horizon = max(1, min(6, int(b["horizonHalfInnings"])))
-    target_mid = fill_mid + b["targetCents"]
+    horizon = max(1, min(6, int(bounce["horizonHalfInnings"])))
+    target_mid = fill_mid + bounce["targetCents"]
     path = spot["path"]
 
     win_k = None
@@ -138,7 +127,6 @@ def _simulate(spot: dict, prm: dict) -> dict | None:
 
     slip = ex["slippageCentsPerSide"]
     entry_exec = fill_mid + slip
-    stake = prm["stake"]
     shares = (stake["usd"] / (entry_exec / 100.0)) if stake["mode"] == "flat_usd" else 100.0
 
     if win_k is not None:
@@ -152,7 +140,7 @@ def _simulate(spot: dict, prm: dict) -> dict | None:
             if step and step.get("at") is not None:
                 last = step["at"]
                 break
-        if b["giveUp"] == "stake" or last is None:
+        if bounce["giveUp"] == "stake" or last is None:
             exit_mid = 0.0          # full loss of the stake
         else:
             exit_mid = last
@@ -171,6 +159,27 @@ def _simulate(spot: dict, prm: dict) -> dict | None:
                       if win_k else 0.0,
             "fee": round(fee, 2), "ts": spot["ts"], "gold": spot["gold"],
             "entry": fill_mid}
+
+
+def _simulate(spot: dict, prm: dict) -> dict | None:
+    """Checklist kind: hard gates first, then the trade."""
+    hf = prm["hardFilters"]
+    e0 = spot["entry0"]
+    if e0 is None:
+        return None
+    if not (hf["minPriceCents"] <= e0 <= hf["maxPriceCents"]):
+        return None
+    if spot["innings_left"] < hf["minInningsLeft"]:
+        return None
+    # tied moments (deficit 0) exist for the comeback replay; the checklist
+    # strategy is about TRAILING teams and never trades them
+    if spot["deficit"] < 1 or spot["deficit"] > hf["maxDeficit"]:
+        return None
+    if hf["side"] == "home" and not spot["trailing_is_home"]:
+        return None
+    if hf["side"] == "away" and spot["trailing_is_home"]:
+        return None
+    return _trade(spot, prm["bounce"], prm["exec"], prm["stake"])
 
 
 def _aggregate(results: list[dict]) -> dict:
@@ -197,7 +206,150 @@ def _aggregate(results: list[dict]) -> dict:
     }
 
 
+# ---- the Comeback Setup replay -------------------------------------------
+
+def _situation_ok(s: dict, sit: dict) -> bool:
+    if not s["trailing_is_home"]:
+        return False
+    states = sit.get("scoreStates") or []
+    if s["deficit"] == 1 and "down1" not in states:
+        return False
+    if s["deficit"] == 0 and "tied" not in states:
+        return False
+    if s["deficit"] > 1:
+        return False
+    if s["inning"] < int(sit["minInning"]):
+        return False
+    if sit.get("requireHomeNext", True) and s["next_half"] != "bottom":
+        return False
+    return True
+
+
+def _fatigue_matches(s: dict, fg: dict) -> int:
+    lp = s["factors"].get("lead_pitcher") or {}
+    m = 0
+    if (lp.get("whip") or 0) > float(fg["whipAbove"]):
+        m += 1
+    if (lp.get("walks_game") or 0) >= int(fg["minWalksGame"]):
+        m += 1
+    if (lp.get("pitches") or 0) >= int(fg["minPitches"]):
+        m += 1
+    return m
+
+
+def run_comeback(params: dict) -> dict:
+    """Every time the Comeback Setup tag would have fired historically — and
+    what taking it did. Situation + fatigue gates from the tag's own spec;
+    the trade model is shared with everything else."""
+    spots = store.all_spots(params.get("corpus", {}).get("segment", "both"))
+    sit, fg = params["situation"], params["fatigue"]
+    settlements = store.home_settlements()
+
+    def select(min_inning=None, min_matches=None):
+        chosen = []
+        for s in spots:
+            override_sit = dict(sit, minInning=min_inning if min_inning is not None
+                                else sit["minInning"])
+            if not _situation_ok(s, override_sit):
+                continue
+            need = int(fg["minMatches"] if min_matches is None else min_matches)
+            if _fatigue_matches(s, fg) < need:
+                continue
+            r = _trade(s, params["bounce"], params["exec"], params["stake"])
+            if r:
+                chosen.append((s, r))
+        return chosen
+
+    chosen = select()
+    results = [r for (_, r) in chosen]
+    overall = _aggregate(results)
+
+    def comeback_rate(pairs):
+        won = lost = 0
+        for (s, _) in pairs:
+            v = settlements.get(s["market_id"])
+            if v is True:
+                won += 1
+            elif v is False:
+                lost += 1
+        return {"won": won, "decided": won + lost,
+                "rate": round(won / (won + lost), 4) if won + lost else None}
+
+    cb = comeback_rate(chosen)
+
+    # the sweeps his "preferably" language asks for: fatigue on/off/stricter,
+    # and inning 7/8/9 — each a full re-run of the saved params with one knob
+    # turned, in the same table shape the checklist comparison used
+    comparison = []
+    for label, kwargs in (
+        ("No fatigue filter", {"min_matches": 0}),
+        (f"Tired: ≥{fg['minMatches']} check(s) (saved)", {}),
+        ("Tired: ≥2 checks", {"min_matches": 2}),
+        ("Min inning 7", {"min_inning": 7}),
+        ("Min inning 8", {"min_inning": 8}),
+        ("Min inning 9", {"min_inning": 9}),
+    ):
+        sub = select(**kwargs)
+        agg = _aggregate([r for (_, r) in sub])
+        row = {"label": label,
+               **{k: v for k, v in agg.items() if k != "equity"}}
+        row["comebackRate"] = comeback_rate(sub)["rate"]
+        comparison.append(row)
+
+    # situation table = the client's own value bands, verified against history
+    def bucket(label, pred):
+        sub = [(s, r) for (s, r) in chosen if pred(s, r)]
+        agg = _aggregate([r for (_, r) in sub])
+        return {"label": label, "spots": agg["spots"],
+                "winRate": agg["winRate"], "pnl": agg["pnl"],
+                "comebackRate": comeback_rate(sub)["rate"]}
+
+    by_situation = [
+        bucket("Down 1 · entry ≤20¢ (his: Strong value)",
+               lambda s, r: s["deficit"] == 1 and r["entry"] <= 20),
+        bucket("Down 1 · 21–25¢ (Decent)",
+               lambda s, r: s["deficit"] == 1 and 20 < r["entry"] <= 25),
+        bucket("Down 1 · 26–30¢ (Marginal)",
+               lambda s, r: s["deficit"] == 1 and 25 < r["entry"] <= 30),
+        bucket("Down 1 · ≥31¢ (No edge)",
+               lambda s, r: s["deficit"] == 1 and r["entry"] > 30),
+        bucket("Tied · entry ≤50¢ (Strong value)",
+               lambda s, r: s["deficit"] == 0 and r["entry"] <= 50),
+        bucket("Tied · 51–55¢ (Decent)",
+               lambda s, r: s["deficit"] == 0 and 50 < r["entry"] <= 55),
+        bucket("Tied · 56–60¢ (Marginal)",
+               lambda s, r: s["deficit"] == 0 and 55 < r["entry"] <= 60),
+        bucket("Tied · ≥61¢ (No edge)",
+               lambda s, r: s["deficit"] == 0 and r["entry"] > 60),
+        bucket("Inning 8 exactly", lambda s, r: s["inning"] == 8),
+        bucket("Inning 9+", lambda s, r: s["inning"] >= 9),
+    ]
+    by_situation = [b for b in by_situation if b["spots"] > 0]
+
+    seg = {
+        "gold": {k: v for k, v in _aggregate([r for r in results if r["gold"]]).items()
+                 if k != "equity"},
+        "silver": {k: v for k, v in _aggregate([r for r in results if not r["gold"]]).items()
+                   if k != "equity"},
+    }
+    return {
+        **overall,
+        "comebackRate": cb["rate"], "comebackWon": cb["won"],
+        "comebackDecided": cb["decided"],
+        "bySituation": by_situation,
+        "comparison": comparison,
+        "segments": seg,
+        "gatedSpots": len(chosen),
+    }
+
+
 def run(params: dict) -> dict:
+    if params.get("kind") == "comeback_replay":
+        return run_comeback(params)
+    return run_checklist(params)
+
+
+def run_checklist(params: dict) -> dict:
     spots = store.all_spots(params.get("corpus", {}).get("segment", "both"))
     w = params["weights"]
     cap = round(sum(w.values()), 1)

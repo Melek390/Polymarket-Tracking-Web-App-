@@ -51,6 +51,51 @@ function Row({ label, children, hint }) {
   );
 }
 
+// The Comeback Setup replay's own param sheet — the tag's spec, adjustable.
+function ComebackFields({ p, set }) {
+  const states = p.situation.scoreStates || [];
+  const toggleState = (s) =>
+    set("situation.scoreStates",
+      states.includes(s) ? states.filter((x) => x !== s) : [...states, s]);
+  return (
+    <>
+      <div style={{ ...lbl, marginTop: 16 }}>Situation — when the tag fires</div>
+      <Row label="Minimum inning" hint="he wrote 8 (after the top of the 8th); 7 was his first draft">
+        <Choice value={p.situation.minInning} onChange={(v) => set("situation.minInning", v)}
+          options={[[7, "7"], [8, "8"], [9, "9"]]} />
+      </Row>
+      <Row label="Home team is trailing by exactly 1">
+        <input type="checkbox" checked={states.includes("down1")}
+          onChange={() => toggleState("down1")} />
+      </Row>
+      <Row label="Home team is tied">
+        <input type="checkbox" checked={states.includes("tied")}
+          onChange={() => toggleState("tied")} />
+      </Row>
+      <Row label="Only when the home team is about to bat (bottom half)">
+        <input type="checkbox" checked={!!p.situation.requireHomeNext}
+          onChange={(e) => set("situation.requireHomeNext", e.target.checked)} />
+      </Row>
+
+      <div style={{ ...lbl, marginTop: 18 }}>Tired away pitcher — the replayable checks</div>
+      <Row label="Checks that must match (0 = no fatigue filter)"
+        hint="'pitched yesterday' isn't in the stored spots — WHIP, walks and pitch count stand in">
+        <Choice value={p.fatigue.minMatches} onChange={(v) => set("fatigue.minMatches", v)}
+          options={[[0, "0"], [1, "1"], [2, "2"], [3, "3"]]} />
+      </Row>
+      <Row label="Season WHIP above">
+        <Num value={p.fatigue.whipAbove} step={0.05} onChange={(v) => set("fatigue.whipAbove", v)} />
+      </Row>
+      <Row label="Walks this game at least">
+        <Num value={p.fatigue.minWalksGame} step={1} onChange={(v) => set("fatigue.minWalksGame", v)} />
+      </Row>
+      <Row label="Pitches this game at least">
+        <Num value={p.fatigue.minPitches} step={5} onChange={(v) => set("fatigue.minPitches", v)} />
+      </Row>
+    </>
+  );
+}
+
 export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
   const [p, setP] = useState(strategy.params);
   const set = (path, value) => {
@@ -63,7 +108,9 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
       return next;
     });
   };
-  const totalWeight = Object.values(p.weights).reduce((a, b) => a + b, 0);
+  const isComeback = p.kind === "comeback_replay";
+  const totalWeight = isComeback ? 0
+    : Object.values(p.weights).reduce((a, b) => a + b, 0);
 
   return (
     <div onClick={onClose} style={{
@@ -78,6 +125,9 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
           <button onClick={onClose} style={{ ...btn.ghost, fontSize: 22, lineHeight: 1, padding: "0 4px" }}>×</button>
         </div>
 
+        {isComeback && <ComebackFields p={p} set={set} />}
+
+        {!isComeback && (<>
         <div style={{ ...lbl, marginTop: 16 }}>Hard filters — applied first; a failed filter means the spot is never scored</div>
         <Row label="Max price of the trailing team (¢)">
           <Num value={p.hardFilters.maxPriceCents} step={1} onChange={(v) => set("hardFilters.maxPriceCents", v)} />
@@ -98,6 +148,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
         <Row label="Entry timing" hint="fixed by design — bases are always empty at evaluation">
           <span style={{ ...monoText, fontSize: 12, color: T.sub }}>after a half-inning ends</span>
         </Row>
+        </>)}
 
         <div style={{ ...lbl, marginTop: 18 }}>Exit — what counts as a win (drafts pending the client)</div>
         <Row label="Bounce target (¢ above entry)">
@@ -139,6 +190,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
           </span>
         </Row>
 
+        {!isComeback && (<>
         <div style={{ ...lbl, marginTop: 18 }}>
           Checklist — total {totalWeight.toFixed(1)} pts
         </div>
@@ -157,6 +209,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
             <Num value={p.weights[key]} onChange={(v) => set(`weights.${key}`, v)} />
           </Row>
         ))}
+        </>)}
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
           <button
