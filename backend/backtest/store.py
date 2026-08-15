@@ -337,6 +337,15 @@ def all_spots(segment: str = "both") -> list[dict]:
     return out
 
 
+def market_matchups() -> dict[int, str]:
+    """market_id -> 'Away @ Home', for the spots CSV export."""
+    with get_db() as conn:
+        return {r["market_id"]: f"{r['mlb_away']} @ {r['mlb_home']}"
+                for r in conn.execute(
+                    "SELECT market_id, mlb_away, mlb_home FROM backtest_games "
+                    "WHERE mlb_away IS NOT NULL AND mlb_home IS NOT NULL")}
+
+
 def fav_history_rows() -> list[dict]:
     """Reconstructed T-5 verdicts, same joined shape as favorite_locks() plus
     source='reconstructed' and the stored T-5 prices.

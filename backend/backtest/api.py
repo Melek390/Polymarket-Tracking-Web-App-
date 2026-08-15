@@ -44,7 +44,7 @@ def run(body: dict):
     if not isinstance(params, dict):
         raise HTTPException(400, "params object required")
     try:
-        return engine.run(params)
+        return engine.run(params, include_trades=bool(body.get("includeTrades")))
     except KeyError as e:
         raise HTTPException(400, f"missing param: {e}")
 

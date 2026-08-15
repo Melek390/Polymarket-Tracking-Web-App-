@@ -1,4 +1,4 @@
-import { T, card, monoText } from "../../theme.js";
+import { T, card, monoText, btn } from "../../theme.js";
 import EquityLine from "./EquityLine.jsx";
 
 // The stats block under an expanded strategy: KPI row, equity curve, and the
@@ -19,11 +19,11 @@ function Kpi({ title, value, color }) {
   );
 }
 
-export default function StrategyStats({ stats }) {
+export default function StrategyStats({ stats, onDownload, downloading }) {
   const s = stats;
   return (
     <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.border}`, background: T.soft }}>
-      <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "center" }}>
         <Kpi title="Win rate" value={pct(s.winRate)} color={s.winRate >= 0.5 ? T.green : T.red} />
         <Kpi title="P&L" value={usd(s.pnl)} color={s.pnl >= 0 ? T.green : T.red} />
         <Kpi title="Spots" value={s.spots} />
@@ -38,6 +38,19 @@ export default function StrategyStats({ stats }) {
           <Kpi title="Comeback completed"
             value={`${pct(s.comebackRate)} (${s.comebackWon}/${s.comebackDecided})`}
             color={s.comebackRate >= 0.5 ? T.green : T.ink} />
+        )}
+        {onDownload && (
+          <button
+            onClick={onDownload}
+            disabled={downloading || !s.spots}
+            title={s.spots ? "Every spot behind these numbers, as a CSV (respects the current params)"
+              : "No spots under the current params"}
+            style={{ ...btn.outline, fontSize: 13, padding: "7px 14px",
+              marginLeft: "auto", whiteSpace: "nowrap",
+              opacity: downloading || !s.spots ? 0.6 : 1 }}
+          >
+            {downloading ? "Preparing…" : "⬇ Download spots (CSV)"}
+          </button>
         )}
       </div>
 

@@ -168,7 +168,7 @@ def _trade(spot: dict, bounce: dict, ex: dict, stake: dict) -> dict | None:
             "bounce": round((path.get(str(win_k), {}).get("max") or fill_mid) - fill_mid, 2)
                       if win_k else 0.0,
             "fee": round(fee, 2), "ts": spot["ts"], "gold": spot["gold"],
-            "entry": fill_mid}
+            "entry": fill_mid, "exit": round(exit_exec, 2)}
 
 
 def _simulate(spot: dict, prm: dict) -> dict | None:
@@ -247,7 +247,7 @@ def _fatigue_matches(s: dict, fg: dict) -> int:
     return m
 
 
-def run_comeback(params: dict) -> dict:
+def run_comeback(params: dict, include_trades: bool = False) -> dict:
     """Every time the Comeback Setup tag would have fired historically — and
     what taking it did. Situation + fatigue gates from the tag's own spec;
     the trade model is shared with everything else."""
@@ -342,7 +342,7 @@ def run_comeback(params: dict) -> dict:
         "silver": {k: v for k, v in _aggregate([r for r in results if not r["gold"]]).items()
                    if k != "equity"},
     }
-    return {
+    out = {
         **overall,
         "comebackRate": cb["rate"], "comebackWon": cb["won"],
         "comebackDecided": cb["decided"],
@@ -353,11 +353,24 @@ def run_comeback(params: dict) -> dict:
         "staleEntries": sum(1 for s in spots if _stale(s)),
         "comparisonTitle": "One knob at a time — fatigue filter and minimum inning",
     }
+    if include_trades:
+        matchups = store.market_matchups()
+        out["trades"] = [{
+            "time_utc": s["ts"], "game": matchups.get(s["market_id"], ""),
+            "inning": s["inning"], "next_half": s["next_half"],
+            "trailing_side": s["trailing_side"], "deficit": s["deficit"],
+            "entry_cents": r["entry"], "exit_cents": r["exit"],
+            "won": r["win"], "bounce_cents": r["bounce"],
+            "hold_half_innings": r["hold"], "fee_usd": r["fee"],
+            "pnl_usd": r["pnl"], "data": "gold" if r["gold"] else "silver",
+            "comeback_completed": settlements.get(s["market_id"]),
+        } for (s, r) in chosen]
+    return out
 
 
 # ---- the Clear Favorite replay (locked T-5 verdicts, held to settlement) --
 
-def run_favorite(params: dict) -> dict:
+def run_favorite(params: dict, include_trades: bool = False) -> dict:
     """Replay the verdicts exactly as locked before first pitch. Thresholds
     are re-applied over the stored payloads — both sides' full breakdowns are
     in every lock, so lowering the bar to 65 re-scores the same history. A
@@ -440,7 +453,11 @@ def run_favorite(params: dict) -> dict:
                             "ts": L["locked_at"], "gold": L["gold"] or 0,
                             "entry": best["price"], "side": best["side"],
                             "total": best["total"], "source": L["source"],
-                            "outside": outside})
+                            "outside": outside,
+                            "game": f"{v.get('away_name')} @ {v.get('home_name')}",
+                            "team": v.get(f"{best['side']}_name"),
+                            "price_source": ("own_ticks" if not outside
+                                             else v.get("price_source", "none"))})
         return results, untracked, unsettled
 
     results, untracked, unsettled = evaluate()
@@ -493,7 +510,15 @@ def run_favorite(params: dict) -> dict:
             if k != "equity"},
     }
     avg_entry = (sum(r["entry"] for r in results) / len(results)) if results else None
+    trades = [{
+        "locked_at_utc": r["ts"], "game": r["game"], "bet_on": r["team"],
+        "side": r["side"], "score_total": r["total"],
+        "entry_cents": r["entry"], "won": r["win"], "fee_usd": r["fee"],
+        "pnl_usd": r["pnl"], "verdict_source": r["source"],
+        "price_source": r["price_source"],
+    } for r in results] if include_trades else None
     return {
+        **({"trades": trades} if trades is not None else {}),
         **overall,
         "comparisonTitle": "Thresholds one at a time — score bar, price floor, disqualifiers",
         "bySituation": by_situation,
@@ -511,15 +536,15 @@ def run_favorite(params: dict) -> dict:
     }
 
 
-def run(params: dict) -> dict:
+def run(params: dict, include_trades: bool = False) -> dict:
     if params.get("kind") == "comeback_replay":
-        return run_comeback(params)
+        return run_comeback(params, include_trades)
     if params.get("kind") == "favorite_replay":
-        return run_favorite(params)
-    return run_checklist(params)
+        return run_favorite(params, include_trades)
+    return run_checklist(params, include_trades)
 
 
-def run_checklist(params: dict) -> dict:
+def run_checklist(params: dict, include_trades: bool = False) -> dict:
     spots = store.all_spots(params.get("corpus", {}).get("segment", "both"))
     w = params["weights"]
     cap = round(sum(w.values()), 1)
@@ -579,7 +604,7 @@ def run_checklist(params: dict) -> dict:
         for k in u:
             unknown_counts[k] = unknown_counts.get(k, 0) + 1
 
-    return {
+    out = {
         **overall,
         "scoreCap": cap,
         "bySituation": by_situation,
@@ -589,3 +614,15 @@ def run_checklist(params: dict) -> dict:
         "gatedSpots": len(gated),
         "staleEntries": sum(1 for s in spots if _stale(s)),
     }
+    if include_trades:
+        matchups = store.market_matchups()
+        out["trades"] = [{
+            "time_utc": s["ts"], "game": matchups.get(s["market_id"], ""),
+            "inning": s["inning"], "next_half": s["next_half"],
+            "trailing_side": s["trailing_side"], "deficit": s["deficit"],
+            "score": sc, "entry_cents": r["entry"], "exit_cents": r["exit"],
+            "won": r["win"], "bounce_cents": r["bounce"],
+            "hold_half_innings": r["hold"], "fee_usd": r["fee"],
+            "pnl_usd": r["pnl"], "data": "gold" if r["gold"] else "silver",
+        } for (s, r, sc, _) in chosen]
+    return out

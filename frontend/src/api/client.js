@@ -168,7 +168,8 @@ export const saveBacktestStrategy = (id, params) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ params }),
   });
-export const runBacktest = (params) => post("/api/backtest/run", { params });
+export const runBacktest = (params, includeTrades = false) =>
+  post("/api/backtest/run", { params, includeTrades });
 export async function fetchBackfillStatus() {
   return request("/api/backtest/backfill/status");
 }

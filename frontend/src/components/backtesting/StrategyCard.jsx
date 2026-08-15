@@ -38,6 +38,39 @@ export default function StrategyCard({ strategy, defaults, defaultOpen = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const [downloading, setDownloading] = useState(false);
+
+  // Every spot the current params selected, as a CSV the client can open in
+  // Excel — re-runs server-side with includeTrades so the file always matches
+  // the params exactly, then downloads client-side (no new endpoint).
+  async function downloadSpots() {
+    setDownloading(true);
+    try {
+      const r = await runBacktest(params, true);
+      const rows = r.trades || [];
+      const cols = [...new Set(rows.flatMap((t) => Object.keys(t)))];
+      const esc = (v) => {
+        if (v == null) return "";
+        const s = typeof v === "boolean" ? (v ? "yes" : "no") : String(v);
+        return /[",\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+      };
+      const csv = [cols.join(","),
+        ...rows.map((t) => cols.map((c) => esc(t[c])).join(","))].join("\n");
+      const a = document.createElement("a");
+      // BOM so Excel opens the accents in team names correctly
+      a.href = URL.createObjectURL(new Blob(["﻿" + csv],
+        { type: "text/csv;charset=utf-8" }));
+      a.download = `${strategy.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()
+        .replace(/^-+|-+$/g, "")}-spots.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   async function saveAndRun(p) {
     setParams(p);
     setEditing(false);
@@ -107,7 +140,9 @@ export default function StrategyCard({ strategy, defaults, defaultOpen = false }
           Replaying the corpus…
         </div>
       )}
-      {open && stats && stats !== "running" && <StrategyStats stats={stats} />}
+      {open && stats && stats !== "running" && (
+        <StrategyStats stats={stats} onDownload={downloadSpots} downloading={downloading} />
+      )}
 
       {editing && (
         <ParamsDialog
