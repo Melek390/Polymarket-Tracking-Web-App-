@@ -67,12 +67,15 @@ async def run(stats_interval_s: float = 120.0) -> None:
         live_ids.add(fid)
         _fixtures[fid] = f
         _last_seen[fid] = now_mono
-    # matches that left the live feed keep their last state briefly (so the
-    # UI can show the final and the outcome pass can settle), then age out
+    # Matches that left the live feed keep their last state for 90 minutes:
+    # the screener uses the fixture status to mark a row OVER the moment the
+    # match ends (Polymarket can leave the market unresolved — and the
+    # kickoff-window badge on LIVE — for a while), so the FT state must
+    # outlive the whole 2.5h window, not just the outcome pass.
     for fid in [k for k in _fixtures if k not in live_ids]:
         if _fixtures[fid].get("status") not in ("FT", "AET", "PEN"):
             _fixtures[fid]["status"] = "FT?"
-        if now_mono - _last_seen.get(fid, now_mono) > 1800:
+        if now_mono - _last_seen.get(fid, now_mono) > 5400:
             _fixtures.pop(fid, None)
             _stats.pop(fid, None)
             _slug_of.pop(fid, None)

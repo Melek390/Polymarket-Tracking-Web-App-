@@ -84,6 +84,10 @@ const STATUS_META = {
   over: { label: "OVER", color: "#646B76" },
 };
 
+// API-FOOTBALL fixture statuses -> our three buckets (big-5 soccer rows)
+const FB_OVER = new Set(["FT", "AET", "PEN", "FT?", "AWD", "WO", "ABD", "CANC"]);
+const FB_LIVE = new Set(["1H", "HT", "2H", "ET", "P", "BT", "LIVE", "INT", "SUSP"]);
+
 // Where a match sits in time, from its kickoff. Purely client-side so it
 // stays accurate between the 5-minute cache refreshes.
 function matchStatus(kickoff) {
@@ -156,8 +160,21 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
     setStatuses((prev) =>
       s === "all" ? [] : prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s],
     );
-  const statusOk = (kickoff) =>
-    statuses.length === 0 || statuses.includes(matchStatus(kickoff));
+  // Big-5 soccer rows: the football API knows the REAL match state, while
+  // Polymarket can leave a finished match's market unresolved (and our
+  // time-window badge on "LIVE") for a while after full time. Where the
+  // live cache has the fixture, its status wins; everything else keeps the
+  // kickoff-window fallback.
+  const rowStatus = (m) => {
+    const st = fbLive[m.slug]?.status;
+    if (st) {
+      if (FB_OVER.has(st)) return "over";
+      if (FB_LIVE.has(st)) return "live";
+    }
+    return matchStatus(m.kickoff);
+  };
+  const statusOk = (m) =>
+    statuses.length === 0 || statuses.includes(rowStatus(m));
   const [draft, setDraft] = useState(EMPTY_FILTERS); // what the user is typing
   const [applied, setApplied] = useState(EMPTY_FILTERS); // what the table uses
   const [sort, setSort] = useState({ key: "volume", dir: "desc" });
@@ -530,7 +547,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const hasDraw = rows.some((m) => m.drawPrice != null);
   const visibleBase = rows
     .filter((m) => matchesFilters(m, applied, league, search))
-    .filter((m) => statusOk(m.kickoff));
+    .filter((m) => statusOk(m));
   const hiddenN = visibleBase.filter((m) => hidden[m.slug]).length;
   // per-match note — same feature and storage as the baseball table
   const saveNote = (slug) => { setNotes({ ...setNote(slug, noteDraft) }); setNoteEdit(null); };
@@ -596,7 +613,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const leagueSet = new Set(
     rows
       .filter((m) => matchesFilters(m, applied, null, search))
-      .filter((m) => statusOk(m.kickoff))
+      .filter((m) => statusOk(m))
       .map((m) => m.league),
   );
   if (league) leagueSet.add(league); // keep the current pick deselectable
@@ -993,7 +1010,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                         style={{ cursor: "pointer", marginRight: 6 }}>🔔</span>
                     )}
                     {(() => {
-                      const s = matchStatus(m.kickoff);
+                      const s = rowStatus(m);
                       const meta = STATUS_META[s];
                       return (
                         <span
