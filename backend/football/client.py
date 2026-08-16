@@ -73,12 +73,16 @@ async def _get(path: str, params: dict) -> list:
 
 
 async def live_fixtures() -> list[dict]:
-    """Every big-5 fixture currently live, in ONE request (the `live` param
-    takes dash-separated league ids server-side)."""
+    """Every big-5 fixture currently live, in ONE request. The `live` param
+    takes dash-separated league ids, but the API was observed (Aug 16)
+    returning ALL ~95 worldwide live fixtures despite it — so the big-5
+    filter is ENFORCED here and the param is just a hint."""
     rows = await _get("/fixtures", {"live": "-".join(str(i) for i in LEAGUES)})
     out = []
     for f in rows:
         fx, lg = f.get("fixture") or {}, f.get("league") or {}
+        if lg.get("id") not in LEAGUES:
+            continue
         teams, goals = f.get("teams") or {}, f.get("goals") or {}
         status = fx.get("status") or {}
         out.append({
