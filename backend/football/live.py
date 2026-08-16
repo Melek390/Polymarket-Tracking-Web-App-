@@ -3,11 +3,14 @@
 rule: no browser request fans out upstream).
 
 REQUEST BUDGET — the whole design bends around API-FOOTBALL quotas:
-  - zero requests while no big-5 match is inside its live window (the gate
-    reads our own screener cache, which knows every kickoff)
-  - one /fixtures?live=… request per pass while matches are on
-  - one /fixtures/statistics per live fixture per stats interval (possession
-    / shots / reds change slowly; 120s is plenty)
+  - zero requests while no screener soccer match is inside its live window
+    (the gate reads our own screener cache, which knows every kickoff)
+  - one /fixtures?live=all request per pass while matches are on — that ONE
+    request carries every live score worldwide, so all soccer rows get a
+    score strip at no extra cost
+  - one /fixtures/statistics per live BIG-5 fixture per stats interval
+    (possession / shots / reds change slowly; 120s is plenty) — stats and
+    the 0-0 alert stay big-5 only, where the client's spec points
   - one /fixtures?id= per finished trigger, once, for the final score
 """
 
@@ -32,25 +35,25 @@ _last_seen: dict[int, float] = {}        # fixture_id -> last time in live feed
 _updated_at: str | None = None
 
 
-def _big5_rows() -> list[dict]:
-    """Screener soccer rows in one of the five leagues, kickoff inside the
-    live window — the gate that keeps quiet days at zero requests."""
+def _soccer_rows() -> list[dict]:
+    """Every screener soccer row with kickoff inside the live window — the
+    gate that keeps no-soccer hours at zero requests. ALL leagues: scores go
+    on every row; only stats and the alert are big-5 work."""
     now = datetime.now(timezone.utc)
     lo = (now - timedelta(minutes=_LIVE_WINDOW_AFTER_MIN)).strftime("%Y-%m-%dT%H:%M:%SZ")
     hi = (now + timedelta(minutes=_LIVE_WINDOW_BEFORE_MIN)).strftime("%Y-%m-%dT%H:%M:%SZ")
     with get_db() as conn:
-        rows = [dict(r) for r in conn.execute(
+        return [dict(r) for r in conn.execute(
             """SELECT event_slug, league, home_team, away_team, kickoff,
                       home_price, draw_price, away_price, token_ids
                FROM screener_cache
                WHERE sport='soccer' AND kickoff BETWEEN ? AND ?""", (lo, hi))]
-    return [r for r in rows if matcher.big5_league(r.get("league"))]
 
 
 async def run(stats_interval_s: float = 120.0) -> None:
     """One pass — called on a timer from the scheduler."""
     global _updated_at
-    rows = _big5_rows()
+    rows = _soccer_rows()
     if not rows:
         if _fixtures:
             _fixtures.clear()
@@ -85,6 +88,11 @@ async def run(stats_interval_s: float = 120.0) -> None:
             continue
         fid = f["fixture_id"]
         _slug_of[fid] = row["event_slug"]
+
+        # scores are worldwide; stats and the alert are big-5 only (that is
+        # where the per-fixture request budget and the client's spec go)
+        if f.get("league_id") not in client.LEAGUES:
+            continue
 
         # stats on their own slower cadence
         had = _stats.get(fid)
@@ -129,11 +137,15 @@ async def run(stats_interval_s: float = 120.0) -> None:
 
 
 def snapshot() -> dict:
-    """What the browser reads: every cached big-5 live fixture with its
-    stats, keyed by screener slug where a match was made."""
+    """What the browser reads: every live fixture MATCHED to a screener row
+    (slug set), with stats where they exist (big-5). Unmatched worldwide
+    fixtures stay server-side — no row to attach them to."""
     out = []
     for fid, f in _fixtures.items():
+        slug = _slug_of.get(fid)
+        if not slug:
+            continue
         stats = (_stats.get(fid) or (0, None))[1]
-        out.append({**f, "slug": _slug_of.get(fid), "stats": stats})
+        out.append({**f, "slug": slug, "stats": stats})
     return {"fixtures": out, "updated_at": _updated_at,
             "key_configured": client.has_key()}

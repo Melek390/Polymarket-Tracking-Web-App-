@@ -88,9 +88,28 @@ def same_team(a: str | None, b: str | None) -> bool:
 
 
 def fixture_for_row(row: dict, fixtures: list[dict]) -> dict | None:
-    """The live fixture whose two teams both match the screener row's."""
+    """The live fixture whose two teams both match the screener row's.
+
+    With the worldwide live feed, name doubles exist (Liverpool FC vs
+    Liverpool Montevideo) — requiring BOTH teams already kills nearly all of
+    them, and a kickoff-proximity check (4h) removes the rest."""
+    row_ko = _ts(row.get("kickoff"))
     for f in fixtures:
-        if (same_team(row.get("home_team"), f.get("home"))
+        if not (same_team(row.get("home_team"), f.get("home"))
                 and same_team(row.get("away_team"), f.get("away"))):
-            return f
+            continue
+        fko = _ts(f.get("kickoff"))
+        if row_ko and fko and abs(row_ko - fko) > 4 * 3600:
+            continue
+        return f
     return None
+
+
+def _ts(iso: str | None) -> int | None:
+    if not iso:
+        return None
+    try:
+        from datetime import datetime
+        return int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp())
+    except ValueError:
+        return None

@@ -73,9 +73,10 @@ async def _get(path: str, params: dict) -> list:
 
 
 async def live_fixtures() -> list[dict]:
-    """Every big-5 fixture currently live, in ONE request (the `live` param
-    takes dash-separated league ids server-side)."""
-    rows = await _get("/fixtures", {"live": "-".join(str(i) for i in LEAGUES)})
+    """Every fixture currently live WORLDWIDE, in ONE request — same cost as
+    filtering server-side, and it lets the screener show a score on every
+    soccer row. Big-5-only work (stats, the alert) filters on league_id."""
+    rows = await _get("/fixtures", {"live": "all"})
     out = []
     for f in rows:
         fx, lg = f.get("fixture") or {}, f.get("league") or {}
