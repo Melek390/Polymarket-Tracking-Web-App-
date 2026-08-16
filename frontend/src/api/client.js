@@ -190,6 +190,25 @@ export async function saveComebackConfig(cfg) {
   });
 }
 
+// --- Soccer (big-5 live data + the 0-0 clear-favorite alert) --------------
+export async function fetchFootballLive() {
+  return request(`/api/football/live?_=${Date.now()}`);
+}
+export async function fetchFootballActive() {
+  return request(`/api/football/active?_=${Date.now()}`);
+}
+export const ackFootball = (id) => post("/api/football/ack", { id });
+export async function fetchFootballConfig() {
+  return request("/api/football/config");
+}
+export async function saveFootballConfig(cfg) {
+  return request("/api/football/config", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cfg),
+  });
+}
+
 // GET /api/mlb/matchup/{pk} — standings, season series and probable starters
 export async function fetchMlbMatchup(gamePk) {
   return request(`/api/mlb/matchup/${gamePk}`);

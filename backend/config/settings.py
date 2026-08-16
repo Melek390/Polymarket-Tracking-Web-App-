@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     gamma_base_url: str = "https://gamma-api.polymarket.com"
     clob_base_url: str = "https://clob.polymarket.com"
 
+    # API-FOOTBALL (api-sports.io) — soccer live data + the 0-0 alert. Empty
+    # key = the soccer features stay dark, everything else runs normally.
+    # Polling only happens while a big-5 match is inside its live window, so
+    # the request budget is ~1/min for fixtures + 1 per live match per
+    # stats interval — size the intervals to the plan's quota.
+    football_api_key: str = ""
+    football_poll_seconds: int = 60
+    football_stats_seconds: int = 120
+
     # Auth. The public URL ran open for months (V2.md's biggest delivery
     # risk); this closes it. auth_enabled exists so a developer can run the
     # app locally without signing in — it must stay TRUE on the VM.

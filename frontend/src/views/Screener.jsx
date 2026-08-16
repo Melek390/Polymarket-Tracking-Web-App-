@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtTimestamp, fmtVolume, TZ_LABEL } from "../utils.js";
-import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected } from "../api/client.js";
+import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected,
+  fetchFootballLive, fetchFootballActive, ackFootball } from "../api/client.js";
+import FootballDialog from "../components/FootballDialog.jsx";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
 import BaseballTable from "../components/BaseballTable.jsx";
 import AlertDialog from "../components/AlertDialog.jsx";
@@ -183,6 +185,12 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const [presets, setPresets] = useState(() =>
     JSON.parse(localStorage.getItem("screenerPresets") || "[]"),
   );
+  // soccer: big-5 live fixtures (score/minute/possession/shots/reds) and the
+  // 0-0 clear-favorite triggers — server detects, the browser only reads
+  const [fbLive, setFbLive] = useState({});     // slug -> live fixture + stats
+  const [fbTrig, setFbTrig] = useState({});     // slug -> newest trigger
+  const [fbCfgOpen, setFbCfgOpen] = useState(false);
+  const fbSeen = useRef(new Set());             // trigger ids already announced
 
   async function load() {
     try {
@@ -213,6 +221,59 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
     matchRef.current = {};
     setHits(new Set());
   }, [sport]);
+
+  // Soccer live data + 0-0 triggers, only while the soccer tab is open. The
+  // server polls API-FOOTBALL on its own clock; this just reads the caches.
+  // An unacked trigger this window hasn't announced yet gets a toast + the
+  // situation tone — including on page load (unacked = "not checked yet").
+  useEffect(() => {
+    if (sport !== "soccer") return;
+    let stop = false;
+    async function pull() {
+      try {
+        const [liveR, actR] = await Promise.all([
+          fetchFootballLive(), fetchFootballActive()]);
+        if (stop) return;
+        const bySlug = {};
+        for (const f of liveR.fixtures || []) {
+          if (f.slug) bySlug[f.slug] = f;
+        }
+        setFbLive(bySlug);
+        const trig = {};
+        for (const t of actR.triggers || []) {
+          const cur = trig[t.slug];
+          if (!cur || (!t.ack_at && cur.ack_at)) trig[t.slug] = t;
+        }
+        setFbTrig(trig);
+        for (const t of actR.triggers || []) {
+          if (t.ack_at || fbSeen.current.has(t.id)) continue;
+          fbSeen.current.add(t.id);
+          pushToast(`⚽ 0-0 Alert — ${t.home_name} vs ${t.away_name} (${t.league}), `
+            + `${t.minute}': favorite ${t.favorite_name} was `
+            + `${t[`prematch_${t.favorite}_cents`]}¢ pre-match`
+            + (t.favorite_red_cards ? ` · 🟥 favorite a man down!` : ""));
+          playSound("situation");
+        }
+      } catch {
+        /* server hiccup — next tick retries */
+      }
+    }
+    pull();
+    const id = setInterval(pull, 15_000);
+    return () => { stop = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sport]);
+
+  // "stays there until I check it" — the ack lands server-side so it holds
+  // across reloads and every open window
+  async function checkFootball(t) {
+    setFbTrig((prev) => ({ ...prev, [t.slug]: { ...t, ack_at: new Date().toISOString() } }));
+    try {
+      await ackFootball(t.id);
+    } catch {
+      /* the next pull re-flags it if the ack didn't land */
+    }
+  }
 
   // auto-refresh pulls fresh prices on the chosen interval
   useEffect(() => {
@@ -657,6 +718,21 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
         onEdit={() => setDialogOpen(true)}
         onClear={clearAlert}
       />
+      {sport === "soccer" && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            onClick={() => setFbCfgOpen(true)}
+            title="0-0 Favorite Alert — thresholds and on/off"
+            style={{ ...btn.outline, fontSize: 12, padding: "6px 12px" }}
+          >
+            ⚽ 0-0 Alert
+          </button>
+          <span style={{ fontSize: 11, color: T.faint }}>
+            Big-5 leagues · clear favorite pre-match · still 0-0 at 60&apos; →
+            the row flashes until checked
+          </span>
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: T.sub }}>Status:</span>
         {STATUS_FILTERS.map((s) => (
@@ -897,8 +973,12 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
             <tbody>
               {visible.map((m) => {
                 const hl = highlightColor(highlights[m.slug]);
+                // soccer: the 0-0 trigger (flash until checked) + live stats
+                const ft = fbTrig[m.slug];
+                const ftActive = ft && !ft.ack_at;
+                const fl = fbLive[m.slug];
                 return (
-                <tr key={m.slug} className="mkt-row"
+                <tr key={m.slug} className={ftActive ? "mkt-row comeback-flash" : "mkt-row"}
                   style={{ borderTop: `1px solid ${T.border}`,
                     // The user's colour WINS — a matching alert used to override
                     // it, which made highlighting an alerting row look broken.
@@ -935,6 +1015,58 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                       );
                     })()}
                     {m.home} vs {m.away}
+                    {/* live match strip — the data the client asked to see:
+                        score/minute, possession, shots (on target), reds */}
+                    {fl && (
+                      <div style={{ ...monoText, fontSize: 11, color: T.sub,
+                        marginTop: 3, whiteSpace: "nowrap" }}>
+                        <b style={{ color: T.ink }}>
+                          {fl.status === "HT" ? "HT" : `${fl.elapsed ?? "?"}'`}
+                          {" "}{fl.home_goals ?? "-"}–{fl.away_goals ?? "-"}
+                        </b>
+                        {fl.stats && (
+                          <>
+                            {" · poss "}{fl.stats.home.possession_pct ?? "?"}%–
+                            {fl.stats.away.possession_pct ?? "?"}%
+                            {" · shots "}{fl.stats.home.shots ?? 0}
+                            ({fl.stats.home.shots_on_target ?? 0})–
+                            {fl.stats.away.shots ?? 0}
+                            ({fl.stats.away.shots_on_target ?? 0})
+                            {(fl.stats.home.red_cards > 0 || fl.stats.away.red_cards > 0) && (
+                              <b style={{ color: T.red }}>
+                                {" · 🟥 "}
+                                {fl.stats.home.red_cards > 0 && `${fl.stats.home.team} ${fl.stats.home.red_cards}`}
+                                {fl.stats.home.red_cards > 0 && fl.stats.away.red_cards > 0 && " / "}
+                                {fl.stats.away.red_cards > 0 && `${fl.stats.away.team} ${fl.stats.away.red_cards}`}
+                              </b>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {/* the 0-0 alert tag — sticky until checked, like baseball */}
+                    {ft && (
+                      <div style={{ marginTop: 4, display: "flex", alignItems: "center",
+                        gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700,
+                          color: ftActive ? "#fff" : T.red,
+                          background: ftActive ? T.red : "transparent",
+                          border: `1px solid ${T.red}`, borderRadius: 5,
+                          padding: "2px 7px" }}>
+                          ⚽ 0-0 at {ft.minute}&apos; — favorite {ft.favorite_name}{" "}
+                          {ft[`prematch_${ft.favorite}_cents`]}¢ pre-match
+                          {ft.favorite_red_cards > 0 && " · 🟥 a man down"}
+                        </span>
+                        {ftActive && (
+                          <button onClick={() => checkFootball(ft)}
+                            title="Mark as checked — stops the flashing, the tag stays"
+                            style={{ ...btn.outline, fontSize: 10, fontWeight: 700,
+                              padding: "2px 9px", color: T.red, borderColor: T.red }}>
+                            CHECK
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {noteBlock(m.slug)}
                   </td>
                   <td style={{ ...td, fontFamily: T.ui, color: T.sub, fontSize: 13 }}>
@@ -1064,6 +1196,8 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
           onClose={() => setAlertRow(null)}
         />
       )}
+
+      {fbCfgOpen && <FootballDialog onClose={() => setFbCfgOpen(false)} />}
 
       <Toasts toasts={toasts} onDismiss={dismissToast} />
     </main>

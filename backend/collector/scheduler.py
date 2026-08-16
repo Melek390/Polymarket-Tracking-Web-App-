@@ -13,6 +13,7 @@ from backend.comeback import detector as comeback_detector
 from backend.comeback import outcomes as comeback_outcomes
 from backend.database import db
 from backend.favorite import lock as favorite_lock
+from backend.football import live as football_live
 from backend.mlb import live as mlb_live
 from backend.mlb import timeline as mlb_timeline
 from backend.polymarket import clob
@@ -21,6 +22,11 @@ from backend.screener import live_prices
 
 log = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="UTC")
+
+
+async def _football_pass():
+    """Soccer live cache + 0-0 alert (async wrapper so APScheduler awaits it)."""
+    await football_live.run(stats_interval_s=settings.football_stats_seconds)
 
 # consecutive polls where a market's tokens were absent from the CLOB response;
 # after CLOSE_AFTER_MISSES in a row the market is considered resolved
@@ -196,6 +202,13 @@ def start():
     scheduler.add_job(
         backtest_favhistory.run_batch, "interval", hours=6, id="backtest-favhistory",
         next_run_time=datetime.now(timezone.utc) + timedelta(seconds=600),
+    )
+    # soccer: big-5 live cache + the 0-0 alert. The job itself gates on
+    # whether any big-5 match is in its live window (zero upstream requests
+    # otherwise), so a fixed cadence here is safe on any API-FOOTBALL plan.
+    scheduler.add_job(
+        _football_pass,
+        "interval", seconds=settings.football_poll_seconds, id="football-live",
     )
     scheduler.start()
 

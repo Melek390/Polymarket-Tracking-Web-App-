@@ -18,6 +18,8 @@ from backend.comeback.api import router as comeback_router
 from backend.comeback import store as comeback_store
 from backend.favorite.api import router as favorite_router
 from backend.favorite import store as favorite_store
+from backend.football.api import router as football_router
+from backend.football import store as football_store
 from backend.traders.api import router as traders_router
 from backend.traders import store as traders_store
 from backend.collector import scheduler
@@ -42,6 +44,7 @@ async def lifespan(app: FastAPI):
     traders_store.init()
     favorite_store.init()
     comeback_store.init()
+    football_store.init()
     backtest_store.init()
     auth_store.init()
     auth_store.purge_expired()
@@ -96,6 +99,7 @@ app.include_router(router)
 app.include_router(traders_router)
 app.include_router(favorite_router)
 app.include_router(comeback_router)
+app.include_router(football_router)
 app.include_router(backtest_router)
 
 
