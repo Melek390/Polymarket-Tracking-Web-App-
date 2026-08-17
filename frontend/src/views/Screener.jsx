@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtTimestamp, fmtVolume, TZ_LABEL } from "../utils.js";
 import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected,
-  fetchFootballLive, fetchFootballActive, ackFootball } from "../api/client.js";
+  fetchFootballLive, fetchFootballActive, ackFootball,
+  fetchFootballConfig } from "../api/client.js";
 import FootballDialog from "../components/FootballDialog.jsx";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
 import BaseballTable from "../components/BaseballTable.jsx";
@@ -207,6 +208,7 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   const [fbLive, setFbLive] = useState({});     // slug -> live fixture + stats
   const [fbTrig, setFbTrig] = useState({});     // slug -> newest trigger
   const [fbCfgOpen, setFbCfgOpen] = useState(false);
+  const [fbCfg, setFbCfg] = useState(null);     // current thresholds for the banner
   const fbSeen = useRef(new Set());             // trigger ids already announced
 
   async function load() {
@@ -243,6 +245,12 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   // server polls API-FOOTBALL on its own clock; this just reads the caches.
   // An unacked trigger this window hasn't announced yet gets a toast + the
   // situation tone — including on page load (unacked = "not checked yet").
+  // the banner shows the saved thresholds; refresh after the dialog closes
+  useEffect(() => {
+    if (sport !== "soccer" || fbCfgOpen) return;
+    fetchFootballConfig().then(setFbCfg).catch(() => {});
+  }, [sport, fbCfgOpen]);
+
   useEffect(() => {
     if (sport !== "soccer") return;
     let stop = false;
@@ -735,21 +743,42 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
         onEdit={() => setDialogOpen(true)}
         onClear={clearAlert}
       />
-      {sport === "soccer" && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            onClick={() => setFbCfgOpen(true)}
-            title="0-0 Favorite Alert — thresholds and on/off"
-            style={{ ...btn.outline, fontSize: 12, padding: "6px 12px" }}
+      {sport === "soccer" && (() => {
+        // Same visual language as the Set-Alert bar above: a banner with a
+        // real button, so the feature reads at a glance (client feedback:
+        // the old small outline button "skipped my eyes").
+        const on = fbCfg ? !!fbCfg.enabled : true;
+        return (
+          <div
+            style={{
+              display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+              padding: "10px 14px", marginBottom: 12, borderRadius: 10,
+              background: on ? "#FEF9E7" : T.soft,
+              border: `1px solid ${on ? "#F5D67B" : T.border}`,
+            }}
           >
-            ⚽ 0-0 Alert
-          </button>
-          <span style={{ fontSize: 11, color: T.faint }}>
-            Big-5 leagues · clear favorite pre-match · still 0-0 at 60&apos; →
-            the row flashes until checked
-          </span>
-        </div>
-      )}
+            <span style={{ fontSize: 16 }}>⚽</span>
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
+                0-0 Favorite Alert — big-5 leagues{on ? "" : " (OFF)"}
+              </div>
+              <div style={{ fontSize: 12, color: T.sub }}>
+                {on
+                  ? `Fires when a clear pre-match favorite (≥${fbCfg?.min_favorite_cents ?? 60}¢) `
+                    + `is still 0-0 at ${fbCfg?.min_minute ?? 60}' — the row flashes red until checked.`
+                  : "Off — no 0-0 favorite alerts will fire until it is re-enabled."}
+              </div>
+            </div>
+            <button
+              onClick={() => setFbCfgOpen(true)}
+              title="0-0 Favorite Alert — thresholds and on/off"
+              style={{ ...btn.primary, fontSize: 12, padding: "6px 14px" }}
+            >
+              {on ? "Edit alert" : "Turn on"}
+            </button>
+          </div>
+        );
+      })()}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: T.sub }}>Status:</span>
         {STATUS_FILTERS.map((s) => (
