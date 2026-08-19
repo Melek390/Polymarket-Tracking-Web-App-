@@ -1,12 +1,25 @@
 """MLB Stats API client — the live game feed baseball rows are enriched with.
 Polymarket's own MLB scores are unreliable, so game state comes from here."""
 
+import asyncio
+import logging
 from datetime import datetime
 
 import httpx
 
+log = logging.getLogger(__name__)
+
 BASE = "https://statsapi.mlb.com/api"
-TIMEOUT = 8.0  # bound any slow statsapi call so it can't stall the worker
+# Bound any slow statsapi call so it can't stall the worker. Connecting is
+# split out and kept short: a dead route should fail fast, while a healthy
+# but busy endpoint still gets the full read budget.
+TIMEOUT = httpx.Timeout(8.0, connect=3.0)
+
+# Consecutive transport failures before the pool is thrown away and rebuilt.
+# 3 is ~10s of a 3s poll: long enough to ride out one blip, short enough that
+# the live feed recovers on its own within a few seconds.
+_FAILS_BEFORE_RECYCLE = 3
+_fails = 0
 
 # One shared client, reused across calls. Creating a new httpx.AsyncClient per
 # call rebuilds the SSL context every time — ssl.create_default_context() loads
@@ -16,10 +29,59 @@ TIMEOUT = 8.0  # bound any slow statsapi call so it can't stall the worker
 _client: httpx.AsyncClient | None = None
 
 
+class _WatchedTransport(httpx.AsyncHTTPTransport):
+    """Counts consecutive transport failures for the recycle check below.
+
+    Every MLB call in the app goes through the shared client, so counting
+    here covers all of them without touching ~20 call sites."""
+
+    async def handle_async_request(self, request):
+        global _fails
+        try:
+            response = await super().handle_async_request(request)
+        except (httpx.TimeoutException, httpx.NetworkError):
+            _fails += 1
+            raise
+        _fails = 0
+        return response
+
+
+async def _aclose_quietly(client: httpx.AsyncClient) -> None:
+    try:
+        await client.aclose()
+    except Exception:  # noqa: BLE001 — the pool being torn down IS the point
+        pass
+
+
 def _http() -> httpx.AsyncClient:
-    global _client
+    """The shared client, rebuilt when its connection pool goes bad.
+
+    WHY (Aug 19 2026 outage): keep-alive sockets to statsapi went half-open —
+    the request is written and no reply ever comes, so every call burned the
+    full timeout. The 3s live poll could never finish (3,334 skipped runs in
+    two hours, 4 sockets stuck in CLOSE-WAIT), the baseball screener lost its
+    game_pks and the live scoreboard froze until a manual restart. httpx
+    cannot see a half-open socket, and the old guard only rebuilt a CLOSED
+    client — a wedged-but-open one lived forever. Counting failures and
+    dropping the whole pool fixes it in seconds, unattended."""
+    global _client, _fails
+    if _client is not None and _fails >= _FAILS_BEFORE_RECYCLE:
+        stale, _client, _fails = _client, None, 0
+        log.warning("MLB client: %d consecutive transport failures — "
+                    "rebuilding the connection pool", _FAILS_BEFORE_RECYCLE)
+        try:  # close the wedged pool in the background; hung calls die with it
+            asyncio.get_running_loop().create_task(_aclose_quietly(stale))
+        except RuntimeError:  # no loop (tests / sync context): just drop it
+            pass
     if _client is None or _client.is_closed:
-        _client = httpx.AsyncClient(timeout=TIMEOUT)
+        _client = httpx.AsyncClient(
+            timeout=TIMEOUT,
+            # retries covers connect-level blips; keepalive_expiry bounds how
+            # long an idle (possibly dead) socket can sit waiting to be reused
+            transport=_WatchedTransport(retries=1),
+            limits=httpx.Limits(max_connections=100,
+                                max_keepalive_connections=20,
+                                keepalive_expiry=30.0))
     return _client
 
 
