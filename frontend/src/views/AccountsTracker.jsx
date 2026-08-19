@@ -4,6 +4,7 @@ import { fmtCents, fmtTimestamp, fmtClock, TZ_LABEL } from "../utils.js";
 import {
   traderList, traderAdd, traderDelete, traderSummary, traderOpen,
   traderClosed, traderActivity, traderTagToggle, traderPeak, traderTagVocab,
+  fetchMlbGameLinks,
 } from "../api/client.js";
 import { playSound } from "../alerts.js";
 import Toasts, { useToasts } from "../components/Toasts.jsx";
@@ -233,6 +234,8 @@ export default function AccountsTracker() {
   const [status, setStatus] = useState("all"); // all | open | closed
   const [result, setResult] = useState("all"); // all | win | loss (closed table)
   const [category, setCategory] = useState(null);
+  const [mlbLinks, setMlbLinks] = useState({});   // slug -> {game_pk, url}
+  const mlbAsked = useRef(new Set());             // slugs already requested
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [openRow, setOpenRow] = useState(null); // expanded row key
@@ -484,6 +487,33 @@ export default function AccountsTracker() {
     .filter((r) => result === "all" || (result === "win") === r.win);
   const closedHiddenN = closedBase.filter((r) => isHidden(closedHideKey(r))).length;
   const closedShown = showHidden ? closedBase : closedBase.filter((r) => !isHidden(closedHideKey(r)));
+
+  // MLB positions get a deep link to the game on MLB.com. Only the slugs on
+  // screen are asked for, once each — the server resolves a handful per call
+  // and caches them forever, so this settles after a couple of rounds instead
+  // of hammering the MLB API with a thousand historical slugs.
+  const mlbSlugsShown = [...openShown, ...closedShown]
+    .map((r) => (r.event_slug || "").replace("-more-markets", ""))
+    .filter((s) => s.startsWith("mlb-"));
+  useEffect(() => {
+    const missing = [...new Set(mlbSlugsShown)]
+      .filter((s) => !mlbLinks[s] && !mlbAsked.current.has(s));
+    if (!missing.length) return;
+    missing.forEach((s) => mlbAsked.current.add(s));
+    let stop = false;
+    fetchMlbGameLinks(missing)
+      .then((r) => {
+        if (stop || !r.links) return;
+        setMlbLinks((prev) => ({ ...prev, ...r.links }));
+        // anything the server could not get to this time is retried on the
+        // next render pass, which is how the remainder fills in
+        Object.keys(r.links).forEach((s) => mlbAsked.current.delete(s));
+        missing.filter((s) => !r.links[s]).forEach((s) => mlbAsked.current.delete(s));
+      })
+      .catch(() => missing.forEach((s) => mlbAsked.current.delete(s)));
+    return () => { stop = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mlbSlugsShown.join(",")]);
   // Accumulated closed P/L, following whatever is filtered (client, Aug 12:
   // picking Tennis showed "75 shown · 25 won · 50 lost" but never what the
   // category actually made). Wins and losses are kept apart on purpose — one
@@ -553,6 +583,23 @@ export default function AccountsTracker() {
       title="Open this bet on Polymarket"
       style={{ ...linkChip, marginLeft: 6 }}>↗</a>
   );
+
+  // MLB deep link — a real button in MLB navy so it reads at a glance rather
+  // than blending into the row (the client missed the quieter styling before)
+  const mlbLink = (slug) => {
+    const hit = mlbLinks[(slug || "").replace("-more-markets", "")];
+    if (!hit) return null;
+    return (
+      <a href={hit.url} target="_blank" rel="noreferrer"
+        title="Open this game on MLB.com (box score, recap, highlights)"
+        style={{ display: "inline-flex", alignItems: "center", gap: 3,
+          background: "#041E42", color: "#fff", borderRadius: 5,
+          fontSize: 10, fontWeight: 800, letterSpacing: 0.4, lineHeight: 1,
+          padding: "4px 8px", textDecoration: "none", whiteSpace: "nowrap" }}>
+        MLB ↗
+      </a>
+    );
+  };
 
   const expandBtn = (key) => (
     <button onClick={() => setOpenRow(openRow === key ? null : key)}
@@ -794,6 +841,7 @@ export default function AccountsTracker() {
                     <th style={rightTh}>P/L</th>
                     <th style={rightTh}>ROI</th>
                     <th style={th}>Status</th>
+                    <th style={{ ...th, width: 64 }}>Game</th>
                     <th style={{ ...th, width: 56 }} />
                   </tr>
                 </thead>
@@ -832,11 +880,12 @@ export default function AccountsTracker() {
                         <td style={{ ...td, fontFamily: T.ui, color: r.redeemable ? M.green : T.sub }}>
                           {r.redeemable ? "Redeemable" : "Open"}
                         </td>
+                        <td style={{ ...td, textAlign: "center" }}>{mlbLink(r.event_slug)}</td>
                         <td style={{ ...td, textAlign: "center" }}>{hideBtn(openHideKey(r))}</td>
                       </tr>,
                       openRow === key && (
                         <tr key={`${key}-x`}>
-                          <td colSpan={13} style={{ padding: 0 }}>
+                          <td colSpan={14} style={{ padding: 0 }}>
                             <div style={{ padding: "12px 16px", background: T.soft,
                               borderTop: `1px solid ${T.border}`,
                               display: "flex", gap: 34, flexWrap: "wrap" }}>
@@ -890,6 +939,7 @@ export default function AccountsTracker() {
                           ? `${openTotals.pnl > 0 ? "+" : ""}${(openTotals.pnl / openTotals.cost * 100).toFixed(1)}%`
                           : "—"}
                       </td>
+                      <td style={td} />
                       <td style={td} />
                       <td style={td} />
                     </tr>
@@ -992,6 +1042,7 @@ export default function AccountsTracker() {
                     <th style={rightTh}>Fees</th>
                     <th style={rightTh}>P/L</th>
                     <th style={rightTh}>ROI</th>
+                    <th style={{ ...th, width: 64 }}>Game</th>
                     <th style={{ ...th, width: 56 }} />
                   </tr>
                 </thead>
@@ -1051,11 +1102,12 @@ export default function AccountsTracker() {
                         <td style={{ ...rightTd, color: pnlColor(gross) }}>
                           {roi > 0 ? "+" : ""}{(roi * 100).toFixed(1)}%
                         </td>
+                        <td style={{ ...td, textAlign: "center" }}>{mlbLink(r.event_slug)}</td>
                         <td style={{ ...td, textAlign: "center" }}>{hideBtn(closedHideKey(r))}</td>
                       </tr>,
                       openRow === key && (
                         <tr key={`${key}-x`}>
-                          <td colSpan={12} style={{ padding: 0 }}>
+                          <td colSpan={13} style={{ padding: 0 }}>
                             <div style={{ padding: "12px 16px", background: T.soft,
                               borderTop: `1px solid ${T.border}`,
                               display: "flex", gap: 34, flexWrap: "wrap" }}>
@@ -1182,6 +1234,7 @@ export default function AccountsTracker() {
                           ? `${closedTotals.gross > 0 ? "+" : ""}${(closedTotals.gross / closedTotals.cost * 100).toFixed(1)}%`
                           : "—"}
                       </td>
+                      <td style={td} />
                       <td style={td} />
                     </tr>
                   </tfoot>

@@ -40,12 +40,17 @@ def _forms(abbr: str, name: str) -> set[str]:
     return {f for f in forms if f}
 
 
-async def resolve_game_pk(slug: str) -> int | None:
+async def resolve_game_pk(slug: str, sched_memo: dict | None = None) -> int | None:
     """The gamePk for a Polymarket MLB slug like 'mlb-cle-tb-2026-07-25'.
 
     Prefers the match the screener already made (it compares full team names,
     which agree with MLB exactly); falls back to reading the two abbreviations
-    and the date out of the slug for games the cache has since dropped."""
+    and the date out of the slug for games the cache has since dropped.
+
+    sched_memo lets a caller resolving MANY slugs share one schedule fetch per
+    date — a page of positions is usually a handful of dates. It is never
+    cached globally: mlb/live.py reads status off the same endpoint and must
+    keep seeing fresh data."""
     s = slug.replace("-more-markets", "")
 
     cached = db.screener_game_pk(s)
@@ -61,7 +66,12 @@ async def resolve_game_pk(slug: str) -> int | None:
         return None
     a1, a2 = parts[-2].lower(), parts[-1].lower()
     abbr = await client.team_abbreviations()  # full name -> abbr
-    for g in await client.schedule(date):
+    games = sched_memo.get(date) if sched_memo is not None else None
+    if games is None:
+        games = await client.schedule(date)
+        if sched_memo is not None:
+            sched_memo[date] = games
+    for g in games:
         away = _forms(abbr.get(g["away"]), g["away"])
         home = _forms(abbr.get(g["home"]), g["home"])
         if (a1 in away and a2 in home) or (a1 in home and a2 in away):

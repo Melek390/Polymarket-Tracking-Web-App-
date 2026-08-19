@@ -175,6 +175,45 @@ async def mlb_timeline(slug: str):
         return {"game_pk": None, "plays": []}
 
 
+# Newly-resolved links per request. Each costs one MLB schedule call (shared
+# per date within a batch); the rest arrive on the following poll.
+MAX_NEW_GAME_LINKS = 12
+
+
+@router.get("/mlb/game-links")
+async def mlb_game_links(slugs: str = ""):
+    """Deep links from MLB positions to the game on MLB.com.
+
+    The accounts tracker holds a thousand-plus MLB slugs across months, so
+    this answers only for the slugs on screen, serves known ones from the
+    permanent cache, and resolves at most a handful of new ones per call —
+    a page load can never fan out into dozens of MLB requests. Whatever is
+    left over is picked up by the next call as the cache warms."""
+    wanted, seen = [], set()
+    for raw in slugs.split(","):
+        slug = raw.strip().replace("-more-markets", "")
+        if slug.startswith("mlb-") and slug not in seen:
+            seen.add(slug)
+            wanted.append(slug)
+    wanted = wanted[:120]
+    if not wanted:
+        return {"links": {}}
+
+    resolved = db.mlb_game_pks(wanted)
+    memo: dict = {}  # one schedule fetch per date across this batch
+    for slug in [s for s in wanted if s not in resolved][:MAX_NEW_GAME_LINKS]:
+        try:
+            pk = await mlb_timeline_mod.resolve_game_pk(slug, memo)
+        except httpx.HTTPError:
+            break  # MLB unreachable: stop, keep what we have, retry next call
+        if pk:
+            db.save_mlb_game_pk(slug, pk)
+            resolved[slug] = pk
+    return {"links": {slug: {"game_pk": pk,
+                             "url": f"https://www.mlb.com/gameday/{pk}"}
+                      for slug, pk in resolved.items()}}
+
+
 @router.post("/events/track")
 async def track_event(body: TrackRequest):
     """Save the props the user ticked and start polling them."""

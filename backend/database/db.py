@@ -75,6 +75,18 @@ CREATE TABLE IF NOT EXISTS screener_cache (
     token_ids     TEXT,                      -- JSON [home, away] CLOB tokens for live prices
     updated_at    TEXT NOT NULL
 );
+
+-- Resolved Polymarket-slug -> MLB gamePk pairs, so the accounts tracker can
+-- deep-link a position to MLB.com. The screener only keeps CURRENT games, and
+-- a position can be months old, so resolving one costs an MLB schedule call —
+-- worth remembering permanently (a finished game's pk never changes). Only
+-- SUCCESSFUL matches are stored: caching a miss during an MLB outage would
+-- make the gap permanent.
+CREATE TABLE IF NOT EXISTS mlb_game_pks (
+    event_slug  TEXT PRIMARY KEY,
+    game_pk     INTEGER NOT NULL,
+    resolved_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
 """
 
 
@@ -207,6 +219,24 @@ def screener_game_pk(slug: str) -> int | None:
             (slug.replace("-more-markets", ""),),
         ).fetchone()
         return row["game_pk"] if row else None
+
+
+def mlb_game_pks(slugs: list[str]) -> dict[str, int]:
+    """Cached slug -> gamePk for the slugs asked about (misses simply absent)."""
+    if not slugs:
+        return {}
+    marks = ",".join("?" * len(slugs))
+    with get_db() as conn:
+        return {r["event_slug"]: r["game_pk"] for r in conn.execute(
+            f"SELECT event_slug, game_pk FROM mlb_game_pks WHERE event_slug IN ({marks})",
+            slugs)}
+
+
+def save_mlb_game_pk(slug: str, game_pk: int) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO mlb_game_pks (event_slug, game_pk) VALUES (?, ?)",
+            (slug, game_pk))
 
 
 def closed_among(market_ids: list[int]) -> list[int]:

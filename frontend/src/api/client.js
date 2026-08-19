@@ -209,6 +209,14 @@ export async function saveFootballConfig(cfg) {
   });
 }
 
+// GET /api/mlb/game-links — Polymarket MLB slugs -> the game on MLB.com. The
+// server resolves a few new ones per call and remembers them, so the links
+// fill in as pages are viewed rather than stalling one big request.
+export async function fetchMlbGameLinks(slugs) {
+  if (!slugs.length) return { links: {} };
+  return request(`/api/mlb/game-links?slugs=${encodeURIComponent(slugs.join(","))}`);
+}
+
 // GET /api/mlb/matchup/{pk} — standings, season series and probable starters
 export async function fetchMlbMatchup(gamePk) {
   return request(`/api/mlb/matchup/${gamePk}`);
