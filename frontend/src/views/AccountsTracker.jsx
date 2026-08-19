@@ -608,9 +608,9 @@ export default function AccountsTracker({ onOpenHistory }) {
     return (
       <button onClick={() => openDashboard(r)} disabled={dashBusy === key}
         title="Track this market and open its price chart on the dashboard"
-        style={{ ...btn.primary, fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
-          padding: "3px 8px", marginLeft: 6, whiteSpace: "nowrap",
-          verticalAlign: "middle" }}>
+        style={{ ...btn.primary, background: T.faint, fontSize: 10,
+          fontWeight: 700, letterSpacing: 0.3, padding: "3px 8px",
+          marginLeft: 6, whiteSpace: "nowrap", verticalAlign: "middle" }}>
         {dashBusy === key ? "…" : "📈 Dashboard"}
       </button>
     );

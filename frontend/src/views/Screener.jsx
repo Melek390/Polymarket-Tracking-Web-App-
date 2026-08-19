@@ -1200,12 +1200,14 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
                         </button>
                       );
                     })()}{" "}
+                    {/* grey rather than the near-black primary (client:
+                        "so dark") — still a filled button, just quieter */}
                     <button
                       onClick={() => openDashboard(m)}
                       disabled={chartBusy === m.slug}
                       title="Track this game and open its price chart on the dashboard"
-                      style={{ ...btn.primary, fontSize: 12, padding: "6px 10px",
-                        whiteSpace: "nowrap" }}
+                      style={{ ...btn.primary, background: T.faint,
+                        fontSize: 12, padding: "6px 10px", whiteSpace: "nowrap" }}
                     >
                       {chartBusy === m.slug ? "Adding…" : "📈 Dashboard"}
                     </button>{" "}
