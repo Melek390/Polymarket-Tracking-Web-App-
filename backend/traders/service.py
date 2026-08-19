@@ -288,6 +288,7 @@ async def open_rows(acct: dict) -> list[dict]:
             "title": p.get("title"),
             "outcome": p.get("outcome"),
             "event_slug": p.get("eventSlug") or "",
+            "condition_id": p.get("conditionId") or "",
             "avg_price": float(p.get("avgPrice") or 0),
             "cur_price": float(p.get("curPrice") or 0),
             "shares": float(p.get("size") or 0),

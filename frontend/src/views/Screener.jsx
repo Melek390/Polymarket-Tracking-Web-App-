@@ -3,7 +3,7 @@ import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtTimestamp, fmtVolume, TZ_LABEL } from "../utils.js";
 import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected,
   fetchFootballLive, fetchFootballActive, ackFootball,
-  fetchFootballConfig } from "../api/client.js";
+  fetchFootballConfig, trackAndChart } from "../api/client.js";
 import FootballDialog from "../components/FootballDialog.jsx";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
 import BaseballTable from "../components/BaseballTable.jsx";
@@ -148,7 +148,7 @@ function matchesFilters(m, f, league, search) {
 // response paints instantly and refreshes underneath.
 const sportCache = {};
 
-export default function Screener({ sport, onSport, onTracked, markets = [] }) {
+export default function Screener({ sport, onSport, onTracked, onOpenHistory, markets = [] }) {
   const [data, setData] = useState(() => sportCache[sport] ?? null); // {rows, leagues, updatedAt}
   const [error, setError] = useState(null);
   const [league, setLeague] = useState(null); // one league, null = all
@@ -439,6 +439,23 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
   // (spreads, totals) live in a twin event whose slug is always the match
   // slug plus "-more-markets"; if that twin does not exist we just show
   // the winner and draw props.
+  // One click: track the match's winner market, start its history backfill,
+  // and land on the chart. The picker below is still there for choosing
+  // individual props — this is the "just show me this game" path.
+  const [chartBusy, setChartBusy] = useState(null);
+  async function openDashboard(row) {
+    setChartBusy(row.slug);
+    try {
+      const r = await trackAndChart(row.slug);
+      onTracked?.();
+      onOpenHistory?.(r.market_id);
+    } catch (e) {
+      setError(`Could not open the chart: ${e.message}`);
+    } finally {
+      setChartBusy(null);
+    }
+  }
+
   async function openPicker(row) {
     setTrackBusy(row.slug);
     try {
@@ -1183,6 +1200,15 @@ export default function Screener({ sport, onSport, onTracked, markets = [] }) {
                         </button>
                       );
                     })()}{" "}
+                    <button
+                      onClick={() => openDashboard(m)}
+                      disabled={chartBusy === m.slug}
+                      title="Track this game and open its price chart on the dashboard"
+                      style={{ ...btn.primary, fontSize: 12, padding: "6px 10px",
+                        whiteSpace: "nowrap" }}
+                    >
+                      {chartBusy === m.slug ? "Adding…" : "📈 Dashboard"}
+                    </button>{" "}
                     <a
                       href={`https://polymarket.com/event/${m.slug}`}
                       target="_blank"

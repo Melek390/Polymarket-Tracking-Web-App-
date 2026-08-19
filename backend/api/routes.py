@@ -15,6 +15,7 @@ from backend.models.schemas import (
     LookupRequest,
     MarketPatch,
     ScreenerRequest,
+    TrackChartRequest,
     TrackRequest,
 )
 from backend.mlb import client as mlb
@@ -23,6 +24,7 @@ from backend.mlb import analyze as mlb_analyze_mod
 from backend.mlb import timeline as mlb_timeline_mod
 from backend.mlb import matchup as mlb_matchup_mod
 from backend.polymarket import clob, gamma
+from backend.screener import cache as screener_cache
 from backend.screener import screener as market_screener
 from backend.screener import live_prices
 
@@ -248,6 +250,73 @@ async def track_event(body: TrackRequest):
     for market_id in market_ids:
         asyncio.create_task(backfill.backfill_market(market_id))
     return {"market_ids": market_ids, "closed_market_ids": closed_ids}
+
+
+def _winner_market(event: dict) -> dict | None:
+    """A match's own winner market — what the chart should open on.
+
+    Spreads carry the same 'team' kind as the moneyline (outcomes are team
+    names either way), so they are excluded by question text using the very
+    list the screener cache filters with. Three-way soccer has no moneyline
+    at all: its winner markets are yes/no questions, so the home side's is
+    taken and the draw skipped."""
+    markets = event.get("markets") or []
+    for m in markets:
+        q = (m.get("question") or "").lower()
+        if (m.get("kind") == "team" and len(m.get("outcomes") or []) == 2
+                and not any(w in q for w in screener_cache._NON_MONEYLINE)):
+            return m
+    for m in markets:
+        q = (m.get("question") or "").lower()
+        if m.get("kind") == "yes_no" and " win" in q and "draw" not in q:
+            return m
+    return markets[0] if markets else None
+
+
+@router.post("/track-and-chart")
+async def track_and_chart(body: TrackChartRequest):
+    """One click from a screener row or a position to its price chart.
+
+    Tracking, the history backfill and live polling all start here, so the
+    caller only has to open /market/{id}. Everything is idempotent: a market
+    already tracked just resumes, and a backfill that already ran is skipped,
+    so pressing the button twice costs nothing."""
+    slug = body.slug.replace("-more-markets", "")
+    market = event = None
+    for candidate in (slug, f"{slug}-more-markets"):
+        try:
+            found = await gamma.lookup_event(candidate)
+        except httpx.HTTPError as e:
+            raise HTTPException(502, f"Polymarket unreachable: {e}")
+        if not found:
+            continue
+        if body.condition_id:
+            # a position names its exact market, which may sit on the twin
+            # event that holds a match's extra props
+            hit = next((m for m in found["markets"]
+                        if m["condition_id"] == body.condition_id), None)
+            if hit:
+                market, event = hit, found
+                break
+        else:
+            market, event = _winner_market(found), found
+            break
+    if not event or not market:
+        raise HTTPException(404, "that market is no longer listed on Polymarket")
+
+    event_id = db.upsert_event(event["slug"], event["title"], event.get("category"))
+    interval = (settings.mlb_poll_interval
+                if event["slug"].startswith("mlb-") else None)
+    market_id = db.add_market(event_id, market["condition_id"], market["question"],
+                              market["kind"], market["outcomes"],
+                              poll_interval=interval)
+    scheduler.sync_jobs()
+    asyncio.create_task(backfill.backfill_market(market_id))
+    return {"market_id": market_id,
+            "question": market["question"],
+            "event_title": event["title"],
+            # a settled market keeps its history but will never tick again
+            "closed": bool(db.closed_among([market_id]))}
 
 
 @router.post("/markets/{market_id}/start")

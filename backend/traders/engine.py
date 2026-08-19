@@ -30,6 +30,8 @@ def _close(trip: dict, reason: str) -> dict:
     return {
         "asset": trip["asset"], "title": trip["title"], "slug": trip["slug"],
         "event_slug": trip["event_slug"], "outcome": trip["outcome"],
+        # carried through so a row can be tracked/charted in one click
+        "condition_id": trip["condition_id"],
         "opened_ts": trip["open_ts"], "closed_ts": trip["last_ts"],
         "shares": round(trip["buy_qty"], 2),
         "avg_buy": trip["buy_cost"] / trip["buy_qty"] if trip["buy_qty"] else 0.0,

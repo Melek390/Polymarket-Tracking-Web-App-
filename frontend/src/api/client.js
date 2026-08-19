@@ -242,6 +242,13 @@ export async function trackSelected(slug, conditionIds) {
   });
 }
 
+// POST /api/track-and-chart — one click from a screener row or a position:
+// start tracking, backfill the history, and hand back the market to open.
+// Pass conditionId to chart that exact prop; omit it for the match winner.
+export async function trackAndChart(slug, conditionId = null) {
+  return post("/api/track-and-chart", { slug, condition_id: conditionId });
+}
+
 // POST /api/markets/{id}/start | /api/markets/{id}/stop
 export async function setTracking(id, shouldTrack) {
   return post(`/api/markets/${id}/${shouldTrack ? "start" : "stop"}`);

@@ -4,7 +4,7 @@ import { fmtCents, fmtTimestamp, fmtClock, TZ_LABEL } from "../utils.js";
 import {
   traderList, traderAdd, traderDelete, traderSummary, traderOpen,
   traderClosed, traderActivity, traderTagToggle, traderPeak, traderTagVocab,
-  fetchMlbGameLinks,
+  fetchMlbGameLinks, trackAndChart,
 } from "../api/client.js";
 import { playSound } from "../alerts.js";
 import Toasts, { useToasts } from "../components/Toasts.jsx";
@@ -218,7 +218,7 @@ function Section({ title, count, extra, children }) {
 // each time. Now the last data renders instantly and refreshes underneath.
 const memo = { accounts: null, current: null, byId: {} };
 
-export default function AccountsTracker() {
+export default function AccountsTracker({ onOpenHistory }) {
   const [accounts, setAccounts] = useState(() => memo.accounts); // null = loading
   const [current, setCurrent] = useState(() => memo.current);    // account id
   const [summary, setSummary] = useState(() => memo.byId[memo.current]?.summary ?? null);
@@ -584,6 +584,38 @@ export default function AccountsTracker() {
       style={{ ...linkChip, marginLeft: 6 }}>↗</a>
   );
 
+  // One click from a position to its price chart: the market is tracked and
+  // its history backfilled server-side, then we land on the chart page.
+  // condition_id names the exact prop, so a position always charts ITS
+  // market rather than the match's headline one.
+  const [dashBusy, setDashBusy] = useState(null);
+  async function openDashboard(r) {
+    const key = r.condition_id || r.asset;
+    setDashBusy(key);
+    try {
+      const res = await trackAndChart(r.event_slug, r.condition_id || null);
+      onOpenHistory?.(res.market_id);
+    } catch (e) {
+      pushToast(`Could not open the chart: ${e.message}`);
+    } finally {
+      setDashBusy(null);
+    }
+  }
+
+  const dashBtn = (r) => {
+    if (!r.event_slug) return null;
+    const key = r.condition_id || r.asset;
+    return (
+      <button onClick={() => openDashboard(r)} disabled={dashBusy === key}
+        title="Track this market and open its price chart on the dashboard"
+        style={{ ...btn.primary, fontSize: 10, fontWeight: 700, letterSpacing: 0.3,
+          padding: "3px 8px", marginLeft: 6, whiteSpace: "nowrap",
+          verticalAlign: "middle" }}>
+        {dashBusy === key ? "…" : "📈 Dashboard"}
+      </button>
+    );
+  };
+
   // MLB deep link — a real button in MLB navy so it reads at a glance rather
   // than blending into the row (the client missed the quieter styling before)
   const mlbLink = (slug) => {
@@ -860,6 +892,7 @@ export default function AccountsTracker() {
                           )}
                           {r.title}
                           {betLink(r.event_slug)}
+                          {dashBtn(r)}
                           <div style={{ fontSize: 11, color: T.faint }}>{categoryOf(r.event_slug)}</div>
                           <TagPills tags={r.tags} />
                         </td>
@@ -1073,6 +1106,7 @@ export default function AccountsTracker() {
                           </span>
                           {r.title}
                           {betLink(r.event_slug)}
+                          {dashBtn(r)}
                           <div style={{ fontSize: 11, color: T.faint }}>
                             {r.outcome} · {categoryOf(r.event_slug)}
                             {r.averaged_down && (

@@ -258,7 +258,9 @@ export default function App() {
       ) : route.view === "account" ? (
         <Account me={me} />
       ) : route.view === "accounts" ? (
-        <AccountsTracker />
+        <AccountsTracker
+          onOpenHistory={async (id) => { await refresh(); navigate(`/market/${id}`); }}
+        />
       ) : route.view === "backtesting" ? (
         <Backtesting />
       ) : route.view === "screener" ? (
@@ -266,6 +268,7 @@ export default function App() {
           sport={route.sport}
           onSport={(s) => navigate(`/screener/${s}`)}
           onTracked={refresh}
+          onOpenHistory={async (id) => { await refresh(); navigate(`/market/${id}`); }}
           markets={markets}
         />
       ) : openMarket ? (
