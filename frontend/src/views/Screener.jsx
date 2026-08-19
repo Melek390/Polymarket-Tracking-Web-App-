@@ -148,6 +148,21 @@ function matchesFilters(m, f, league, search) {
 // response paints instantly and refreshes underneath.
 const sportCache = {};
 
+function openPendingTab() {
+  // Opened SYNCHRONOUSLY on the click: a window.open() after an await has
+  // lost the user-gesture context and browsers block it as a popup. The
+  // blank tab gets a holding message while tracking + backfill start.
+  const tab = window.open("", "_blank");
+  if (tab) {
+    tab.document.write(
+      "<title>Opening chart…</title><body style=\"font:14px system-ui;"
+      + "color:#3F4854;padding:28px\">Adding to the tracker and pulling its "
+      + "price history…</body>");
+    tab.document.close();
+  }
+  return tab;
+}
+
 export default function Screener({ sport, onSport, onTracked, onOpenHistory, markets = [] }) {
   const [data, setData] = useState(() => sportCache[sport] ?? null); // {rows, leagues, updatedAt}
   const [error, setError] = useState(null);
@@ -444,12 +459,15 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
   // individual props — this is the "just show me this game" path.
   const [chartBusy, setChartBusy] = useState(null);
   async function openDashboard(row) {
+    const tab = openPendingTab();
     setChartBusy(row.slug);
     try {
       const r = await trackAndChart(row.slug);
-      onTracked?.();
-      onOpenHistory?.(r.market_id);
+      onTracked?.();          // refresh the "✓ Tracking" count on this page
+      if (tab) tab.location = `/market/${r.market_id}`;
+      else onOpenHistory?.(r.market_id);   // popup blocked: use this tab
     } catch (e) {
+      tab?.close();
       setError(`Could not open the chart: ${e.message}`);
     } finally {
       setChartBusy(null);
@@ -1205,7 +1223,7 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
                     <button
                       onClick={() => openDashboard(m)}
                       disabled={chartBusy === m.slug}
-                      title="Track this game and open its price chart on the dashboard"
+                      title="Track this game and open its price chart on the dashboard (new tab)"
                       style={{ ...btn.primary, background: T.faint,
                         fontSize: 12, padding: "6px 10px", whiteSpace: "nowrap" }}
                     >

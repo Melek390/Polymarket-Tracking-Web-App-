@@ -218,6 +218,21 @@ function Section({ title, count, extra, children }) {
 // each time. Now the last data renders instantly and refreshes underneath.
 const memo = { accounts: null, current: null, byId: {} };
 
+function openPendingTab() {
+  // Opened SYNCHRONOUSLY on the click: a window.open() after an await has
+  // lost the user-gesture context and browsers block it as a popup. The
+  // blank tab gets a holding message while tracking + backfill start.
+  const tab = window.open("", "_blank");
+  if (tab) {
+    tab.document.write(
+      "<title>Opening chart…</title><body style=\"font:14px system-ui;"
+      + "color:#3F4854;padding:28px\">Adding to the tracker and pulling its "
+      + "price history…</body>");
+    tab.document.close();
+  }
+  return tab;
+}
+
 export default function AccountsTracker({ onOpenHistory }) {
   const [accounts, setAccounts] = useState(() => memo.accounts); // null = loading
   const [current, setCurrent] = useState(() => memo.current);    // account id
@@ -590,12 +605,15 @@ export default function AccountsTracker({ onOpenHistory }) {
   // market rather than the match's headline one.
   const [dashBusy, setDashBusy] = useState(null);
   async function openDashboard(r) {
+    const tab = openPendingTab();
     const key = r.condition_id || r.asset;
     setDashBusy(key);
     try {
       const res = await trackAndChart(r.event_slug, r.condition_id || null);
-      onOpenHistory?.(res.market_id);
+      if (tab) tab.location = `/market/${res.market_id}`;
+      else onOpenHistory?.(res.market_id);   // popup blocked: use this tab
     } catch (e) {
+      tab?.close();
       pushToast(`Could not open the chart: ${e.message}`);
     } finally {
       setDashBusy(null);
@@ -607,7 +625,7 @@ export default function AccountsTracker({ onOpenHistory }) {
     const key = r.condition_id || r.asset;
     return (
       <button onClick={() => openDashboard(r)} disabled={dashBusy === key}
-        title="Track this market and open its price chart on the dashboard"
+        title="Track this market and open its price chart on the dashboard (new tab)"
         style={{ ...btn.primary, background: T.faint, fontSize: 10,
           fontWeight: 700, letterSpacing: 0.3, padding: "3px 8px",
           marginLeft: 6, whiteSpace: "nowrap", verticalAlign: "middle" }}>
