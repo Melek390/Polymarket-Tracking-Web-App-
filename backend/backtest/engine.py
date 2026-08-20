@@ -689,6 +689,10 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
         out["trades"] = [{
             "date": x["row"]["game_date"],
             "game": f'{x["row"]["away_abbr"]} @ {x["row"]["home_abbr"]}',
+            # which break this export is for: the comparison table re-runs the
+            # selection at other innings, and those are different game sets
+            # with their own prices, so the file has to name its own moment
+            "break_inning": inning,
             "tied_at": f'{x["row"][f"mid{inning}_away"]}-{x["row"][f"mid{inning}_home"]}',
             "backed": side, "entry_cents": x["entry"],
             "final": f'{x["row"]["final_away"]}-{x["row"]["final_home"]}',
