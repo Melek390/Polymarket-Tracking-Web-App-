@@ -269,7 +269,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
           </span>
         </Row>
 
-        {!isComeback && !isFavorite && (<>
+        {!isComeback && !isFavorite && !isBottom8 && (<>
         <div style={{ ...lbl, marginTop: 18 }}>
           Checklist — total {totalWeight.toFixed(1)} pts
         </div>

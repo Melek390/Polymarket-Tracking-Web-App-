@@ -192,6 +192,17 @@ def _simulate(spot: dict, prm: dict) -> dict | None:
     return _trade(spot, prm["bounce"], prm["exec"], prm["stake"])
 
 
+def _window(stamps) -> dict | None:
+    """The span of history a run actually covered, so the page can say WHERE
+    the numbers come from instead of leaving "the season" to the imagination.
+    Timestamps may be full ISO or bare dates; the first 10 chars are the day
+    either way."""
+    days = sorted({str(t)[:10] for t in stamps if t})
+    if not days:
+        return None
+    return {"from": days[0], "to": days[-1], "days": len(days)}
+
+
 def _aggregate(results: list[dict]) -> dict:
     n = len(results)
     wins = sum(1 for r in results if r["win"])
@@ -351,6 +362,7 @@ def run_comeback(params: dict, include_trades: bool = False) -> dict:
         "segments": seg,
         "gatedSpots": len(chosen),
         "staleEntries": sum(1 for s in spots if _stale(s)),
+        "dateRange": _window(s["ts"] for s in spots),
         "comparisonTitle": "One knob at a time — fatigue filter and minimum inning",
     }
     if include_trades:
@@ -524,6 +536,7 @@ def run_favorite(params: dict, include_trades: bool = False) -> dict:
         "bySituation": by_situation,
         "comparison": comparison,
         "segments": seg,
+        "dateRange": _window(L["locked_at"] for L in locks),
         "lockedGames": sum(1 for L in locks if L["source"] == "locked"),
         "reconstructedGames": sum(1 for L in locks if L["source"] == "reconstructed"),
         # games covered WITHOUT tick data — the whole point of this strategy
@@ -656,6 +669,7 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
             f"{len(entries)} priced by our tick corpus"
             + (f" (avg entry {round(avg_entry, 1)}¢, implied {round(avg_entry, 1)}%)"
                if avg_entry is not None else " — P&L covers those only")),
+        "dateRange": _window(r["game_date"] for r in rows),
         "gamesWithPrice": len(entries),
         "avgEntryCents": round(avg_entry, 1) if avg_entry is not None else None,
         "impliedWinRate": round(avg_entry / 100.0, 4) if avg_entry is not None else None,
@@ -753,6 +767,7 @@ def run_checklist(params: dict, include_trades: bool = False) -> dict:
         "factorUnknowns": unknown_counts,
         "gatedSpots": len(gated),
         "staleEntries": sum(1 for s in spots if _stale(s)),
+        "dateRange": _window(s["ts"] for s in spots),
     }
     if include_trades:
         matchups = store.market_matchups()

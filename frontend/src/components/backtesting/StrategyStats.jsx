@@ -81,6 +81,12 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
           )}
         </div>
       )}
+      {s.dateRange && (
+        <div style={{ fontSize: 12, color: T.sub, marginTop: 10 }}>
+          Backtest window: <b>{s.dateRange.from}</b> → <b>{s.dateRange.to}</b>{" "}
+          ({s.dateRange.days} day{s.dateRange.days === 1 ? "" : "s"} of recorded history)
+        </div>
+      )}
       {s.coverageNote && (
         <div style={{ fontSize: 12, color: T.sub, marginTop: 10 }}>{s.coverageNote}</div>
       )}
