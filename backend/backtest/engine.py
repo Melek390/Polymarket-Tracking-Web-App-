@@ -536,7 +536,147 @@ def run_favorite(params: dict, include_trades: bool = False) -> dict:
     }
 
 
+# ---- tied at a late-inning break (whole season, no ticks required) -------
+
+def run_bottom8(params: dict, include_trades: bool = False) -> dict:
+    """Every game level when the away side finished batting, and what came of
+    it. The record covers the whole season; the money columns cover only the
+    games our tick corpus priced, and say so rather than quietly mixing the
+    two populations."""
+    sit = params["situation"]
+    ex, stake = params["exec"], params["stake"]
+    inning = int(sit.get("inning", 8))
+    side = sit.get("side", "home")
+    extras_mode = sit.get("extras", "all")
+
+    rows = store.bottom8_rows()
+    prices = store.bottom8_prices(inning)
+
+    def tied_at(r, n):
+        a, h = r[f"mid{n}_away"], r[f"mid{n}_home"]
+        return a is not None and h is not None and a == h
+
+    def select(n=None, want_side=None, extras=None):
+        n = inning if n is None else n
+        want_side = side if want_side is None else want_side
+        extras = extras_mode if extras is None else extras
+        out = []
+        for r in rows:
+            if not tied_at(r, n):
+                continue
+            went_extras = r["final_inning"] > 9
+            if extras == "regulation" and went_extras:
+                continue
+            if extras == "extras" and not went_extras:
+                continue
+            won = r["winner"] == want_side
+            # the stored price is the HOME side's; the away side is its
+            # binary complement, which is what you would actually pay
+            home_price = prices.get(r["game_pk"])
+            entry = (home_price if want_side == "home"
+                     else round(100 - home_price, 2) if home_price is not None
+                     else None)
+            out.append({"row": r, "won": won, "entry": entry,
+                        "extras": went_extras})
+        return out
+
+    def money(sel):
+        """P&L over the priced subset only — held to settlement, so the exit
+        is a fee-free redemption and costs hit the entry leg alone."""
+        results = []
+        for x in sel:
+            if x["entry"] is None or x["entry"] <= 0:
+                continue
+            entry_exec = x["entry"] + ex["slippageCentsPerSide"]
+            shares = (stake["usd"] / (entry_exec / 100.0)
+                      if stake["mode"] == "flat_usd" else 100.0)
+            fee = (_taker_fee(entry_exec, shares)
+                   if ex.get("entryFee", "taker") == "taker" else 0.0)
+            pnl = shares * ((100.0 if x["won"] else 0.0) - entry_exec) / 100.0 - fee
+            results.append({"win": x["won"], "pnl": round(pnl, 2), "hold": 0,
+                            "bounce": 0.0, "fee": round(fee, 2),
+                            "ts": x["row"]["game_date"], "gold": 0,
+                            "entry": x["entry"]})
+        return results
+
+    def outcome(sel):
+        wins = sum(1 for x in sel if x["won"])
+        return {"spots": len(sel), "wins": wins,
+                "winRate": round(wins / len(sel), 4) if sel else 0.0}
+
+    chosen = select()
+    priced = money(chosen)
+    agg = _aggregate(priced)          # money columns, priced subset
+    core = outcome(chosen)            # the record, every qualifying game
+
+    comparison = []
+    for lbl, kwargs in (
+        ("Tied at the 7th", {"n": 7}),
+        (f"Tied at the {inning}th (saved)", {}),
+        ("Tied at the 9th", {"n": 9}),
+        ("Backing the HOME side", {"want_side": "home"}),
+        ("Backing the AWAY side", {"want_side": "away"}),
+        ("Settled in regulation", {"extras": "regulation"}),
+        ("Went to extras", {"extras": "extras"}),
+    ):
+        sub = select(**kwargs)
+        m = _aggregate(money(sub))
+        comparison.append({"label": lbl, **outcome(sub),
+                           "pnl": m["pnl"], "feesPaid": m["feesPaid"]})
+
+    def bucket(lbl, pred):
+        sub = [x for x in chosen if pred(x)]
+        return {"label": lbl, **outcome(sub), "pnl": _aggregate(money(sub))["pnl"]}
+
+    by_situation = [b for b in (
+        bucket("Settled in the 9th", lambda x: not x["extras"]),
+        bucket("Extras — 10th", lambda x: x["row"]["final_inning"] == 10),
+        bucket("Extras — 11th", lambda x: x["row"]["final_inning"] == 11),
+        bucket("Extras — 12th or later", lambda x: x["row"]["final_inning"] >= 12),
+        bucket("Tied 0-0", lambda x: x["row"][f"mid{inning}_away"] == 0),
+        bucket("Tied 1-1", lambda x: x["row"][f"mid{inning}_away"] == 1),
+        bucket("Tied 2-2", lambda x: x["row"][f"mid{inning}_away"] == 2),
+        bucket("Tied 3-3", lambda x: x["row"][f"mid{inning}_away"] == 3),
+        bucket("Tied 4-4 or higher", lambda x: x["row"][f"mid{inning}_away"] >= 4),
+        bucket("Priced by our tick corpus", lambda x: x["entry"] is not None),
+    ) if b["spots"] > 0]
+
+    entries = [x["entry"] for x in chosen if x["entry"] is not None]
+    avg_entry = sum(entries) / len(entries) if entries else None
+    extras_n = sum(1 for x in chosen if x["extras"])
+    out = {
+        **agg,
+        **core,                       # the record wins over the money aggregate
+        "comparisonTitle": "One knob at a time — which break, which side, extras or not",
+        "comparison": comparison,
+        "bySituation": by_situation,
+        "coverageNote": (
+            f"{core['spots']} games tied at the {inning}th break across the season · "
+            f"{extras_n} went to extras · "
+            f"{len(entries)} priced by our tick corpus"
+            + (f" (avg entry {round(avg_entry, 1)}¢, implied {round(avg_entry, 1)}%)"
+               if avg_entry is not None else " — P&L covers those only")),
+        "gamesWithPrice": len(entries),
+        "avgEntryCents": round(avg_entry, 1) if avg_entry is not None else None,
+        "impliedWinRate": round(avg_entry / 100.0, 4) if avg_entry is not None else None,
+    }
+    if include_trades:
+        out["trades"] = [{
+            "date": x["row"]["game_date"],
+            "game": f'{x["row"]["away_abbr"]} @ {x["row"]["home_abbr"]}',
+            "tied_at": f'{x["row"][f"mid{inning}_away"]}-{x["row"][f"mid{inning}_home"]}',
+            "backed": side, "entry_cents": x["entry"],
+            "final": f'{x["row"]["final_away"]}-{x["row"]["final_home"]}',
+            "final_inning": x["row"]["final_inning"],
+            "went_to_extras": x["extras"],
+            "winner": x["row"]["winner"], "won": x["won"],
+        } for x in chosen]
+    return out
+
+
 def run(params: dict, include_trades: bool = False) -> dict:
+    if params.get("kind") == "bottom8_replay":
+        return run_bottom8(params, include_trades)
     if params.get("kind") == "comeback_replay":
         return run_comeback(params, include_trades)
     if params.get("kind") == "favorite_replay":

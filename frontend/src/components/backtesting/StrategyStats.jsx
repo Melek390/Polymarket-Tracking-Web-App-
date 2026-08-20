@@ -81,6 +81,9 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
           )}
         </div>
       )}
+      {s.coverageNote && (
+        <div style={{ fontSize: 12, color: T.sub, marginTop: 10 }}>{s.coverageNote}</div>
+      )}
       {s.factorUnknowns && Object.keys(s.factorUnknowns).length > 0 && (
         <div style={{ fontSize: 11, color: T.faint, marginTop: 4 }}>
           Factors scored as unknown (0 pts, never invented):{" "}

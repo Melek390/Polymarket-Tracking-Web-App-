@@ -98,7 +98,11 @@ export default function StrategyCard({ strategy, defaults, defaultOpen = false }
           <div style={{ fontSize: 12, color: T.sub }}>{strategy.description}</div>
         </div>
         <div style={{ ...monoText, fontSize: 11, color: T.faint, whiteSpace: "nowrap" }}>
-          {params.kind === "favorite_replay" ? (
+          {params.kind === "bottom8_replay" ? (
+            <>tied at the {params.situation.inning}th
+              {" · back "}{params.situation.side}
+              {params.situation.extras !== "all" && ` · ${params.situation.extras} only`}</>
+          ) : params.kind === "favorite_replay" ? (
             <>total ≥{params.filter.minTotal}
               {" · "}{params.filter.minPriceCents}–{params.filter.maxPriceCents}¢
               {" · hold to win"}</>

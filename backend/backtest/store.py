@@ -56,6 +56,35 @@ CREATE TABLE IF NOT EXISTS backtest_spots (
 );
 CREATE INDEX IF NOT EXISTS idx_backtest_spots_market ON backtest_spots(market_id);
 
+-- Strategy #3: games TIED at the middle of an inning (the away side has just
+-- batted, the break is on, the home half is about to start) and what happened
+-- next. Needs no tick data — whether a game was level at that moment and who
+-- eventually won is pure MLB record — so it covers the whole season, and the
+-- version wipe above deliberately does NOT clear it.
+CREATE TABLE IF NOT EXISTS backtest_bottom8 (
+    game_pk      INTEGER PRIMARY KEY,
+    game_date    TEXT NOT NULL,
+    away_name    TEXT, home_name TEXT,
+    away_abbr    TEXT, home_abbr TEXT,
+    -- cumulative runs at the middle of the 7th/8th/9th (away has batted N
+    -- times, home N-1). NULL when the game never reached that break.
+    mid7_away INTEGER, mid7_home INTEGER,
+    mid8_away INTEGER, mid8_home INTEGER,
+    mid9_away INTEGER, mid9_home INTEGER,
+    final_away   INTEGER NOT NULL,
+    final_home   INTEGER NOT NULL,
+    final_inning INTEGER NOT NULL,
+    winner       TEXT NOT NULL
+);
+
+-- one row per swept calendar day; done=0 while any game that day was still
+-- in progress, so the day is revisited until every result is in
+CREATE TABLE IF NOT EXISTS backtest_bottom8_days (
+    day  TEXT PRIMARY KEY,
+    done INTEGER NOT NULL DEFAULT 0
+);
+
+
 -- reconstructed Clear Favorite verdicts: the T-5 computation re-run for
 -- HISTORICAL games from as-of-then data (timecode boxscores, season
 -- schedules sliced to the date, our own pre-game ticks). Real locks live in
@@ -141,6 +170,34 @@ FAVORITE_SEED = (
     "Polymarket's settled price history and outcomes from MLB finals. "
     "Thresholds are re-applied over the stored verdicts, so every knob "
     "re-scores the same history.")
+
+
+# Strategy #3 (Aug 20, client): every game TIED at the middle of the 8th —
+# away just batted in the top, the break is on, the bottom is about to start —
+# replayed over the whole season. The question is the base rate: who actually
+# wins from there, and how often it runs past the 9th. The inning is a knob
+# (7/8/9) because the same question is worth asking a half-inning either side.
+BOTTOM8_DEFAULTS = {
+    "kind": "bottom8_replay",
+    "situation": {
+        "inning": 8,          # tied at the middle of THIS inning
+        "side": "home",       # which side the record is kept for
+        "extras": "all",      # all | regulation | extras
+    },
+    # P&L is only possible for games our tick corpus covers; the outcome
+    # record covers every game either way.
+    "exec": {"slippageCentsPerSide": 1.0, "entryFee": "taker"},
+    "stake": {"mode": "flat_usd", "usd": 100},
+    "corpus": {"segment": "both"},
+}
+
+BOTTOM8_SEED = (
+    "Tied entering the bottom 8th (all season games)",
+    "Every game level when the top of the 8th ended and the bottom was about "
+    "to start, and what happened from there: who won, and how often it ran to "
+    "extras. Whether a game was tied at that moment needs no tick data, so "
+    "this covers the whole season — prices, where our recorded games supply "
+    "them, come from the tick at that exact break.")
 
 
 # The Aug 5 checklist strategy's defaults — the engine still runs this kind;
@@ -229,6 +286,10 @@ def init():
             conn.execute(
                 "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",
                 (*FAVORITE_SEED, json.dumps(FAVORITE_DEFAULTS)))
+        if "bottom8_replay" not in kinds:
+            conn.execute(
+                "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",
+                (*BOTTOM8_SEED, json.dumps(BOTTOM8_DEFAULTS)))
         else:
             # Aug 14 rename: the title now carries the scope parenthetical —
             # this strategy covers the whole season, not just tracked games
@@ -335,6 +396,54 @@ def all_spots(segment: str = "both") -> list[dict]:
         d["path"] = json.loads(d["path"])
         out.append(d)
     return out
+
+
+def bottom8_rows() -> list[dict]:
+    """Every recorded tied-at-the-break game, oldest first."""
+    with get_db() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM backtest_bottom8 ORDER BY game_date, game_pk")]
+
+
+def bottom8_prices(inning: int) -> dict[int, float]:
+    """game_pk -> the HOME price at that inning's break, for games the tick
+    corpus covers. The spots table already stores a tied half-inning end with
+    its aligned first tick, so this costs nothing extra and needs no new
+    alignment logic."""
+    with get_db() as conn:
+        return {r["game_pk"]: r["entry0"] for r in conn.execute(
+            """SELECT game_pk, entry0 FROM backtest_spots
+               WHERE inning=? AND next_half='bottom' AND deficit=0
+                 AND entry0 IS NOT NULL AND trailing_is_home=1""", (inning,))}
+
+
+def save_bottom8(rows: list[dict]):
+    if not rows:
+        return
+    with get_db() as conn:
+        conn.executemany(
+            """INSERT OR REPLACE INTO backtest_bottom8
+               (game_pk, game_date, away_name, home_name, away_abbr, home_abbr,
+                mid7_away, mid7_home, mid8_away, mid8_home, mid9_away, mid9_home,
+                final_away, final_home, final_inning, winner)
+               VALUES (:game_pk, :game_date, :away_name, :home_name, :away_abbr,
+                       :home_abbr, :mid7_away, :mid7_home, :mid8_away, :mid8_home,
+                       :mid9_away, :mid9_home, :final_away, :final_home,
+                       :final_inning, :winner)""", rows)
+
+
+def bottom8_days_done() -> set[str]:
+    with get_db() as conn:
+        return {r["day"] for r in conn.execute(
+            "SELECT day FROM backtest_bottom8_days WHERE done=1")}
+
+
+def mark_bottom8_day(day: str, done: bool):
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO backtest_bottom8_days (day, done) VALUES (?, ?) "
+            "ON CONFLICT(day) DO UPDATE SET done=excluded.done",
+            (day, 1 if done else 0))
 
 
 def market_matchups() -> dict[int, str]:

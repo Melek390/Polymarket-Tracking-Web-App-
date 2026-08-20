@@ -99,6 +99,37 @@ function ComebackFields({ p, set }) {
 // The Clear Favorite replay's sheet: the verdict thresholds, re-applied over
 // the locks. No exit section — a favorite bet holds to settlement, and the
 // winning redemption is fee-free, so only the entry leg has costs.
+function Bottom8Fields({ p, set }) {
+  return (
+    <>
+      <div style={{ ...lbl, marginTop: 16 }}>
+        The moment — the away side has just batted and the scores are level
+      </div>
+      <Row label="Tied at the middle of which inning">
+        <Choice value={String(p.situation.inning)}
+          options={[["7", "7th"], ["8", "8th"], ["9", "9th"]]}
+          onChange={(v) => set("situation.inning", Number(v))} />
+      </Row>
+      <Row label="Keep the record for which side">
+        <Choice value={p.situation.side}
+          options={[["home", "Home"], ["away", "Away"]]}
+          onChange={(v) => set("situation.side", v)} />
+      </Row>
+      <Row label="Which games to include">
+        <Choice value={p.situation.extras}
+          options={[["all", "All"], ["regulation", "Settled in 9"], ["extras", "Extras only"]]}
+          onChange={(v) => set("situation.extras", v)} />
+      </Row>
+      <div style={{ fontSize: 11, color: T.faint, marginTop: 6, lineHeight: 1.5 }}>
+        Whether a game was tied at that break needs no tick data, so the record
+        covers every game of the season. P&L can only be shown for the games our
+        own recording priced — the run reports how many those are.
+      </div>
+    </>
+  );
+}
+
+
 function FavoriteFields({ p, set }) {
   return (
     <>
@@ -151,7 +182,8 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
   };
   const isComeback = p.kind === "comeback_replay";
   const isFavorite = p.kind === "favorite_replay";
-  const totalWeight = (isComeback || isFavorite) ? 0
+  const isBottom8 = p.kind === "bottom8_replay";
+  const totalWeight = (isComeback || isFavorite || isBottom8) ? 0
     : Object.values(p.weights).reduce((a, b) => a + b, 0);
 
   return (
@@ -169,8 +201,9 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
 
         {isComeback && <ComebackFields p={p} set={set} />}
         {isFavorite && <FavoriteFields p={p} set={set} />}
+        {isBottom8 && <Bottom8Fields p={p} set={set} />}
 
-        {!isComeback && !isFavorite && (<>
+        {!isComeback && !isFavorite && !isBottom8 && (<>
         <div style={{ ...lbl, marginTop: 16 }}>Hard filters — applied first; a failed filter means the spot is never scored</div>
         <Row label="Max price of the trailing team (¢)">
           <Num value={p.hardFilters.maxPriceCents} step={1} onChange={(v) => set("hardFilters.maxPriceCents", v)} />
@@ -193,7 +226,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
         </Row>
         </>)}
 
-        {!isFavorite && (<>
+        {!isFavorite && !isBottom8 && (<>
         <div style={{ ...lbl, marginTop: 18 }}>Exit — what counts as a win (drafts pending the client)</div>
         <Row label="Bounce target (¢ above entry)">
           <Num value={p.bounce.targetCents} step={0.5} onChange={(v) => set("bounce.targetCents", v)} />

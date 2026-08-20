@@ -8,6 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from backend.config.settings import settings
 from backend.backtest import backfill as backtest_backfill
+from backend.backtest import bottom8history as backtest_bottom8
 from backend.backtest import favhistory as backtest_favhistory
 from backend.bottom8 import tracker as bottom8_tracker
 from backend.comeback import detector as comeback_detector
@@ -209,6 +210,12 @@ def start():
     scheduler.add_job(
         backtest_favhistory.run_batch, "interval", hours=6, id="backtest-favhistory",
         next_run_time=datetime.now(timezone.utc) + timedelta(seconds=600),
+    )
+    # the tied-at-the-break season record: one request per day, so a full
+    # backfill is ~150 and a daily top-up is a handful
+    scheduler.add_job(
+        backtest_bottom8.run_batch, "interval", hours=6, id="backtest-bottom8",
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=300),
     )
     # soccer: big-5 live cache + the 0-0 alert. The job itself gates on
     # whether any big-5 match is in its live window (zero upstream requests

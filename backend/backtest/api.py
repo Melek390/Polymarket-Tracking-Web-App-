@@ -14,7 +14,7 @@ import time
 
 from fastapi import APIRouter, HTTPException
 
-from backend.backtest import backfill, engine, favhistory, store
+from backend.backtest import backfill, bottom8history, engine, favhistory, store
 from backend.database.db import get_db
 
 router = APIRouter(prefix="/api/backtest", tags=["backtest"])
@@ -38,11 +38,21 @@ def save_strategy(strategy_id: int, body: dict):
 
 
 @router.post("/run")
-def run(body: dict):
-    """Arithmetic over the stored spots — milliseconds, no upstream calls."""
+async def run(body: dict):
+    """Arithmetic over the stored rows — milliseconds, no upstream calls.
+
+    One exception: the tied-at-the-break strategy sweeps the last few days
+    first, so pressing Run genuinely picks up games that finished since the
+    previous run and puts them at the top of the list. The sweep is one
+    request per day and hard-bounded, so the click stays a click."""
     params = body.get("params")
     if not isinstance(params, dict):
         raise HTTPException(400, "params object required")
+    if params.get("kind") == "bottom8_replay":
+        try:
+            await bottom8history.catch_up()
+        except Exception:  # noqa: BLE001 — a stale sweep must never block a run
+            pass
     try:
         return engine.run(params, include_trades=bool(body.get("includeTrades")))
     except KeyError as e:
@@ -70,6 +80,20 @@ async def kick_favbackfill():
         return {"started": False, **favhistory.status()}
     asyncio.get_event_loop().create_task(favhistory.run_batch())
     return {"started": True}
+
+
+@router.post("/bottom8backfill")
+async def kick_bottom8():
+    """Sweep the season for games tied at a late-inning break, one batch."""
+    if bottom8history.status()["running"]:
+        return {"started": False, **bottom8history.status()}
+    asyncio.get_event_loop().create_task(bottom8history.run_batch())
+    return {"started": True}
+
+
+@router.get("/bottom8backfill/status")
+def bottom8_status():
+    return bottom8history.status()
 
 
 @router.get("/favbackfill/status")
