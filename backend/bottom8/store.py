@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS bottom8_games (
     b8_away_price  REAL,
     home_high      REAL,                   -- best price each side reached
     away_high      REAL,                   -- after the trigger
+    home_low       REAL,                   -- and the worst, for the "fell 25%
+    away_low       REAL,                   -- from entry" movement table
     b9_away_runs   INTEGER,                -- NULL when there was no bottom 9th
     b9_home_runs   INTEGER,
     b9_home_price  REAL,
@@ -49,6 +51,11 @@ CREATE INDEX IF NOT EXISTS idx_bottom8_date ON bottom8_games(game_date DESC);
 def init():
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        # the lows arrived a day after the table shipped
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(bottom8_games)")]
+        for col in ("home_low", "away_low"):
+            if col not in cols:
+                conn.execute(f"ALTER TABLE bottom8_games ADD COLUMN {col} REAL")
 
 
 def _now() -> str:
@@ -63,10 +70,11 @@ def open_row(game: dict) -> bool:
             """INSERT OR IGNORE INTO bottom8_games
                (game_pk, game_date, slug, away_name, home_name, away_abbr,
                 home_abbr, b8_away_runs, b8_home_runs, b8_home_price,
-                b8_away_price, home_high, away_high)
+                b8_away_price, home_high, away_high, home_low, away_low)
                VALUES (:game_pk, :game_date, :slug, :away_name, :home_name,
                        :away_abbr, :home_abbr, :runs, :runs, :home_price,
-                       :away_price, :home_price, :away_price)""", game)
+                       :away_price, :home_price, :away_price,
+                       :home_price, :away_price)""", game)
         return cur.rowcount == 1
 
 
@@ -100,6 +108,89 @@ def rows(limit: int = 500) -> list[dict]:
             """SELECT * FROM bottom8_games
                ORDER BY game_date DESC, created_at DESC LIMIT ?""",
             (max(1, min(2000, limit)),))]
+
+
+def _final_rows() -> list[dict]:
+    """Finished games only — every table below counts wins, so a game still
+    in progress has nothing to contribute and would skew the denominators."""
+    with get_db() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM bottom8_games WHERE status='final'")]
+
+
+def _pct(n: int, d: int):
+    return round(n / d * 100, 1) if d else None
+
+
+# The client's own bands, plus open ends so no game is silently dropped: a
+# tied game usually prices the home side 50-70c, but a strong road team can
+# put it below 50 and a dominant home team above 67.
+_BANDS = ((None, 50, "Under 50¢", False), (50, 55, "50–54¢", True),
+          (55, 60, "55–59¢", True), (60, 65, "60–64¢", True),
+          (65, 68, "65–67¢", True), (68, None, "68¢+", False))
+
+
+def price_bands() -> list[dict]:
+    """Did the market price the home side right? Games grouped by the home
+    price at the bottom-8 entry, against how often that side actually won."""
+    rows = [r for r in _final_rows() if r["b8_home_price"] is not None]
+    out = []
+    for lo, hi, label, always in _BANDS:
+        sel = [r for r in rows
+               if (lo is None or r["b8_home_price"] >= lo)
+               and (hi is None or r["b8_home_price"] < hi)]
+        if not sel and not always:
+            continue        # the client's four bands show even while empty
+        wins = sum(1 for r in sel if r["winner"] == "home")
+        losses = sum(1 for r in sel if r["winner"] == "away")
+        out.append({"band": label, "games": len(sel), "home_wins": wins,
+                    "home_losses": losses, "actual_win_pct": _pct(wins, wins + losses)})
+    return out
+
+
+def movement() -> list[dict]:
+    """How far the home price travelled after the entry — the highs it reached
+    and the drawdowns it took."""
+    rows = _final_rows()
+    n = len(rows)
+    out = []
+    for target in (80, 85, 90, 95, 100):
+        hit = sum(1 for r in rows if (r["home_high"] or 0) >= target)
+        out.append({"event": "Home reached $1" if target == 100
+                             else f"Home reached {target}¢",
+                    "games": hit, "pct": _pct(hit, n)})
+    for drop in (25, 50):
+        hit = sum(1 for r in rows
+                  if r["b8_home_price"] and r["home_low"] is not None
+                  and r["home_low"] <= r["b8_home_price"] * (1 - drop / 100))
+        out.append({"event": f"Home fell {drop}% from entry",
+                    "games": hit, "pct": _pct(hit, n)})
+    return out
+
+
+def team_table() -> list[dict]:
+    """Per home team: the entry price it commanded and what it did with it."""
+    by: dict[str, list] = {}
+    for r in _final_rows():
+        by.setdefault(r["home_abbr"] or r["home_name"], []).append(r)
+    out = []
+    for team, sel in by.items():
+        wins = sum(1 for r in sel if r["winner"] == "home")
+        losses = sum(1 for r in sel if r["winner"] == "away")
+        entries = [r["b8_home_price"] for r in sel if r["b8_home_price"] is not None]
+        extras = [r for r in sel if r["extras_inning"] is not None]
+        out.append({
+            "team": team, "games": len(sel),
+            "home_wins": wins, "home_losses": losses,
+            "win_pct": _pct(wins, wins + losses),
+            "avg_entry": round(sum(entries) / len(entries), 1) if entries else None,
+            "reached_80_pct": _pct(sum(1 for r in sel if (r["home_high"] or 0) >= 80), len(sel)),
+            "reached_95_pct": _pct(sum(1 for r in sel if (r["home_high"] or 0) >= 95), len(sel)),
+            "extras": len(extras),
+            "extras_win_pct": _pct(sum(1 for r in extras if r["winner"] == "home"), len(extras)),
+        })
+    out.sort(key=lambda t: (-t["games"], t["team"]))
+    return out
 
 
 def stats() -> dict:

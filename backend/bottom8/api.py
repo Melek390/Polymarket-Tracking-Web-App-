@@ -23,4 +23,8 @@ def _row(r: dict) -> dict:
 
 @router.get("")
 def page(limit: int = 500):
-    return {"rows": [_row(r) for r in store.rows(limit)], "stats": store.stats()}
+    return {"rows": [_row(r) for r in store.rows(limit)],
+            "stats": store.stats(),
+            "bands": store.price_bands(),
+            "movement": store.movement(),
+            "teams": store.team_table()}

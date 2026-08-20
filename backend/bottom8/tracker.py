@@ -76,9 +76,13 @@ def _follow_live(row: dict, st: dict) -> None:
         live_prices.request(row["slug"])
     for side in ("home", "away"):
         now = prices[f"{side}_cents"]
-        best = row[f"{side}_high"]
-        if now is not None and (best is None or now > best):
+        if now is None:
+            continue
+        best, worst = row[f"{side}_high"], row[f"{side}_low"]
+        if best is None or now > best:
             fields[f"{side}_high"] = now
+        if worst is None or now < worst:
+            fields[f"{side}_low"] = now
 
     # the start of the bottom of the 9th, recorded once
     if row["b9_away_runs"] is None and (_is_middle_of(9, st)

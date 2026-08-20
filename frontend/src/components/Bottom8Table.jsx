@@ -26,6 +26,44 @@ function shortDate(iso) {
     : d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
+function Panel({ title, note, heads, rows }) {
+  return (
+    <div style={{ borderTop: `1px solid ${T.border}` }}>
+      <div style={{ padding: "12px 16px 6px" }}>
+        <div style={{ fontFamily: T.ui, fontSize: 13, fontWeight: 700, color: T.ink }}>
+          {title}
+        </div>
+        {note && <div style={{ fontSize: 11, color: T.faint, marginTop: 2 }}>{note}</div>}
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {heads.map((h, i) => (
+                <th key={h} style={i === 0 ? leftTh : th}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((cells, ri) => (
+              <tr key={ri} style={{ borderTop: `1px solid ${T.border}` }}>
+                {cells.map((c, ci) => (
+                  <td key={ci} style={ci === 0 ? { ...leftTd, fontFamily: T.ui } : td}>{c}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {rows.length === 0 && (
+          <div style={{ padding: "14px 16px", fontSize: 12, color: T.faint }}>
+            Nothing to show yet — this fills in as games finish.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Stat({ title, value, color }) {
   return (
     <div style={{ minWidth: 118 }}>
@@ -219,6 +257,40 @@ export default function Bottom8Table({ onOpenHistory }) {
             winner yet.
           </div>
         </div>
+      )}
+
+      {data?.bands && (
+        <Panel
+          title="Was the price right?"
+          note="Games grouped by the home price when the bottom of the 8th began, against how often that side actually won."
+          heads={["Polymarket Price", "Games", "Home Wins", "Home Losses", "Actual Win %"]}
+          rows={data.bands.map((b) => [
+            b.band, b.games, b.home_wins, b.home_losses, pct(b.actual_win_pct),
+          ])}
+        />
+      )}
+
+      {data?.movement && (
+        <Panel
+          title="Price Movement After Bottom 8 Entry"
+          note="How far the home price travelled after the entry — the levels it reached, and the drawdowns it took getting there."
+          heads={["Event", "Games", "% of Games"]}
+          rows={data.movement.map((m) => [m.event, m.games, pct(m.pct)])}
+        />
+      )}
+
+      {data?.teams && (
+        <Panel
+          title="Team Performance — Tied Entering Bottom 8"
+          note="Per home team: the price it commanded at the entry, and what it did with it."
+          heads={["Home Team", "Games", "Home Wins", "Home Losses", "Win %",
+                  "Avg Entry", "Reached 80¢", "Reached 95¢", "Extras", "Extras Win %"]}
+          rows={data.teams.map((t) => [
+            t.team, t.games, t.home_wins, t.home_losses, pct(t.win_pct),
+            cents(t.avg_entry), pct(t.reached_80_pct), pct(t.reached_95_pct),
+            t.extras, pct(t.extras_win_pct),
+          ])}
+        />
       )}
     </div>
   );
