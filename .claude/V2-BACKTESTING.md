@@ -471,3 +471,41 @@ we have.
   APIs — check licensing before shipping their numbers.
 - Scope split: live scorer first vs backtest-on-stored-games first. (The
   backtest can validate the checklist BEFORE the live scorer exists.)
+
+## STRATEGY #3 (Aug 20): TIED ENTERING THE BOTTOM 8TH — whole season
+
+kind "bottom8_replay". Client: track every game tied at the mid-8th (away
+just batted the top, break on, bottom about to start), then backtest what
+happened — who won, and whether it ran to 10/11/12+.
+THE UNLOCK (same as strategy #2): needs NO tick data. Whether a game was
+level at that break and who won is public MLB record, so the corpus is the
+whole season, not the ~230 tick-tracked games.
+SWEEP COST — the good trick: /v1/schedule?date=D&hydrate=linescore returns
+EVERY game of a day WITH inning-by-inning runs in ONE ~65KB request. A
+season is ~150 requests, not one per game. backtest/bottom8history.py.
+THE MOMENT, precisely: at the middle of inning N the away side has batted
+N times and the home side N-1. So mid(N) = (sum away 1..N, sum home 1..N-1).
+Verified on real games (Jul 18): PIT@CLE was 3-0 at the 7th AND 8th, CLE
+tied it in the bottom 8 -> qualifies at the 9th only, then walked it off.
+Rows are stored when tied at ANY of 7/8/9 so the inning knob is real; the
+engine filters at query time.
+GOTCHA: the schedule's team object has NO abbreviation however you filter
+fields — fill abbrs from client.team_abbreviations() (cached name->abbr).
+PRICES FOR FREE: backtest_spots ALREADY stores tied half-inning ends
+(deficit 0, trailing_is_home=1) with the aligned first tick — 24 such rows
+at inning 8 as of Aug 20. store.bottom8_prices(inning) joins them, so the
+money columns need no new alignment logic. Away side pays the complement
+(100 - home price). The RECORD covers every game; P&L covers only the
+priced subset, and coverageNote says which is which — never mixed.
+DAYS TABLE: backtest_bottom8_days(day, done). done=0 while any game that
+day was Live, so a day swept mid-slate is revisited rather than frozen.
+"RUN ADDS NEW GAMES": POST /run with this kind awaits catch_up() (last 5
+unfinished days, one request each) BEFORE the arithmetic — that is why the
+run endpoint is now async. Full backfill: POST /api/backtest/bottom8backfill
++ a 6h job (backtest-bottom8).
+Knobs: inning 7/8/9, side home/away, extras all|regulation|extras.
+Buckets: settled-in-9 / extras 10th / 11th / 12th+ / tie score 0-0..4+.
+NOTE: the version-wipe in store.init() clears only backtest_games+spots —
+backtest_bottom8 is NOT derived from ticks and must never be added to it.
+Tests: scratchpad test_bottom8_backtest.py 35/35 (real MLB day swept +
+seeded rows for the engine math).
