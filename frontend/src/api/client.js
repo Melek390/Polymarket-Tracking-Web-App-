@@ -242,6 +242,11 @@ export async function trackSelected(slug, conditionIds) {
   });
 }
 
+// GET /api/bottom8 — games tied at the middle of the 8th, plus the record
+export async function fetchBottom8() {
+  return request(`/api/bottom8?_=${Date.now()}`);
+}
+
 // POST /api/track-and-chart — one click from a screener row or a position:
 // start tracking, backfill the history, and hand back the market to open.
 // Pass conditionId to chart that exact prop; omit it for the match winner.

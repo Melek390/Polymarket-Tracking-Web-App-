@@ -14,6 +14,8 @@ from backend.auth import store as auth_store
 from backend.auth.api import router as auth_router
 from backend.backtest.api import router as backtest_router
 from backend.backtest import store as backtest_store
+from backend.bottom8.api import router as bottom8_router
+from backend.bottom8 import store as bottom8_store
 from backend.comeback.api import router as comeback_router
 from backend.comeback import store as comeback_store
 from backend.favorite.api import router as favorite_router
@@ -44,6 +46,7 @@ async def lifespan(app: FastAPI):
     traders_store.init()
     favorite_store.init()
     comeback_store.init()
+    bottom8_store.init()
     football_store.init()
     backtest_store.init()
     auth_store.init()
@@ -99,6 +102,7 @@ app.include_router(router)
 app.include_router(traders_router)
 app.include_router(favorite_router)
 app.include_router(comeback_router)
+app.include_router(bottom8_router)
 app.include_router(football_router)
 app.include_router(backtest_router)
 

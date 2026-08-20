@@ -52,6 +52,30 @@ async def fetch_now(slug: str) -> dict:
     return result
 
 
+def game_prices(game_pk: int, mlb_home_name: str) -> dict:
+    """Polymarket prices for an MLB game, oriented to MLB's own home/away.
+
+    THE RULE (house gotcha): the screener lists MLB rows AWAY-first, so a
+    row's home_team is not necessarily MLB's home side. Sides are matched BY
+    TEAM NAME, never by column position. Live CLOB midpoint when the game is
+    being priced, otherwise the screener row's cached price."""
+    with db.get_db() as conn:
+        row = conn.execute(
+            """SELECT event_slug, home_team, away_team, home_price, away_price
+               FROM screener_cache WHERE sport='baseball' AND game_pk=?""",
+            (game_pk,)).fetchone()
+    if not row:
+        return {"slug": None, "home_cents": None, "away_cents": None, "source": None}
+    fresh = cached(row["event_slug"]) or {}
+    row_home = fresh.get("home") if fresh.get("home") is not None else row["home_price"]
+    row_away = fresh.get("away") if fresh.get("away") is not None else row["away_price"]
+    aligned = row["home_team"] == mlb_home_name
+    return {"slug": row["event_slug"],
+            "home_cents": row_home if aligned else row_away,
+            "away_cents": row_away if aligned else row_home,
+            "source": "live" if fresh else "cache"}
+
+
 async def poll() -> None:
     """Re-price every game viewed in the last WANT_TTL seconds, in one batch."""
     now = time.monotonic()

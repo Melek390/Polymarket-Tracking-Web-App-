@@ -5,6 +5,7 @@ import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected,
   fetchFootballLive, fetchFootballActive, ackFootball,
   fetchFootballConfig, trackAndChart } from "../api/client.js";
 import FootballDialog from "../components/FootballDialog.jsx";
+import Bottom8Table from "../components/Bottom8Table.jsx";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
 import BaseballTable from "../components/BaseballTable.jsx";
 import AlertDialog from "../components/AlertDialog.jsx";
@@ -223,6 +224,9 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
   const [fbLive, setFbLive] = useState({});     // slug -> live fixture + stats
   const [fbTrig, setFbTrig] = useState({});     // slug -> newest trigger
   const [fbCfgOpen, setFbCfgOpen] = useState(false);
+  // the Bottom-8th page is its own view, not a status filter — it lists games
+  // recorded over time rather than what is on the board right now
+  const [bottom8, setBottom8] = useState(false);
   const [fbCfg, setFbCfg] = useState(null);     // current thresholds for the banner
   const fbSeen = useRef(new Set());             // trigger ids already announced
 
@@ -755,19 +759,30 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 12, color: T.sub }}>Status:</span>
           {STATUS_FILTERS.map((s) => (
-            <button key={s} onClick={() => toggleStatus(s)}
-              style={chipBtn(s === "all" ? statuses.length === 0 : statuses.includes(s))}>
+            <button key={s} onClick={() => { setBottom8(false); toggleStatus(s); }}
+              style={chipBtn(!bottom8 && (s === "all" ? statuses.length === 0 : statuses.includes(s)))}>
               {s === "all" ? "All" : STATUS_META[s].label}
             </button>
           ))}
+          <button
+            onClick={() => setBottom8((b) => !b)}
+            title="Every game that reached the middle of the 8th tied, with prices and results"
+            style={chipBtn(bottom8)}
+          >
+            MLB Bottom 8th Innings
+          </button>
         </div>
-        <BaseballTable
-          rows={baseballRows}
-          statuses={statuses}
-          onTrack={openPicker}
-          trackBusy={trackBusy}
-          trackedCount={trackedCount}
-        />
+        {bottom8 ? (
+          <Bottom8Table onOpenHistory={onOpenHistory} />
+        ) : (
+          <BaseballTable
+            rows={baseballRows}
+            statuses={statuses}
+            onTrack={openPicker}
+            trackBusy={trackBusy}
+            trackedCount={trackedCount}
+          />
+        )}
         </>
       ) : (
       <>

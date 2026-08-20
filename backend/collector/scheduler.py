@@ -9,6 +9,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from backend.config.settings import settings
 from backend.backtest import backfill as backtest_backfill
 from backend.backtest import favhistory as backtest_favhistory
+from backend.bottom8 import tracker as bottom8_tracker
 from backend.comeback import detector as comeback_detector
 from backend.comeback import outcomes as comeback_outcomes
 from backend.database import db
@@ -184,6 +185,12 @@ def start():
     # cadence costs no upstream requests at all.
     scheduler.add_job(
         comeback_detector.run, "interval", seconds=10, id="comeback-detector",
+    )
+    # tied at the middle of the 8th: open the row, then follow the game to
+    # its last out. Same 10s beat as the comeback detector and just as cheap —
+    # it reads the live-state and price caches rather than calling MLB.
+    scheduler.add_job(
+        bottom8_tracker.run, "interval", seconds=10, id="bottom8-tracker",
     )
     # fill in each trigger's outcome (price 5/15/30 min later + final score) —
     # a couple of CLOB tokens per open trigger, so the volume is negligible

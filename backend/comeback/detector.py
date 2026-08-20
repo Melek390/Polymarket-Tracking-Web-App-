@@ -20,12 +20,10 @@ in the break before the bottom formally starts, and waiting for the half to
 flip would give away the best of the window.
 """
 
-import json
 import logging
 from datetime import datetime, timezone
 
 from backend.comeback import pitchers, store
-from backend.database.db import get_db
 from backend.mlb import live as mlb_live
 from backend.screener import live_prices
 
@@ -54,27 +52,6 @@ def _half_ok(st: dict, cfg: dict) -> bool:
     # under way and the Middle break right before it. Exactly the window the
     # client wants ("after top 8th is finished and bottom 8 starts").
     return st.get("batting") == "home"
-
-
-def _prices_for(game_pk: int, mlb_home_name: str) -> dict:
-    """Polymarket prices at trigger time, oriented to the MLB home/away teams.
-    Live CLOB midpoint when the game is being watched, else the screener row.
-    The screener lists MLB games away-first, so sides are matched by NAME."""
-    with get_db() as conn:
-        row = conn.execute(
-            """SELECT event_slug, home_team, away_team, home_price, away_price
-               FROM screener_cache WHERE sport='baseball' AND game_pk=?""",
-            (game_pk,)).fetchone()
-    if not row:
-        return {"slug": None, "home_cents": None, "away_cents": None, "source": None}
-    fresh = live_prices.cached(row["event_slug"]) or {}
-    row_home = fresh.get("home") if fresh.get("home") is not None else row["home_price"]
-    row_away = fresh.get("away") if fresh.get("away") is not None else row["away_price"]
-    aligned = row["home_team"] == mlb_home_name
-    return {"slug": row["event_slug"],
-            "home_cents": row_home if aligned else row_away,
-            "away_cents": row_away if aligned else row_home,
-            "source": "live" if fresh else "cache"}
 
 
 async def run() -> None:
@@ -123,7 +100,7 @@ async def run() -> None:
                      pk, pname, quality["matches"], quality["reasons"] or "none")
             continue
 
-        prices = _prices_for(pk, st["home"]["name"])
+        prices = live_prices.game_prices(pk, st["home"]["name"])
         payload = {
             "slug": prices["slug"],
             "away_name": st["away"]["name"], "home_name": st["home"]["name"],
