@@ -86,6 +86,13 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
           )}
         </div>
       )}
+      {s.warning && (
+        <div style={{ marginTop: 10, padding: "8px 11px", borderRadius: 8,
+          background: "#FEF9E7", border: "1px solid #F5D67B",
+          fontSize: 12, color: T.ink }}>
+          ⚠ {s.warning}
+        </div>
+      )}
       {s.dateRange && (
         <div style={{ fontSize: 12, color: T.sub, marginTop: 10 }}>
           Backtest window: <b>{s.dateRange.from}</b> → <b>{s.dateRange.to}</b>{" "}

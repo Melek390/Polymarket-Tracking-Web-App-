@@ -665,6 +665,15 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
         bucket("Priced by our tick corpus", lambda x: x["entry"] is not None),
     ) if b["spots"] > 0]
 
+    # Filtering to regulation-only or extras-only uses information that did
+    # NOT exist at the break: nobody knows yet whether the game will end in 9.
+    # Those views explain WHERE the edge sits; they are not tradeable, and the
+    # page has to say so or a flattering win rate reads as an opportunity.
+    lookahead = (f"Diagnostic view only — \"{extras_mode}\" is decided AFTER "
+                 f"the break, so this win rate uses information you would not "
+                 f"have when betting. The tradeable number is the unfiltered "
+                 f"one.") if extras_mode != "all" else None
+
     entries = [x["entry"] for x in chosen if x["entry"] is not None]
     avg_entry = sum(entries) / len(entries) if entries else None
     extras_n = sum(1 for x in chosen if x["extras"])
@@ -681,6 +690,7 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
             + (f" (avg entry {round(avg_entry, 1)}¢, implied {round(avg_entry, 1)}%)"
                if avg_entry is not None else " — P&L covers those only")),
         "dateRange": _window(r["game_date"] for r in rows),
+        "warning": lookahead,
         "gamesWithPrice": len(entries),
         "avgEntryCents": round(avg_entry, 1) if avg_entry is not None else None,
         "impliedWinRate": round(avg_entry / 100.0, 4) if avg_entry is not None else None,
