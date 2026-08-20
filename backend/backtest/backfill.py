@@ -71,7 +71,13 @@ async def _one_game(g: dict):
 
     halves = await replay.halves(pk)
     if len(halves) < 4:
-        store.save_game(market_id, "error:no play-by-play", slug=slug, game_pk=pk)
+        # second time asking, long after the game must have ended: this one
+        # really has no play-by-play, so stop re-queuing it
+        again = g.get("prev_status") == store.RETRY_STATUS
+        store.save_game(market_id,
+                        "error:no play-by-play (confirmed)" if again
+                        else store.RETRY_STATUS,
+                        slug=slug, game_pk=pk)
         return
 
     # postponement guard: plays must overlap the ticks we actually hold

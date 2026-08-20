@@ -303,22 +303,39 @@ def init():
 
 # ---- backfill bookkeeping -------------------------------------------------
 
+# A market tracked BEFORE its game finishes gets backfilled too early: there
+# is no play-by-play yet, so it fails — and because errors are never retried
+# it stayed out of the corpus forever. That single cause accounted for 77 of
+# 83 failures (25% of the corpus), including games recorded hours earlier the
+# same day. It is retried ONCE, well after the game must have ended; a game
+# that genuinely has no play-by-play then keeps a terminal status and is left
+# alone. Every other error still waits for a human, as before.
+RETRY_STATUS = "error:no play-by-play"
+RETRY_AFTER_HOURS = 12
+
+
 def games_pending(min_ticks: int, limit: int) -> list[dict]:
     """Tracked MLB markets with real ticks that the backfill has not finished.
-    Errors are NOT retried automatically — they carry their reason and wait
-    for a human (or a code fix + manual reset)."""
+    Genuine errors are NOT retried automatically — they carry their reason and
+    wait for a human. The one exception is the "backfilled before the game was
+    over" case above, which is re-attempted once."""
     with get_db() as conn:
         return [dict(r) for r in conn.execute(
-            """SELECT m.id AS market_id, e.slug
+            """SELECT m.id AS market_id, e.slug,
+                      COALESCE(bg.status, '') AS prev_status
                FROM markets m
                JOIN events e ON e.id = m.event_id
+               LEFT JOIN backtest_games bg ON bg.market_id = m.id
                WHERE e.slug LIKE 'mlb-%'
-                 AND m.id NOT IN (SELECT market_id FROM backtest_games)
+                 AND (bg.market_id IS NULL
+                      OR (bg.status = ?
+                          AND bg.backfilled_at <
+                              strftime('%Y-%m-%dT%H:%M:%SZ','now',?)))
                  AND (SELECT COALESCE(SUM(tc.n), 0) FROM outcomes o
                       JOIN tick_counts tc ON tc.outcome_id = o.id
                       WHERE o.market_id = m.id) >= ?
                ORDER BY m.id LIMIT ?""",
-            (min_ticks, limit))]
+            (RETRY_STATUS, f"-{RETRY_AFTER_HOURS} hours", min_ticks, limit))]
 
 
 def save_game(market_id: int, status: str, *, game_pk=None, slug=None, gold=None,

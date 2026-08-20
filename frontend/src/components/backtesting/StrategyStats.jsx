@@ -25,7 +25,12 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
     <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.border}`, background: T.soft }}>
       <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "center" }}>
         <Kpi title="Win rate" value={pct(s.winRate)} color={s.winRate >= 0.5 ? T.green : T.red} />
-        <Kpi title="P&L" value={usd(s.pnl)} color={s.pnl >= 0 ? T.green : T.red} />
+        {/* when only part of the sample has prices, the P&L covers THAT part
+            — say so in the label rather than letting it read as all of it */}
+        <Kpi
+          title={s.gamesWithPrice != null && s.gamesWithPrice < s.spots
+            ? `P&L (${s.gamesWithPrice} priced)` : "P&L"}
+          value={usd(s.pnl)} color={s.pnl >= 0 ? T.green : T.red} />
         <Kpi title="Spots" value={s.spots} />
         <Kpi title="Wins" value={s.wins} />
         <Kpi title="Avg bounce" value={`${s.avgBounceCents}¢`} />
