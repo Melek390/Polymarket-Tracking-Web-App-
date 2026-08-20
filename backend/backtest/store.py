@@ -310,8 +310,12 @@ def init():
 # same day. It is retried ONCE, well after the game must have ended; a game
 # that genuinely has no play-by-play then keeps a terminal status and is left
 # alone. Every other error still waits for a human, as before.
+# The retry must wait for the GAME, not for the clock: a market tracked well
+# in advance was first attempted (and failed) more than 12h before its own
+# first pitch, so a time-since-attempt rule retried it while the game still
+# had not been played and then wrote it off permanently. The slug carries the
+# game date, so the honest test is "that day is over".
 RETRY_STATUS = "error:no play-by-play"
-RETRY_AFTER_HOURS = 12
 
 
 def games_pending(min_ticks: int, limit: int) -> list[dict]:
@@ -328,14 +332,12 @@ def games_pending(min_ticks: int, limit: int) -> list[dict]:
                LEFT JOIN backtest_games bg ON bg.market_id = m.id
                WHERE e.slug LIKE 'mlb-%'
                  AND (bg.market_id IS NULL
-                      OR (bg.status = ?
-                          AND bg.backfilled_at <
-                              strftime('%Y-%m-%dT%H:%M:%SZ','now',?)))
+                      OR (bg.status = ? AND substr(e.slug, -10) < date('now')))
                  AND (SELECT COALESCE(SUM(tc.n), 0) FROM outcomes o
                       JOIN tick_counts tc ON tc.outcome_id = o.id
                       WHERE o.market_id = m.id) >= ?
                ORDER BY m.id LIMIT ?""",
-            (RETRY_STATUS, f"-{RETRY_AFTER_HOURS} hours", min_ticks, limit))]
+            (RETRY_STATUS, min_ticks, limit))]
 
 
 def save_game(market_id: int, status: str, *, game_pk=None, slug=None, gold=None,
