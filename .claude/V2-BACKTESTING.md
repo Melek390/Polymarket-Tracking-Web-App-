@@ -509,3 +509,30 @@ NOTE: the version-wipe in store.init() clears only backtest_games+spots —
 backtest_bottom8 is NOT derived from ticks and must never be added to it.
 Tests: scratchpad test_bottom8_backtest.py 35/35 (real MLB day swept +
 seeded rows for the engine math).
+
+## WHY A STRATEGY PRICES SO FEW GAMES (Aug 20, user challenged the 24)
+
+User: "312 eligible games with tick data, why only 24? and how is there a
+P&L without prices?" Both fair. The chain, traced on prod:
+  312 markets have >=1000 ticks (the /corpus "eligible" number)
+  -> only 229 had been BACKFILLED into spots; 83 rows were errors
+  -> of the 196 season games tied at the 8th, 24 were in that 229
+The tie is RARE (196 of ~2,400 season games ~= 8%) and our tick recording
+covers ~13% of the season, so 8% x 300 ~= 25. Nothing was being dropped by
+the join — verified each step, the counts agree exactly.
+THE RECOVERABLE PART: 77 of the 83 errors were ONE cause — a market tracked
+while its game was still being played has no play-by-play yet, fails, and
+errors were never retried, so it stayed out of the corpus FOREVER. Fixed:
+status "error:no play-by-play" is retried ONCE, gated on the GAME DATE being
+past (substr(slug,-10) < date('now')). FIRST CUT WAS WRONG and is worth
+remembering: a 12h-since-attempt rule retried three of that evening's games
+BEFORE first pitch and wrote them off permanently ("confirmed") — a market
+tracked in advance fails hours before its own game. Time-since-attempt is
+never the right clock; the game's own date is. Drain result: 229 -> 303
+games, 3,479 -> 4,592 spots, priced tied-at-8 games 24 -> 28. Remaining
+errors: 6 genuine label mismatches (doubleheader/naming), left for a human.
+P&L WITHOUT PRICES: there is none — engine money() skips any game with no
+entry price, so unpriced games contribute their win/loss to the RECORD and
+exactly $0 to P&L. The two populations sat side by side in the KPI row and
+read as one; the P&L tile now names its count ("P&L (28 priced)") whenever
+gamesWithPrice < spots.
