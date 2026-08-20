@@ -563,7 +563,16 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
     extras_mode = sit.get("extras", "all")
 
     rows = store.bottom8_rows()
-    prices = store.bottom8_prices(inning)
+    # Prices are per BREAK: the tick recorded at the end of the top of the 7th
+    # is a different number from the 8th. The comparison table re-runs this at
+    # other innings, so the map has to follow the inning being tested rather
+    # than staying bound to the saved one.
+    _price_maps: dict[int, dict] = {}
+
+    def prices_at(n: int) -> dict:
+        if n not in _price_maps:
+            _price_maps[n] = store.bottom8_prices(n)
+        return _price_maps[n]
 
     def tied_at(r, n):
         a, h = r[f"mid{n}_away"], r[f"mid{n}_home"]
@@ -585,7 +594,7 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
             won = r["winner"] == want_side
             # the stored price is the HOME side's; the away side is its
             # binary complement, which is what you would actually pay
-            home_price = prices.get(r["game_pk"])
+            home_price = prices_at(n).get(r["game_pk"])
             entry = (home_price if want_side == "home"
                      else round(100 - home_price, 2) if home_price is not None
                      else None)
@@ -615,7 +624,9 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
     def outcome(sel):
         wins = sum(1 for x in sel if x["won"])
         return {"spots": len(sel), "wins": wins,
-                "winRate": round(wins / len(sel), 4) if sel else 0.0}
+                "winRate": round(wins / len(sel), 4) if sel else 0.0,
+                # how many of THIS row's games the P&L beside it covers
+                "priced": sum(1 for x in sel if x["entry"] is not None)}
 
     chosen = select()
     priced = money(chosen)

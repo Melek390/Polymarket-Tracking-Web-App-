@@ -111,7 +111,9 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
           deliverable: the score has to EARN its place */}
       {s.comparison && (() => {
         const hasCb = s.comparison.some((r) => r.comebackRate != null);
-        const heads = ["Variant", "Spots", "Wins", "Win rate", "P&L", "Fees",
+        const hasPriced = s.comparison.some((r) => r.priced != null);
+        const heads = ["Variant", "Spots", "Wins", "Win rate",
+          ...(hasPriced ? ["Priced"] : []), "P&L", "Fees",
           ...(hasCb ? ["Comeback"] : [])];
         return (
           <>
@@ -141,6 +143,13 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
                         fontWeight: 700, color: row.winRate >= 0.5 ? T.green : T.red }}>
                         {pct(row.winRate)}
                       </td>
+                      {hasPriced && (
+                        <td style={{ ...monoText, fontSize: 12, padding: "7px 12px",
+                          textAlign: "right", color: T.faint }}
+                          title="Games in this row with a recorded price — the only ones the P&L covers">
+                          {row.priced ?? "—"}
+                        </td>
+                      )}
                       <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
                         color: row.pnl >= 0 ? T.green : T.red }}>
                         {usd(row.pnl)}
@@ -168,7 +177,7 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Situation", "Spots", "Win rate", "P&L",
+              {["Situation", "Spots", "Win rate", ...(s.bySituation.some((r) => r.priced != null) ? ["Priced"] : []), "P&L",
                 ...(s.bySituation.some((r) => r.comebackRate != null) ? ["Comeback"] : []),
               ].map((h, i) => (
                 <th key={h} style={{ ...lbl, padding: "8px 12px",
@@ -185,6 +194,13 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
                   fontWeight: 700, color: row.winRate >= 0.5 ? T.green : T.red }}>
                   {pct(row.winRate)}
                 </td>
+                {row.priced != null && (
+                  <td style={{ ...monoText, fontSize: 12, padding: "7px 12px",
+                    textAlign: "right", color: T.faint }}
+                    title="Games in this row with a recorded price — the only ones the P&L covers">
+                    {row.priced}
+                  </td>
+                )}
                 <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
                   color: row.pnl >= 0 ? T.green : T.red }}>
                   {usd(row.pnl)}
