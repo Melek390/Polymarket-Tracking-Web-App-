@@ -39,6 +39,9 @@ export default function StrategyCard({ strategy, defaults, defaultOpen = false }
   }, [open]);
 
   const [downloading, setDownloading] = useState(false);
+  const kindDefaults = defaults?.byKind?.[params.kind] ?? null;
+  const customized = kindDefaults
+    && JSON.stringify(params) !== JSON.stringify(kindDefaults);
 
   // Every spot the current params selected, as a CSV the client can open in
   // Excel — re-runs server-side with includeTrades so the file always matches
@@ -94,8 +97,28 @@ export default function StrategyCard({ strategy, defaults, defaultOpen = false }
           {open ? "−" : "+"}
         </button>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontFamily: T.ui, fontSize: 15, fontWeight: 600 }}>{strategy.name}</div>
+          <div style={{ fontFamily: T.ui, fontSize: 15, fontWeight: 600 }}>
+            {strategy.name}
+            {/* the card always runs its SAVED params, so an experiment left in
+                place quietly becomes the headline — flag it and offer the way
+                back rather than letting it look like the strategy's own result */}
+            {customized && (
+              <span title="These numbers use edited settings, not the strategy's own"
+                style={{ fontFamily: T.ui, fontSize: 10, fontWeight: 800,
+                  letterSpacing: 0.4, color: "#92400E", background: "#FEF3C7",
+                  border: "1px solid #F5D67B", borderRadius: 5,
+                  padding: "2px 6px", marginLeft: 8, verticalAlign: "middle" }}>
+                CUSTOM SETTINGS
+              </span>
+            )}
+          </div>
           <div style={{ fontSize: 12, color: T.sub }}>{strategy.description}</div>
+          {customized && (
+            <button onClick={() => saveAndRun(structuredClone(kindDefaults))}
+              style={{ ...btn.ghost, fontSize: 11, padding: "2px 0", color: T.series[0] }}>
+              ↩ back to the strategy's own settings
+            </button>
+          )}
         </div>
         <div style={{ ...monoText, fontSize: 11, color: T.faint, whiteSpace: "nowrap" }}>
           {params.kind === "bottom8_replay" ? (

@@ -183,6 +183,8 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
   const isComeback = p.kind === "comeback_replay";
   const isFavorite = p.kind === "favorite_replay";
   const isBottom8 = p.kind === "bottom8_replay";
+  // restore must give back THIS strategy's defaults, not another kind's
+  const kindDefaults = defaults?.byKind?.[p.kind] ?? defaults?.plain ?? defaults;
   const totalWeight = (isComeback || isFavorite || isBottom8) ? 0
     : Object.values(p.weights).reduce((a, b) => a + b, 0);
 
@@ -292,7 +294,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
           <button
-            onClick={() => defaults && setP(structuredClone(defaults))}
+            onClick={() => { const d = kindDefaults; if (d) setP(structuredClone(d)); }}
             title="Back to the client's default checklist"
             style={{ ...btn.outline, fontSize: 13, padding: "8px 14px" }}
           >

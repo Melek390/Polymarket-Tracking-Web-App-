@@ -29,7 +29,10 @@ export default function Backtesting() {
   useEffect(() => {
     fetchBacktestCorpus().then(setCorpus).catch(() => setCorpus(false));
     fetchBacktestStrategies()
-      .then((r) => { setStrategies(r.strategies); setDefaults(r.defaults); })
+      .then((r) => {
+        setStrategies(r.strategies);
+        setDefaults({ plain: r.defaults, byKind: r.defaultsByKind || {} });
+      })
       .catch(() => setStrategies(false));
     fetchBackfillStatus().then(setBackfill).catch(() => {});
   }, []);

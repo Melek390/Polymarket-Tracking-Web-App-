@@ -23,8 +23,19 @@ router = APIRouter(prefix="/api/backtest", tags=["backtest"])
 @router.get("/strategies")
 def strategies():
     """The saved strategies with their params, plus the defaults the dialog's
-    Restore button reverts to — one source of truth, server-side."""
-    return {"strategies": store.strategies(), "defaults": store.DEFAULT_PARAMS}
+    Restore button reverts to — one source of truth, server-side.
+
+    Defaults are PER KIND: serving one set for every card meant Restore would
+    have loaded comeback params into a favorite or tied-at-the-break card and
+    changed what the strategy even is."""
+    return {"strategies": store.strategies(),
+            "defaults": store.DEFAULT_PARAMS,          # back-compat
+            "defaultsByKind": {
+                "comeback_replay": store.DEFAULT_PARAMS,
+                "favorite_replay": store.FAVORITE_DEFAULTS,
+                "bottom8_replay": store.BOTTOM8_DEFAULTS,
+                "checklist": store.CHECKLIST_DEFAULTS,
+            }}
 
 
 @router.put("/strategies/{strategy_id}")
