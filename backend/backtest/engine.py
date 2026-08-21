@@ -635,9 +635,11 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
 
     comparison = []
     for lbl, kwargs in (
-        ("Tied at the 7th", {"n": 7}),
-        (f"Tied at the {inning}th (saved)", {}),
-        ("Tied at the 9th", {"n": 9}),
+        # all three breaks, always, once each — hardcoding 7/9 plus "the
+        # saved inning" duplicated a row and dropped the 8th whenever the
+        # saved inning was 7 or 9 (the client caught it within hours)
+        *[(f"Tied at the {n_}th" + (" (saved)" if n_ == inning else ""),
+           {"n": n_}) for n_ in (7, 8, 9)],
         ("Backing the HOME side", {"want_side": "home"}),
         ("Backing the AWAY side", {"want_side": "away"}),
         ("Settled in regulation", {"extras": "regulation"}),
