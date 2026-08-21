@@ -246,6 +246,10 @@ export default function AccountsTracker({ onOpenHistory }) {
   const [newLabel, setNewLabel] = useState("");
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
+  // "jump to the trade the alert was about": which asset to spotlight once
+  // the account's fresh data is on screen (client item 3 — no more manual
+  // refresh + ctrl-F to find the game)
+  const [flash, setFlash] = useState(null);      // {asset, at}
   const [status, setStatus] = useState("all"); // all | open | closed
   const [result, setResult] = useState("all"); // all | win | loss (closed table)
   const [category, setCategory] = useState(null);
@@ -316,6 +320,34 @@ export default function AccountsTracker({ onOpenHistory }) {
   }
   useEffect(() => { memo.current = current; loadData(current); setActShown(60); }, [current]);
 
+  // From a trade alert: switch to that account (its data reloads fresh),
+  // clear any filter that could hide the row, and mark the asset to spotlight.
+  function jumpToTrade(acctId, asset) {
+    setSearch("");
+    setCategory(null);
+    setStatus("all");
+    setFlash({ asset, at: Date.now() });
+    if (current !== acctId) setCurrent(acctId);   // effect above reloads
+    else loadData(acctId);                        // same account: refresh now
+  }
+
+  // once the row exists in the fresh data, scroll it into view; the spotlight
+  // itself is the row background below. Retried on every data change while
+  // the flash is young, because the data-api can lag the alert by a moment.
+  useEffect(() => {
+    if (!flash) return;
+    if (Date.now() - flash.at > 90_000) { setFlash(null); return; }
+    const el = document.querySelector(`[data-asset-row="${flash.asset}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      const t = setTimeout(() => setFlash(null), 8000);
+      return () => clearTimeout(t);
+    }
+  }, [flash, open, closed]);
+
+  const spotlight = (asset) =>
+    flash && flash.asset === asset ? { background: "#FDE68A" } : null;
+
   // Alert watcher: every 30s (tab visible only) check each account for
   // (a) positions crossing a saved price target, (b) NEW trades/redeems since
   // the last watermark. Server caches keep this at one upstream call per
@@ -382,7 +414,8 @@ export default function AccountsTracker({ onOpenHistory }) {
             for (const x of fresh.slice(0, 3)) {
               const verb = x.type === "REDEEM" ? "redeemed" : x.side === "BUY" ? "entered" : "exited";
               pushToast(`${a.label} ${verb}: ${Math.round(x.size).toLocaleString("en-US")} ${x.outcome} (${x.title})${x.type === "TRADE" ? ` @ ${cents(x.price)}` : ""}`,
-                eventUrl(x.event_slug));
+                eventUrl(x.event_slug),
+                { label: "→ view trade", onClick: () => jumpToTrade(a.id, x.asset) });
             }
             if (fresh.length > 3) pushToast(`${a.label}: …and ${fresh.length - 3} more new trades`);
             setLastSeen(a.id, newest);
@@ -911,8 +944,10 @@ export default function AccountsTracker({ onOpenHistory }) {
                   {openShown.map((r) => {
                     const key = `o-${r.asset}`;
                     return [
-                      <tr key={key} style={{ borderTop: `1px solid ${T.border}`,
-                        opacity: isHidden(openHideKey(r)) ? 0.45 : 1 }}>
+                      <tr key={key} data-asset-row={r.asset}
+                        style={{ borderTop: `1px solid ${T.border}`,
+                        opacity: isHidden(openHideKey(r)) ? 0.45 : 1,
+                        ...spotlight(r.asset) }}>
                         <td style={{ ...td, textAlign: "center",
                           boxShadow: `inset 4px 0 0 ${r.pnl > 0 ? M.green : r.pnl < 0 ? M.red : T.border}` }}>{expandBtn(key)}</td>
                         <td style={{ ...td, fontFamily: T.ui, fontWeight: 500, maxWidth: 320 }}>
@@ -1115,11 +1150,13 @@ export default function AccountsTracker({ onOpenHistory }) {
                     const gross = r.net + r.fees; // pre-fee, like the profile page
                     const roi = r.cost ? gross / r.cost : 0;
                     return [
-                      <tr key={key} style={{ borderTop: `1px solid ${T.border}`,
+                      <tr key={key} data-asset-row={r.asset}
+                        style={{ borderTop: `1px solid ${T.border}`,
                         // a closed trade wears its outcome: green tint for a
                         // win, red for a loss — readable at scroll speed
                         background: r.win ? M.winBg : M.lossBg,
-                        opacity: isHidden(closedHideKey(r)) ? 0.45 : 1 }}>
+                        opacity: isHidden(closedHideKey(r)) ? 0.45 : 1,
+                        ...spotlight(r.asset) }}>
                         <td style={{ ...td, textAlign: "center",
                           boxShadow: `inset 4px 0 0 ${r.win ? M.green : M.red}` }}
                           onClick={() => loadPeak(r)}>{expandBtn(key)}</td>

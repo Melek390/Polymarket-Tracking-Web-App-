@@ -329,6 +329,10 @@ async def activity_rows(acct: dict) -> list[dict]:
         "outcome": a.get("outcome"),
         "size": float(a.get("size") or 0),
         "price": float(a.get("price") or 0),
+        # so a trade alert can deep-link: the position row to spotlight in
+        # the app, and the bet's page on Polymarket
+        "asset": a.get("asset"),
+        "event_slug": a.get("eventSlug"),
     } for a in acts]
 
 
