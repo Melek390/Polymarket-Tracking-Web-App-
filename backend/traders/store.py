@@ -91,6 +91,9 @@ def _migrate_owner_column() -> None:
     conn = sqlite3.connect(settings.db_path)   # fresh connection: FKs OFF
     try:
         conn.executescript("""
+            -- a previous half-run may have left the staging table behind
+            -- (the first deploy failed AFTER creating it); start clean
+            DROP TABLE IF EXISTS trader_accounts_v2;
             CREATE TABLE trader_accounts_v2 (
                 id         INTEGER PRIMARY KEY,
                 wallet     TEXT NOT NULL,
