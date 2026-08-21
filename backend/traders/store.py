@@ -66,29 +66,48 @@ CREATE TABLE IF NOT EXISTS trader_resolutions (
 def init() -> None:
     with get_db() as conn:
         conn.executescript(SCHEMA)
-        # Aug 21 migration: accounts became per-user (the client and his
-        # brother were seeing - and getting alerts for - each other's tracked
-        # wallets). wallet-UNIQUE must relax to (wallet, owner) so two users
-        # can track the same trader independently; SQLite cannot drop a
-        # constraint, so the table is rebuilt once, ids preserved (fills and
-        # tags reference account_id).
+    # Aug 21 migration: accounts became per-user (the client and his brother
+    # were seeing - and getting alerts for - each other's tracked wallets)
+    if _needs_owner_migration():
+        _migrate_owner_column()
+
+
+def _needs_owner_migration() -> bool:
+    with get_db() as conn:
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(trader_accounts)")]
-        if "owner_id" not in cols:
-            conn.executescript("""
-                CREATE TABLE trader_accounts_v2 (
-                    id         INTEGER PRIMARY KEY,
-                    wallet     TEXT NOT NULL,
-                    label      TEXT NOT NULL,
-                    owner_id   INTEGER,
-                    last_sync  TEXT,
-                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-                    UNIQUE(wallet, owner_id)
-                );
-                INSERT INTO trader_accounts_v2 (id, wallet, label, owner_id, last_sync, created_at)
-                    SELECT id, wallet, label, NULL, last_sync, created_at FROM trader_accounts;
-                DROP TABLE trader_accounts;
-                ALTER TABLE trader_accounts_v2 RENAME TO trader_accounts;
-            """)
+    return "owner_id" not in cols
+
+
+def _migrate_owner_column() -> None:
+    """Rebuild trader_accounts with owner_id + UNIQUE(wallet, owner_id).
+
+    trader_fills/trader_tags carry REFERENCES trader_accounts(id) and the app
+    connection runs PRAGMA foreign_keys=ON, so DROP TABLE on the parent fails
+    there (it crash-looped the service on first deploy). The rebuild therefore
+    uses its OWN connection with foreign keys off — ids are preserved, so the
+    references stay valid; RENAME then restores the referenced name."""
+    import sqlite3
+    from backend.config.settings import settings
+    conn = sqlite3.connect(settings.db_path)   # fresh connection: FKs OFF
+    try:
+        conn.executescript("""
+            CREATE TABLE trader_accounts_v2 (
+                id         INTEGER PRIMARY KEY,
+                wallet     TEXT NOT NULL,
+                label      TEXT NOT NULL,
+                owner_id   INTEGER,
+                last_sync  TEXT,
+                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                UNIQUE(wallet, owner_id)
+            );
+            INSERT INTO trader_accounts_v2 (id, wallet, label, owner_id, last_sync, created_at)
+                SELECT id, wallet, label, NULL, last_sync, created_at FROM trader_accounts;
+            DROP TABLE trader_accounts;
+            ALTER TABLE trader_accounts_v2 RENAME TO trader_accounts;
+        """)
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def list_accounts(owner_id: int | None = None) -> list[dict]:
