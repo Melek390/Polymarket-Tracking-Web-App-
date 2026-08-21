@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { T, card, label, monoText, page, btn } from "../theme.js";
-import { fmtCents, fmtTimestamp, fmtClock, TZ_LABEL } from "../utils.js";
+import { fmtCents, fmtTimestamp, fmtClock, TZ_LABEL, eventUrl } from "../utils.js";
 import {
   traderList, traderAdd, traderDelete, traderSummary, traderOpen,
   traderClosed, traderActivity, traderTagToggle, traderPeak, traderTagVocab,
@@ -354,7 +354,8 @@ export default function AccountsTracker({ onOpenHistory }) {
                 if (hit && !firedRef.current[fk]) {
                   firedRef.current[fk] = true;
                   playSound("price");
-                  pushToast(`${a.label}: ${r.title} — ${r.outcome} is ${cents(r.cur_price)} (${src} ${dir} ${dir === "above" ? al.above : al.below}¢)`);
+                  pushToast(`${a.label}: ${r.title} — ${r.outcome} is ${cents(r.cur_price)} (${src} ${dir} ${dir === "above" ? al.above : al.below}¢)`,
+                    eventUrl(r.event_slug));
                 } else if (!hit) {
                   firedRef.current[fk] = false; // re-arm once it leaves the zone
                 }
@@ -380,7 +381,8 @@ export default function AccountsTracker({ onOpenHistory }) {
             playSound("situation");
             for (const x of fresh.slice(0, 3)) {
               const verb = x.type === "REDEEM" ? "redeemed" : x.side === "BUY" ? "entered" : "exited";
-              pushToast(`${a.label} ${verb}: ${Math.round(x.size).toLocaleString("en-US")} ${x.outcome} (${x.title})${x.type === "TRADE" ? ` @ ${cents(x.price)}` : ""}`);
+              pushToast(`${a.label} ${verb}: ${Math.round(x.size).toLocaleString("en-US")} ${x.outcome} (${x.title})${x.type === "TRADE" ? ` @ ${cents(x.price)}` : ""}`,
+                eventUrl(x.event_slug));
             }
             if (fresh.length > 3) pushToast(`${a.label}: …and ${fresh.length - 3} more new trades`);
             setLastSeen(a.id, newest);
@@ -700,6 +702,16 @@ export default function AccountsTracker({ onOpenHistory }) {
           <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
             <button onClick={() => setCurrent(a.id)} style={chip(current === a.id)} title={a.wallet}>
               {a.label}
+              {/* added before accounts became per-user: still visible to
+                  everyone. Re-adding the same wallet claims it as yours. */}
+              {a.owner_id == null && (
+                <span title="Added before accounts became private — visible to every user. Add the same wallet again to make it yours only."
+                  style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.4,
+                    marginLeft: 5, padding: "1px 4px", borderRadius: 4,
+                    background: "#FEF3C7", color: "#92400E" }}>
+                  SHARED
+                </span>
+              )}
             </button>
             <a href={`https://polymarket.com/profile/${a.wallet}`} target="_blank" rel="noreferrer"
               title="Open this profile on Polymarket"

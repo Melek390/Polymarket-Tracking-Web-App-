@@ -11,10 +11,14 @@ from backend.database.db import get_db
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS trader_accounts (
     id         INTEGER PRIMARY KEY,
-    wallet     TEXT UNIQUE NOT NULL,
+    wallet     TEXT NOT NULL,
     label      TEXT NOT NULL,
+    -- which app user added it (users.id). NULL = added before accounts became
+    -- per-user; those stay visible to everyone until claimed or deleted.
+    owner_id   INTEGER,
     last_sync  TEXT,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(wallet, owner_id)
 );
 
 CREATE TABLE IF NOT EXISTS trader_fills (
@@ -62,12 +66,42 @@ CREATE TABLE IF NOT EXISTS trader_resolutions (
 def init() -> None:
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        # Aug 21 migration: accounts became per-user (the client and his
+        # brother were seeing - and getting alerts for - each other's tracked
+        # wallets). wallet-UNIQUE must relax to (wallet, owner) so two users
+        # can track the same trader independently; SQLite cannot drop a
+        # constraint, so the table is rebuilt once, ids preserved (fills and
+        # tags reference account_id).
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(trader_accounts)")]
+        if "owner_id" not in cols:
+            conn.executescript("""
+                CREATE TABLE trader_accounts_v2 (
+                    id         INTEGER PRIMARY KEY,
+                    wallet     TEXT NOT NULL,
+                    label      TEXT NOT NULL,
+                    owner_id   INTEGER,
+                    last_sync  TEXT,
+                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                    UNIQUE(wallet, owner_id)
+                );
+                INSERT INTO trader_accounts_v2 (id, wallet, label, owner_id, last_sync, created_at)
+                    SELECT id, wallet, label, NULL, last_sync, created_at FROM trader_accounts;
+                DROP TABLE trader_accounts;
+                ALTER TABLE trader_accounts_v2 RENAME TO trader_accounts;
+            """)
 
 
-def list_accounts() -> list[dict]:
+def list_accounts(owner_id: int | None = None) -> list[dict]:
+    """owner_id given -> that user's accounts plus unclaimed legacy rows.
+    None -> every account (the sync/resolution jobs, dev mode, healthcheck)."""
     with get_db() as conn:
-        return [dict(r) for r in
-                conn.execute("SELECT * FROM trader_accounts ORDER BY id")]
+        if owner_id is None:
+            rows = conn.execute("SELECT * FROM trader_accounts ORDER BY id")
+        else:
+            rows = conn.execute(
+                "SELECT * FROM trader_accounts WHERE owner_id=? OR owner_id IS NULL "
+                "ORDER BY id", (owner_id,))
+        return [dict(r) for r in rows]
 
 
 def get_account(acct_id: int) -> dict | None:
@@ -76,12 +110,27 @@ def get_account(acct_id: int) -> dict | None:
         return dict(r) if r else None
 
 
-def add_account(wallet: str, label: str) -> dict:
+def add_account(wallet: str, label: str, owner_id: int | None = None) -> dict:
+    """Create the wallet under this owner. Re-adding a wallet that exists as
+    an unclaimed legacy row CLAIMS that row instead of duplicating it - its
+    fill history (which reaches beyond Polymarket's 10k-row API window) is
+    the valuable part and must follow the account."""
     with get_db() as conn:
+        if owner_id is not None:
+            legacy = conn.execute(
+                "SELECT id FROM trader_accounts WHERE wallet=? AND owner_id IS NULL",
+                (wallet,)).fetchone()
+            if legacy:
+                conn.execute("UPDATE trader_accounts SET owner_id=?, label=? WHERE id=?",
+                             (owner_id, label, legacy["id"]))
+                return dict(conn.execute("SELECT * FROM trader_accounts WHERE id=?",
+                                         (legacy["id"],)).fetchone())
         conn.execute(
-            "INSERT OR IGNORE INTO trader_accounts (wallet, label) VALUES (?, ?)",
-            (wallet, label))
-        r = conn.execute("SELECT * FROM trader_accounts WHERE wallet=?", (wallet,)).fetchone()
+            "INSERT OR IGNORE INTO trader_accounts (wallet, label, owner_id) VALUES (?, ?, ?)",
+            (wallet, label, owner_id))
+        r = conn.execute(
+            "SELECT * FROM trader_accounts WHERE wallet=? AND owner_id IS ?",
+            (wallet, owner_id)).fetchone()
         return dict(r)
 
 
