@@ -118,9 +118,11 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
           deliverable: the score has to EARN its place */}
       {s.comparison && (() => {
         const hasCb = s.comparison.some((r) => r.comebackRate != null);
-        const hasPriced = s.comparison.some((r) => r.priced != null);
+        // strategies with a separate money table keep these rows outcome-only
+        const hasPnl = s.comparison.some((r) => r.pnl != null);
+        const hasPriced = hasPnl && s.comparison.some((r) => r.priced != null);
         const heads = ["Variant", "Spots", "Wins", "Win rate",
-          ...(hasPriced ? ["Priced"] : []), "P&L", "Fees",
+          ...(hasPriced ? ["Priced"] : []), ...(hasPnl ? ["P&L", "Fees"] : []),
           ...(hasCb ? ["Comeback"] : [])];
         return (
           <>
@@ -157,6 +159,7 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
                           {row.priced ?? "—"}
                         </td>
                       )}
+                      {hasPnl && (<>
                       <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
                         color: row.pnl >= 0 ? T.green : T.red }}>
                         {usd(row.pnl)}
@@ -165,6 +168,7 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
                         color: T.sub }}>
                         {usd(-(row.feesPaid ?? 0))}
                       </td>
+                      </>)}
                       {hasCb && (
                         <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
                           {row.comebackRate != null ? pct(row.comebackRate) : "—"}
@@ -184,7 +188,9 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              {["Situation", "Spots", "Win rate", ...(s.bySituation.some((r) => r.priced != null) ? ["Priced"] : []), "P&L",
+              {["Situation", "Spots", "Win rate",
+                ...(s.bySituation.some((r) => r.pnl != null && r.priced != null) ? ["Priced"] : []),
+                ...(s.bySituation.some((r) => r.pnl != null) ? ["P&L"] : []),
                 ...(s.bySituation.some((r) => r.comebackRate != null) ? ["Comeback"] : []),
               ].map((h, i) => (
                 <th key={h} style={{ ...lbl, padding: "8px 12px",
@@ -201,17 +207,19 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
                   fontWeight: 700, color: row.winRate >= 0.5 ? T.green : T.red }}>
                   {pct(row.winRate)}
                 </td>
-                {row.priced != null && (
+                {row.pnl != null && row.priced != null && (
                   <td style={{ ...monoText, fontSize: 12, padding: "7px 12px",
                     textAlign: "right", color: T.faint }}
                     title="Games in this row with a recorded price — the only ones the P&L covers">
                     {row.priced}
                   </td>
                 )}
+                {row.pnl != null && (
                 <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
                   color: row.pnl >= 0 ? T.green : T.red }}>
                   {usd(row.pnl)}
                 </td>
+                )}
                 {row.comebackRate != null && (
                   <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
                     {pct(row.comebackRate)}
@@ -222,6 +230,89 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
           </tbody>
         </table>
       </div>
+
+      {/* the money, in its own table (client: keep the outcome tables clean).
+          P&L per variant over the PRICED games only, then how far the backed
+          side's price travelled after the break — through settlement, so a
+          winner's run to $1 counts as reaching every level. */}
+      {s.moneyTable && (
+        <>
+          <div style={{ ...lbl, margin: "16px 0 4px" }}>
+            Money — the {s.moneyTable.pricedGames} priced games only
+            ({s.moneyTable.side} side)
+          </div>
+          <div style={{ ...card, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Variant", "Priced games", "Win rate (priced)", "P&L", "Fees"].map((h, i) => (
+                    <th key={h} style={{ ...lbl, padding: "8px 12px",
+                      textAlign: i === 0 ? "left" : "right" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {s.moneyTable.variants.map((row) => (
+                  <tr key={row.label} style={{ borderTop: `1px solid ${T.border}` }}>
+                    <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>{row.label}</td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                      {row.priced}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
+                      color: row.winRatePriced >= 0.5 ? T.green : T.red }}>
+                      {row.spots ? pct(row.winRatePriced) : "—"}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
+                      fontWeight: 700, color: row.pnl >= 0 ? T.green : T.red }}>
+                      {usd(row.pnl)}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 12, padding: "7px 12px", textAlign: "right",
+                      color: T.sub }}>
+                      {usd(-(row.feesPaid ?? 0))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ ...lbl, margin: "14px 0 4px" }}>
+            Price movement after the break — {s.moneyTable.pricedGames} priced games
+          </div>
+          <div style={{ ...card, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Event", "Games", "% of priced"].map((h, i) => (
+                    <th key={h} style={{ ...lbl, padding: "8px 12px",
+                      textAlign: i === 0 ? "left" : "right" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {s.moneyTable.thresholds.map((row) => (
+                  <tr key={row.label} style={{ borderTop: `1px solid ${T.border}` }}>
+                    <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>{row.label}</td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                      {row.games}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
+                      fontWeight: 700 }}>
+                      {row.pct == null ? "—" : `${row.pct}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: 11, color: T.faint, marginTop: 6 }}>
+            Levels are measured from the break to settlement on our recorded
+            prices — a winning side always finishes near $1, so "rose above"
+            includes the run to resolution; "fell below" includes the slide of
+            an eventual loser.
+          </div>
+        </>
+      )}
     </div>
   );
 }

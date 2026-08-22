@@ -633,7 +633,7 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
     agg = _aggregate(priced)          # money columns, priced subset
     core = outcome(chosen)            # the record, every qualifying game
 
-    comparison = []
+    comparison, money_variants = [], []
     for lbl, kwargs in (
         # all three breaks, always, once each — hardcoding 7/9 plus "the
         # saved inning" duplicated a row and dropped the 8th whenever the
@@ -646,13 +646,15 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
         ("Went to extras", {"extras": "extras"}),
     ):
         sub = select(**kwargs)
+        comparison.append({"label": lbl, **outcome(sub)})
         m = _aggregate(money(sub))
-        comparison.append({"label": lbl, **outcome(sub),
-                           "pnl": m["pnl"], "feesPaid": m["feesPaid"]})
+        money_variants.append({"label": lbl, "priced": outcome(sub)["priced"],
+                               "pnl": m["pnl"], "feesPaid": m["feesPaid"],
+                               "winRatePriced": m["winRate"], "spots": m["spots"]})
 
     def bucket(lbl, pred):
         sub = [x for x in chosen if pred(x)]
-        return {"label": lbl, **outcome(sub), "pnl": _aggregate(money(sub))["pnl"]}
+        return {"label": lbl, **outcome(sub)}
 
     by_situation = [b for b in (
         bucket("Settled in the 9th", lambda x: not x["extras"]),
@@ -676,6 +678,33 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
                  f"have when betting. The tradeable number is the unfiltered "
                  f"one.") if extras_mode != "all" else None
 
+    # How far the backed side's price travelled AFTER the break, over the
+    # priced games — through settlement, so a winner's run to $1 counts as
+    # reaching every threshold (same meaning as the live page's highs/lows).
+    extremes = store.bottom8_price_extremes(inning)
+    travelled = []
+    for x in chosen:
+        ex_row = extremes.get(x["row"]["game_pk"])
+        if x["entry"] is None or not ex_row:
+            continue
+        if side == "home":
+            hi, lo = ex_row["max_after"], ex_row["min_after"]
+        else:   # the away price is the home price's complement
+            hi, lo = 100 - ex_row["min_after"], 100 - ex_row["max_after"]
+        travelled.append({"hi": hi, "lo": lo, "won": x["won"]})
+    n_priced_t = len(travelled)
+    thresholds = []
+    for t in (70, 80, 90, 95):
+        hit = sum(1 for v in travelled if v["hi"] >= t)
+        thresholds.append({"label": f"Price rose above {t}¢ after the break",
+                           "games": hit,
+                           "pct": round(hit / n_priced_t * 100, 1) if n_priced_t else None})
+    for t in (40, 30, 20):
+        hit = sum(1 for v in travelled if v["lo"] <= t)
+        thresholds.append({"label": f"Price fell below {t}¢ after the break",
+                           "games": hit,
+                           "pct": round(hit / n_priced_t * 100, 1) if n_priced_t else None})
+
     entries = [x["entry"] for x in chosen if x["entry"] is not None]
     avg_entry = sum(entries) / len(entries) if entries else None
     extras_n = sum(1 for x in chosen if x["extras"])
@@ -693,6 +722,14 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
                if avg_entry is not None else " — P&L covers those only")),
         "dateRange": _window(r["game_date"] for r in rows),
         "warning": lookahead,
+        # the client's independent money table: P&L per variant, plus how
+        # often the backed side's price crossed each level after the break
+        "moneyTable": {
+            "variants": money_variants,
+            "thresholds": thresholds,
+            "pricedGames": n_priced_t,
+            "side": side,
+        },
         "gamesWithPrice": len(entries),
         "avgEntryCents": round(avg_entry, 1) if avg_entry is not None else None,
         "impliedWinRate": round(avg_entry / 100.0, 4) if avg_entry is not None else None,
@@ -711,6 +748,8 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
             "final_inning": x["row"]["final_inning"],
             "went_to_extras": x["extras"],
             "winner": x["row"]["winner"], "won": x["won"],
+            "high_after_cents": (extremes.get(x["row"]["game_pk"]) or {}).get("max_after"),
+            "low_after_cents": (extremes.get(x["row"]["game_pk"]) or {}).get("min_after"),
         } for x in chosen]
     return out
 

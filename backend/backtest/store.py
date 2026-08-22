@@ -436,6 +436,39 @@ def bottom8_prices(inning: int) -> dict[int, float]:
                  AND entry0 IS NOT NULL AND trailing_is_home=1""", (inning,))}
 
 
+_extremes_memo: dict[int, tuple[float, dict]] = {}
+_EXTREMES_TTL = 600.0
+
+
+def bottom8_price_extremes(inning: int) -> dict[int, dict]:
+    """game_pk -> the HOME price's max and min AFTER that inning's break,
+    over our own ticks, through to settlement — so a winner's run to $1 and
+    a loser's slide to zero are part of the answer, same as the live page's
+    high/low columns. Only games the tick corpus priced can appear.
+
+    A bounded aggregate (one (outcome_id, ts>=break) index scan per priced
+    game, ~30 of them) — memoised because the run button can be pressed
+    repeatedly while exploring."""
+    import time
+    hit = _extremes_memo.get(inning)
+    if hit and time.monotonic() - hit[0] < _EXTREMES_TTL:
+        return hit[1]
+    with get_db() as conn:
+        out = {r["game_pk"]: {"max_after": r["mx"], "min_after": r["mn"]}
+               for r in conn.execute(
+                   """SELECT s.game_pk, MAX(t.price) mx, MIN(t.price) mn
+                      FROM backtest_spots s
+                      JOIN backtest_games g ON g.market_id = s.market_id
+                      JOIN ticks t ON t.outcome_id = g.home_outcome_id
+                                  AND t.ts >= s.ts
+                      WHERE s.inning=? AND s.next_half='bottom'
+                        AND s.deficit=0 AND s.trailing_is_home=1
+                        AND s.entry0 IS NOT NULL
+                      GROUP BY s.game_pk""", (inning,))}
+    _extremes_memo[inning] = (time.monotonic(), out)
+    return out
+
+
 def save_bottom8(rows: list[dict]):
     if not rows:
         return
