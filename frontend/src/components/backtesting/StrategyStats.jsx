@@ -277,13 +277,19 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
           </div>
 
           <div style={{ ...lbl, margin: "14px 0 4px" }}>
-            Price movement after the break — {s.moneyTable.pricedGames} priced games
+            Price movement after the break — {s.moneyTable.pricedGames} priced
+            games, {s.moneyTable.side} price
           </div>
+          {s.moneyTable.breakNote && (
+            <div style={{ fontSize: 11, color: T.faint, margin: "0 0 4px" }}>
+              "The break" = {s.moneyTable.breakNote}.
+            </div>
+          )}
           <div style={{ ...card, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
-                  {["Event", "Games", "% of priced"].map((h, i) => (
+                  {["Event", "Games", "% of priced", "P&L if sold there"].map((h, i) => (
                     <th key={h} style={{ ...lbl, padding: "8px 12px",
                       textAlign: i === 0 ? "left" : "right" }}>{h}</th>
                   ))}
@@ -292,13 +298,22 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
               <tbody>
                 {s.moneyTable.thresholds.map((row) => (
                   <tr key={row.label} style={{ borderTop: `1px solid ${T.border}` }}>
-                    <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>{row.label}</td>
+                    <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}
+                      title={row.rule}>
+                      {row.label}
+                    </td>
                     <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
                       {row.games}
                     </td>
                     <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
                       fontWeight: 700 }}>
                       {row.pct == null ? "—" : `${row.pct}%`}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
+                      fontWeight: 700,
+                      color: row.pnl == null ? T.sub : row.pnl >= 0 ? T.green : T.red }}
+                      title={row.rule}>
+                      {row.pnl == null ? "—" : usd(row.pnl)}
                     </td>
                   </tr>
                 ))}
@@ -309,7 +324,12 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
             Levels are measured from the break to settlement on our recorded
             prices — a winning side always finishes near $1, so "rose above"
             includes the run to resolution; "fell below" includes the slide of
-            an eventual loser.
+            an eventual loser. The P&L column answers "what if we sold there":
+            for "rose above" rows a sell order at that level (filled whenever
+            the price touches it, held to settlement otherwise); for "fell
+            below" rows a stop-loss at that level. Both run over all{" "}
+            {s.moneyTable.pricedGames} priced games with the strategy's own
+            stake, slippage and fee settings.
           </div>
         </>
       )}

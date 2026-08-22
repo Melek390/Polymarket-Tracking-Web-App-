@@ -691,19 +691,54 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
             hi, lo = ex_row["max_after"], ex_row["min_after"]
         else:   # the away price is the home price's complement
             hi, lo = 100 - ex_row["min_after"], 100 - ex_row["max_after"]
-        travelled.append({"hi": hi, "lo": lo, "won": x["won"]})
+        travelled.append({"hi": hi, "lo": lo, "won": x["won"],
+                          "entry": x["entry"]})
     n_priced_t = len(travelled)
+
+    def rule_pnl(level: float, kind: str) -> float:
+        """P&L of running that exit rule on EVERY priced game (client: "in
+        case we sold at that price, then what happened").
+
+        kind "tp": a resting limit sell at `level` — it fills whenever the
+        price first touches the level, so the max after the break decides it
+        exactly; order of later moves cannot matter to a resting order.
+        kind "stop": a stop-loss at `level`, decided by the min. A game the
+        rule never triggers on is held to settlement ($1 win / $0 loss).
+        Sold exits pay slippage and (in taker mode) the fee; settlement is a
+        fee-free redemption, as everywhere else in the lab."""
+        slip = ex["slippageCentsPerSide"]
+        taker = ex.get("entryFee", "taker") == "taker"
+        total = 0.0
+        for v in travelled:
+            entry_exec = v["entry"] + slip
+            shares = (stake["usd"] / (entry_exec / 100.0)
+                      if stake["mode"] == "flat_usd" else 100.0)
+            fee = _taker_fee(entry_exec, shares) if taker else 0.0
+            sold = (kind == "tp" and v["hi"] >= level) or                    (kind == "stop" and v["lo"] <= level)
+            if sold:
+                exit_exec = max(0.0, level - slip)
+                if taker:
+                    fee += _taker_fee(exit_exec, shares)
+            else:
+                exit_exec = 100.0 if v["won"] else 0.0
+            total += shares * (exit_exec - entry_exec) / 100.0 - fee
+        return round(total, 2)
+
     thresholds = []
     for t in (70, 80, 90, 95):
         hit = sum(1 for v in travelled if v["hi"] >= t)
-        thresholds.append({"label": f"Price rose above {t}¢ after the break",
+        thresholds.append({"label": f"Price rose above {t}¢", "level": t,
+                           "rule": "sell there, else hold to settlement",
                            "games": hit,
-                           "pct": round(hit / n_priced_t * 100, 1) if n_priced_t else None})
+                           "pct": round(hit / n_priced_t * 100, 1) if n_priced_t else None,
+                           "pnl": rule_pnl(t, "tp") if n_priced_t else None})
     for t in (40, 30, 20):
         hit = sum(1 for v in travelled if v["lo"] <= t)
-        thresholds.append({"label": f"Price fell below {t}¢ after the break",
+        thresholds.append({"label": f"Price fell below {t}¢", "level": t,
+                           "rule": "stop out there, else hold to settlement",
                            "games": hit,
-                           "pct": round(hit / n_priced_t * 100, 1) if n_priced_t else None})
+                           "pct": round(hit / n_priced_t * 100, 1) if n_priced_t else None,
+                           "pnl": rule_pnl(t, "stop") if n_priced_t else None})
 
     entries = [x["entry"] for x in chosen if x["entry"] is not None]
     avg_entry = sum(entries) / len(entries) if entries else None
@@ -729,6 +764,11 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
             "thresholds": thresholds,
             "pricedGames": n_priced_t,
             "side": side,
+            # the exact moment, so nobody has to guess which break is meant
+            "breakNote": (f"the middle-{inning}th break: the top of the "
+                          f"{inning}th is finished and the bottom of the "
+                          f"{inning}th is about to start — the same moment "
+                          f"the strategy enters at"),
         },
         "gamesWithPrice": len(entries),
         "avgEntryCents": round(avg_entry, 1) if avg_entry is not None else None,
