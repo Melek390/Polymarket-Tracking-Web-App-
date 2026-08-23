@@ -594,3 +594,17 @@ PAUSED on the client's order; manual POST /api/backtest/backfill still
 works. Rebuild progress at pause: ~190/355 games, 3,025 spots, 128 pending.
 To resume: flip the .env flag + restart, or drain manually off-hours.
 py-spy is installed in the prod venv (sudo py-spy dump/record --pid <uvicorn>).
+RESOLVED (Aug 23, same day): the open loop fixes shipped and the switch went
+BACK ON. (a) get_db is now ONE cached connection per thread (threading.local,
+reentrant: nested `with` shares the txn, outermost commits/rolls back,
+busy_timeout 5000) — connect+PRAGMAs per call was ~12% of loop CPU. (b) big
+JSON bodies parse in worker threads via backend/offload.json_off_loop (gamma
+event pages, MLB live feed 700KB, hydrated day schedules, trade tape,
+playByPlay, prices-history); SMALL payloads keep r.json() — thread hop costs
+more. Result: 3-11ms latency and ZERO overruns WHILE a backfill pass runs
+(was 15s timeouts + 132 overruns/2min). (c) 38 games (11% of corpus!) were
+written off with a bare "error:" status — some httpx errors stringify to '':
+now transient net errors get status 'error:transient: <type>' and re-enter
+games_pending on every pass (no date gate); _one_game calls
+store.clear_spots() first so an attempt interrupted between insert_spots and
+save_game can never double-count. The 38 were reset and reprocessed.
