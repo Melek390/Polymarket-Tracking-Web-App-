@@ -20,21 +20,33 @@ function MenuStat({ title, value, sub }) {
   );
 }
 
+// Session cache (module scope, survives view unmounts): leaving for another
+// page and coming back used to refetch everything from zero — a blank
+// "Loading…" on every visit. The cached copy paints immediately and the
+// fresh fetch replaces it underneath (same pattern as Screener/Accounts).
+const memo = { corpus: null, strategies: null, defaults: null, backfill: null };
+
 export default function Backtesting() {
-  const [corpus, setCorpus] = useState(null);     // null loading, false failed
-  const [strategies, setStrategies] = useState(null);
-  const [defaults, setDefaults] = useState(null);
-  const [backfill, setBackfill] = useState(null);
+  const [corpus, setCorpus] = useState(() => memo.corpus);     // null loading, false failed
+  const [strategies, setStrategies] = useState(() => memo.strategies);
+  const [defaults, setDefaults] = useState(() => memo.defaults);
+  const [backfill, setBackfill] = useState(() => memo.backfill);
 
   useEffect(() => {
-    fetchBacktestCorpus().then(setCorpus).catch(() => setCorpus(false));
+    fetchBacktestCorpus()
+      .then((r) => { memo.corpus = r; setCorpus(r); })
+      .catch(() => setCorpus((c) => c ?? false)); // keep the cached copy on a failed refresh
     fetchBacktestStrategies()
       .then((r) => {
-        setStrategies(r.strategies);
-        setDefaults({ plain: r.defaults, byKind: r.defaultsByKind || {} });
+        memo.strategies = r.strategies;
+        memo.defaults = { plain: r.defaults, byKind: r.defaultsByKind || {} };
+        setStrategies(memo.strategies);
+        setDefaults(memo.defaults);
       })
-      .catch(() => setStrategies(false));
-    fetchBackfillStatus().then(setBackfill).catch(() => {});
+      .catch(() => setStrategies((s) => s ?? false));
+    fetchBackfillStatus()
+      .then((r) => { memo.backfill = r; setBackfill(r); })
+      .catch(() => {});
   }, []);
 
   return (

@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import Header from "./components/Header.jsx";
 import Dashboard from "./views/Dashboard.jsx";
-import MarketHistory from "./views/MarketHistory.jsx";
 import Screener from "./views/Screener.jsx";
 import AccountsTracker from "./views/AccountsTracker.jsx";
-import Backtesting from "./views/Backtesting.jsx";
+
+// Heavy or rarely-visited views load on demand: the chart page carries the
+// whole recharts library, and most sessions never open Backtesting or Admin.
+// Splitting them keeps the core bundle (login/dashboard/screener) small.
+const MarketHistory = lazy(() => import("./views/MarketHistory.jsx"));
+const Backtesting = lazy(() => import("./views/Backtesting.jsx"));
 import {
   deleteMarket,
   fetchDashboard,
@@ -17,8 +21,8 @@ import Login from "./views/auth/Login.jsx";
 import Register from "./views/auth/Register.jsx";
 import ForgotPassword from "./views/auth/ForgotPassword.jsx";
 import ResetPassword from "./views/auth/ResetPassword.jsx";
-import Admin from "./views/Admin.jsx";
-import Account from "./views/Account.jsx";
+const Admin = lazy(() => import("./views/Admin.jsx"));
+const Account = lazy(() => import("./views/Account.jsx"));
 
 // The four pages a signed-out visitor is allowed to see. Everything else
 // redirects to /login until /api/auth/me says who they are.
@@ -253,6 +257,7 @@ export default function App() {
       )}
 
       <div style={{ zoom: scale }}>
+      <Suspense fallback={<div style={{ padding: 32, fontSize: 13, color: T.sub }}>Loading…</div>}>
       {route.view === "admin" ? (
         <Admin me={me} navigate={navigate} />
       ) : route.view === "account" ? (
@@ -289,6 +294,7 @@ export default function App() {
           onDelete={handleDelete}
         />
       )}
+      </Suspense>
       </div>
     </div>
   );
