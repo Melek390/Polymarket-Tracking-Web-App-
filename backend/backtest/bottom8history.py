@@ -17,6 +17,7 @@ import logging
 
 from backend.backtest import store
 from backend.mlb import client
+from backend.offload import json_off_loop
 
 log = logging.getLogger(__name__)
 
@@ -88,7 +89,7 @@ async def sweep_day(day: str) -> tuple[list[dict], bool]:
         params={"sportId": 1, "date": day, "gameType": "R",
                 "hydrate": "linescore", "fields": _FIELDS})
     r.raise_for_status()
-    games = [g for d in r.json().get("dates", []) for g in d.get("games", [])]
+    games = [g for d in (await json_off_loop(r)).get("dates", []) for g in d.get("games", [])]
     abbr = await client.team_abbreviations()   # cached after the first call
     rows, all_final = [], True
     for g in games:

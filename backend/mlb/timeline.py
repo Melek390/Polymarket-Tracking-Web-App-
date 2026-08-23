@@ -7,6 +7,7 @@ from datetime import datetime
 
 from backend.database import db
 from backend.mlb import client
+from backend.offload import json_off_loop
 
 
 def _ms(iso: str | None) -> int | None:
@@ -85,7 +86,7 @@ async def _pitcher_eras(game_pk: int) -> tuple[dict[int, str], str, str]:
     try:
         r = await client._http().get(f"{client.BASE}/v1/game/{game_pk}/boxscore")
         r.raise_for_status()
-        box = r.json()["teams"]
+        box = (await json_off_loop(r))["teams"]
     except Exception:
         return {}, "AWY", "HOM"
     eras: dict[int, str] = {}
@@ -105,7 +106,7 @@ async def play_timeline(game_pk: int) -> dict:
     r.raise_for_status()
     eras, away_abbr, home_abbr = await _pitcher_eras(game_pk)
     out = []
-    for p in r.json().get("allPlays", []):
+    for p in (await json_off_loop(r)).get("allPlays", []):
         a = p.get("about", {})
         mm = p.get("matchup", {})
         res = p.get("result", {})

@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 
 import httpx
+from backend.offload import json_off_loop
 
 log = logging.getLogger(__name__)
 
@@ -397,7 +398,7 @@ async def live_game(game_pk: int) -> dict:
     finished state (they simply come back as 0 / None)."""
     r = await _http().get(f"{BASE}/v1.1/game/{game_pk}/feed/live")
     r.raise_for_status()
-    feed = r.json()
+    feed = await json_off_loop(r)
 
     game = feed["gameData"]
     live = feed["liveData"]

@@ -28,6 +28,7 @@ from datetime import datetime, timedelta, timezone
 from backend.database.db import get_db
 from backend.favorite.data import STADIUMS, game_info
 from backend.mlb import client
+from backend.offload import json_off_loop
 
 DELAYS = (0, 15, 30, 60)
 PATH_HALVES = 6
@@ -65,7 +66,7 @@ async def halves(game_pk: int) -> list[dict]:
         f"{client.BASE}/v1/game/{game_pk}/playByPlay",
         params={"fields": _PBP_FIELDS})
     r.raise_for_status()
-    plays = r.json().get("allPlays", [])
+    plays = (await json_off_loop(r)).get("allPlays", [])
     if not plays:
         return []
 
@@ -134,7 +135,7 @@ async def pitcher_snapshot(game_pk: int, at: datetime) -> dict:
         f"{client.BASE}/v1/game/{game_pk}/boxscore",
         params={"timecode": _timecode(at), "fields": _BOX_FIELDS})
     r.raise_for_status()
-    teams = r.json().get("teams", {})
+    teams = (await json_off_loop(r)).get("teams", {})
     out = {}
     for side in ("away", "home"):
         t = teams.get(side) or {}
@@ -166,7 +167,7 @@ async def hits_at(game_pk: int, at: datetime) -> dict:
         f"{client.BASE}/v1/game/{game_pk}/linescore",
         params={"timecode": _timecode(at), "fields": "teams,away,home,hits"})
     r.raise_for_status()
-    t = r.json().get("teams", {})
+    t = (await json_off_loop(r)).get("teams", {})
     return {"away": (t.get("away") or {}).get("hits"),
             "home": (t.get("home") or {}).get("hits")}
 

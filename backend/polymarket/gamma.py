@@ -6,6 +6,7 @@ import logging
 import httpx
 
 from backend.config.settings import settings
+from backend.offload import json_off_loop
 
 log = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ async def fetch_events_by_tag(tag_id: int, pages: int = 3,
             if r.status_code == 422:        # the ceiling — advance the window
                 break
             r.raise_for_status()
-            batch = r.json()
+            batch = await json_off_loop(r)
             for e in batch:
                 eid = e.get("id") or e.get("slug")
                 if eid not in seen:

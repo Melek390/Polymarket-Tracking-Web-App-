@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -102,18 +103,39 @@ CREATE TABLE IF NOT EXISTS mlb_game_pks (
 """
 
 
+_local = threading.local()
+
+
 @contextmanager
 def get_db():
-    """Open a WAL-mode connection that commits on success and always closes."""
-    conn = sqlite3.connect(settings.db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
+    """A WAL-mode connection that commits on success, rolls back on error.
+
+    One connection per thread, kept for the thread's lifetime: opening a
+    connection plus its PRAGMAs on every call was ~12% of the event loop's
+    CPU on prod (py-spy, Aug 23) because this runs on every request and
+    every 1-3s poll tick. Nested `with get_db()` in one thread shares the
+    connection; only the outermost block commits or rolls back.
+    """
+    conn = getattr(_local, "conn", None)
+    if conn is None or getattr(_local, "path", None) != settings.db_path:
+        conn = sqlite3.connect(settings.db_path)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("PRAGMA busy_timeout=5000")
+        _local.conn, _local.path = conn, settings.db_path
+    depth = getattr(_local, "depth", 0)
+    _local.depth = depth + 1
     try:
         yield conn
-        conn.commit()
+        if depth == 0:
+            conn.commit()
+    except BaseException:
+        if depth == 0:
+            conn.rollback()
+        raise
     finally:
-        conn.close()
+        _local.depth = depth
 
 
 def init_db():

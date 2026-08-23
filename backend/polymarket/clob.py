@@ -6,6 +6,7 @@ import random
 import httpx
 
 from backend.config.settings import settings
+from backend.offload import json_off_loop
 
 # Shared client — a new httpx.AsyncClient per call rebuilds the SSL context
 # (ssl.create_default_context() loads the whole CA bundle from disk, blocking
@@ -79,6 +80,6 @@ async def fetch_full_price_history(token_id: str, fidelity: int = 1) -> list[tup
     if r.status_code == 400:  # token unknown to the history service
         return []
     r.raise_for_status()
-    return [(p["t"], float(p["p"])) for p in r.json().get("history", [])]
+    return [(p["t"], float(p["p"])) for p in (await json_off_loop(r)).get("history", [])]
 
 

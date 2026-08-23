@@ -29,6 +29,7 @@ from backend.favorite import market as fav_market
 from backend.favorite.data import STADIUMS, league_pitching, park_miles
 from backend.mlb import client
 from backend.polymarket import clob, gamma
+from backend.offload import json_off_loop
 
 log = logging.getLogger(__name__)
 
@@ -103,7 +104,7 @@ async def _team_season(team_id: int, season: int) -> list[dict]:
                 "endDate": f"{season}-11-30"})
     r.raise_for_status()
     rows = []
-    for d in r.json().get("dates", []):
+    for d in (await json_off_loop(r)).get("dates", []):
         for g in d.get("games", []):
             t = g["teams"]
             mine = "home" if t["home"]["team"]["id"] == team_id else "away"
@@ -301,7 +302,7 @@ async def _tape_prices(condition_id, home_name, away_name, t5_ts, open_ts):
                                    params={"market": condition_id,
                                            "limit": 1000, "offset": off})
         r.raise_for_status()
-        rows = r.json()
+        rows = await json_off_loop(r)
         if not isinstance(rows, list) or not rows:
             break
         pre.extend(t for t in rows
@@ -430,7 +431,7 @@ async def _build(g: dict, scale: dict, pen_rank: dict):
             r = await client._http().get(f"{client.BASE}/v1/game/{pk}/boxscore",
                                          params=params)
             r.raise_for_status()
-            box = r.json().get("teams") or {}
+            box = (await json_off_loop(r)).get("teams") or {}
             if box:
                 break
         except Exception:
@@ -507,7 +508,7 @@ async def _sweep_day(date: str) -> list[dict]:
                 "hydrate": "probablePitcher", "fields": _SWEEP_FIELDS})
     r.raise_for_status()
     out = []
-    for d in r.json().get("dates", []):
+    for d in (await json_off_loop(r)).get("dates", []):
         for g in d.get("games", []):
             if g.get("gameType") != "R":
                 continue

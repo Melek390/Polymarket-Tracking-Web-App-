@@ -21,6 +21,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from backend.backtest import store
 from backend.mlb import client
+from backend.offload import json_off_loop
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ async def sweep_day(day: str) -> tuple[list[dict], bool]:
         params={"sportId": 1, "date": day, "gameType": "R",
                 "hydrate": "linescore", "fields": _FIELDS})
     r.raise_for_status()
-    games = [g for d in r.json().get("dates", []) for g in d.get("games", [])]
+    games = [g for d in (await json_off_loop(r)).get("dates", []) for g in d.get("games", [])]
     rows, all_final = [], True
     for g in games:
         state = (g.get("status") or {}).get("abstractGameState")
