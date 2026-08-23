@@ -536,3 +536,38 @@ entry price, so unpriced games contribute their win/loss to the RECORD and
 exactly $0 to P&L. The two populations sat side by side in the KPI row and
 read as one; the P&L tile now names its count ("P&L (28 priced)") whenever
 gamesWithPrice < spots.
+
+## STRATEGY #4 (Aug 24): FAIR VALUE vs HISTORY — the FUD test
+
+kind "fairvalue_replay". Client: does the market overreact when a team
+falls behind early? Compare Polymarket's trailing-team price to the
+historical win rate of that EXACT state, buy when discounted by >=X cents.
+WHY THE STATE IS CLEAN: at a half-inning end the bases are always empty,
+so (inning, which half ended, deficit, home/away trailing) fully describes
+the game. State key = the spots table's own (inning, next_half, deficit,
+trailing_is_home): end of TOP N -> (N,'bottom'); end of BOTTOM N ->
+(N,'top').
+FAIR VALUES: backtest/wehistory.py sweeps 2023-2026 via schedule?date=D&
+hydrate=linescore (runs per inning, one request per DAY, ~200/season, one-
+time ~800). RAW LINES stored per game (backtest_we_games away_line/
+home_line JSON, None where a side never batted — walk-offs must not invent
+a bottom half); store.fair_table(seasons) derives the aggregate at query
+time (memoised) so definition changes never need a re-sweep. NOT touched
+by the schema-version wipe.
+LOOK-AHEAD RULE: fair.seasons='prior' (default) uses seasons < current;
+'all' fires a warning — the backtest must not grade itself with its own
+season. _FAIR_MIN_SAMPLE=50: thinner states are skipped and counted, never
+traded.
+SCHEMA v4: WIDE_NET_CENTS 45 -> 65 (replay.py). Down-1-after-1st trades
+~45-55c, so v3 silently excluded most early small-deficit spots — exactly
+this strategy's states. Spots rebuilt by the normal backfill.
+EXITS: A = hold to settlement (home_settlements, redemption free); B =
+sell first +5/8/10c bounce via the SAME _trade() path machinery. BOTH are
+computed for every entry — A-vs-B is one selection viewed two ways, never
+two selections. Comparison = 4 discounts x A/B + home-only/away-only rows.
+Efficiency table (gate-free): per state fair% + n games + avg market price
++ n priced + gap (negative gap = market below history = the buy case).
+Bounce diagnostics split hits by eventual wins/losses.
+Tests: scratchpad test_fairvalue.py 31/31 (hand-built lines -> fair table,
+walk-off None handling, season separation, hand-checked hold AND bounce
+P&L, thin-sample skip, look-ahead warning, real 2025 day swept).
