@@ -571,3 +571,26 @@ Bounce diagnostics split hits by eventual wins/losses.
 Tests: scratchpad test_fairvalue.py 31/31 (hand-built lines -> fair table,
 walk-off None handling, season separation, hand-checked hold AND bounce
 P&L, thin-sample skip, look-ahead warning, real 2025 day swept).
+
+## THE FREEZE INCIDENT (Aug 23-24) — why the app died during the v4 rebuild
+Three stacked causes, found in order:
+1. Tick scans ran ON the event loop (fixed: _scan_halves via asyncio.to_thread,
+   BATCH 25 / CONCURRENCY 2).
+2. A drain loop I left on the VM (nohup'd bash under claude-deploy's user
+   systemd scope, `for pass in 1..7; POST /api/backtest/backfill; wait; done`)
+   SURVIVED EVERY SERVICE RESTART and re-kicked the pass each time — this is
+   why "restart didn't fix it". LESSON: any helper loop left on the VM must
+   be killed BY PID when the job is done; check `ps -ef | grep -v grep`
+   before diagnosing "it came back".
+3. Residual slowness even with backfill idle = post-boot screener-cache
+   rebuild + Sunday live games: py-spy showed get_db connection setup ~12%,
+   json.decode of Gamma events 5.4% and MLB live feed 4.1% — all on the
+   loop. Settles to ms-latency once the cache pass ends; real fixes (parse
+   off-loop, connection reuse) are OPEN, not yet done.
+KILL SWITCH: settings.backtest_jobs_enabled gates ALL four 6h jobs
+(backfill +180s, bottom8 +300s, wehistory +420s, favhistory +600s).
+Prod .env has BACKTEST_JOBS_ENABLED=false since Aug 23 — backtesting is
+PAUSED on the client's order; manual POST /api/backtest/backfill still
+works. Rebuild progress at pause: ~190/355 games, 3,025 spots, 128 pending.
+To resume: flip the .env flag + restart, or drain manually off-hours.
+py-spy is installed in the prod venv (sudo py-spy dump/record --pid <uvicorn>).
