@@ -393,7 +393,8 @@ def games_pending(min_ticks: int, limit: int) -> list[dict]:
                LEFT JOIN backtest_games bg ON bg.market_id = m.id
                WHERE e.slug LIKE 'mlb-%'
                  AND (bg.market_id IS NULL
-                      OR (bg.status = ? AND substr(e.slug, -10) < date('now')))
+                      OR (bg.status = ? AND substr(e.slug, -10) < date('now'))
+                      OR bg.status LIKE 'error:transient%')
                  AND (SELECT COALESCE(SUM(tc.n), 0) FROM outcomes o
                       JOIN tick_counts tc ON tc.outcome_id = o.id
                       WHERE o.market_id = m.id) >= ?
@@ -439,9 +440,15 @@ def insert_spots(rows: list[dict]):
             rows)
 
 
-def clear_game(market_id: int):
+def clear_spots(market_id: int):
     """Remove a game's spots before re-backfilling it, so a retry can never
     double-count."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM backtest_spots WHERE market_id=?", (market_id,))
+
+
+def clear_game(market_id: int):
+    """Forget a game entirely: its spots AND its status row."""
     with get_db() as conn:
         conn.execute("DELETE FROM backtest_spots WHERE market_id=?", (market_id,))
         conn.execute("DELETE FROM backtest_games WHERE market_id=?", (market_id,))

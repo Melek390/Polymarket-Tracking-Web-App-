@@ -12,6 +12,8 @@ Outcome sides are matched to MLB home/away BY NAME, the standing rule.
 """
 
 import asyncio
+
+import httpx
 import logging
 import re
 
@@ -54,6 +56,9 @@ def _match_outcomes(market_id: int, home_name: str, away_name: str):
 
 async def _one_game(g: dict):
     market_id, slug = g["market_id"], g["slug"]
+    # a crash- or restart-interrupted attempt may have inserted spots without
+    # ever writing its games row; without this a retry double-counts them
+    store.clear_spots(market_id)
     pk = await timeline.resolve_game_pk(slug)
     if not pk:
         store.save_game(market_id, "error:no gamePk for slug", slug=slug)
@@ -124,8 +129,16 @@ async def run_batch(limit: int = BATCH) -> dict:
                 try:
                     await _one_game(g)
                 except Exception as e:  # noqa: BLE001 — a bad game must not sink the batch
-                    log.warning("backtest backfill: %s failed: %s", g["slug"], e)
-                    store.save_game(g["market_id"], f"error:{str(e)[:120]}", slug=g["slug"])
+                    # some httpx errors stringify to '' — an unnamed
+                    # "error:" wrote games off permanently during the Aug 23
+                    # restarts; name the type, and let network hiccups retry
+                    msg = str(e).strip() or type(e).__name__
+                    if isinstance(e, (httpx.HTTPError, TimeoutError, OSError)):
+                        stat = f"error:transient: {msg[:100]}"
+                    else:
+                        stat = f"error:{msg[:120]}"
+                    log.warning("backtest backfill: %s failed: %s", g["slug"], msg)
+                    store.save_game(g["market_id"], stat, slug=g["slug"])
 
         await asyncio.gather(*(one(g) for g in pending))
         _status["last"] = store.backfill_summary()
