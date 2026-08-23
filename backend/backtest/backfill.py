@@ -22,8 +22,9 @@ from backend.mlb import timeline
 log = logging.getLogger(__name__)
 
 MIN_TICKS = 1000
-BATCH = 40                  # games per pass — a full corpus drains in ~6 passes
-CONCURRENCY = 4             # polite to the free statsapi
+BATCH = 25                  # games per pass — a full corpus drains in ~14 passes
+CONCURRENCY = 2             # polite to statsapi AND to our own event loop:
+                            # each game also runs a tick-scan worker thread
 GOLD_MAX_GAP_S = 10.0
 
 _status = {"running": False, "last": None}

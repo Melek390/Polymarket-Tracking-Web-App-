@@ -231,19 +231,18 @@ def median_gap_seconds(conn, outcome_id: int, t0: str, t1: str) -> float | None:
 
 # ---- factor banding at run time lives in engine.py; here we only store RAW.
 
-async def build_spots(market_id: int, game_pk: int, gold: int,
-                      outcome_ids: dict, mlb_names: dict) -> list[dict]:
-    """All qualifying spots for one game. outcome_ids/mlb_names: {side: ...}."""
-    hs = await halves(game_pk)
-    if not hs:
-        return []
-    info = await game_info(game_pk)
-    park = STADIUMS.get((info or {}).get("home_id") or 0)
-    park_factor = park[2] if park else None
+def _scan_halves(hs: list[dict], outcome_ids: dict) -> list[tuple]:
+    """The tick-scan half of build_spots — every first_tick / entries / path
+    query for one game, on its OWN connection.
 
-    spots = []
+    Runs in a worker thread (asyncio.to_thread): these scans walk millions of
+    tick rows synchronously, and running them on the event loop froze the
+    whole app during the v4 rebuild (Aug 24 — 20s API timeouts, 588 scheduler
+    overruns in ten minutes). SQLite is fine with this: the connection is
+    created inside the thread and reads run under WAL."""
+    rows = []
     with get_db() as conn:
-        for i, h in enumerate(hs[:-1]):          # after the game's final half there is no trade
+        for i, h in enumerate(hs[:-1]):      # after the final half there is no trade
             away_runs, home_runs = h.get("away"), h.get("home")
             if away_runs is None or home_runs is None:
                 continue
@@ -281,40 +280,57 @@ async def build_spots(market_id: int, game_pk: int, gold: int,
                     "max": max_between(conn, oid, h["ts"], fh["ts"]),
                     "at": tick_at(conn, oid, fh["ts"]),
                 }
+            rows.append((h, trailing, deficit, entries, path, at))
+    return rows
 
-            # remaining regulation offense for the trailing side
-            innings_left = (9 - h["inning"]) + (1 if h["next_half"] == "top" else 0)
-            halves_left = sum(
-                1 for inn in range(h["inning"], 10)
-                for half in (("top", "bottom") if inn > h["inning"]
-                             else (("bottom",) if h["next_half"] == "bottom" else ("top", "bottom")))
-                if (half == "top") == (trailing == "away"))
 
-            try:
-                pitchers = await pitcher_snapshot(game_pk, at)
-                hits = await hits_at(game_pk, at)
-            except Exception:
-                pitchers, hits = {}, {}
+async def build_spots(market_id: int, game_pk: int, gold: int,
+                      outcome_ids: dict, mlb_names: dict) -> list[dict]:
+    """All qualifying spots for one game. outcome_ids/mlb_names: {side: ...}."""
+    hs = await halves(game_pk)
+    if not hs:
+        return []
+    info = await game_info(game_pk)
+    park = STADIUMS.get((info or {}).get("home_id") or 0)
+    park_factor = park[2] if park else None
 
-            leading = "home" if trailing == "away" else "away"
-            factors = {
-                # 1-3 come from the spot columns; the rest are raw inputs
-                "lead_pitcher": pitchers.get(leading),
-                "trail_pitcher": pitchers.get(trailing),
-                "due_up_index": h.get("due_up_index"),
-                "park_factor": park_factor,
-                "weather": None,            # v1: not replayed
-                "team_form": None,          # v1: honestly unknown (needs per-date records)
-                "we_edge": None,            # v1: honestly unknown (needs the WE table)
-                "trail_hits": (hits or {}).get(trailing),
-            }
-            spots.append({
-                "market_id": market_id, "game_pk": game_pk, "gold": gold,
-                "ts": h["ts"], "inning": h["inning"], "next_half": h["next_half"],
-                "trailing_side": trailing,
-                "trailing_is_home": 1 if trailing == "home" else 0,
-                "deficit": deficit, "innings_left": innings_left,
-                "halves_left": halves_left, **entries,
-                "factors": factors, "path": path,
-            })
+    scanned = await asyncio.to_thread(_scan_halves, hs, outcome_ids)
+
+    spots = []
+    for h, trailing, deficit, entries, path, at in scanned:
+        # remaining regulation offense for the trailing side
+        innings_left = (9 - h["inning"]) + (1 if h["next_half"] == "top" else 0)
+        halves_left = sum(
+            1 for inn in range(h["inning"], 10)
+            for half in (("top", "bottom") if inn > h["inning"]
+                         else (("bottom",) if h["next_half"] == "bottom" else ("top", "bottom")))
+            if (half == "top") == (trailing == "away"))
+
+        try:
+            pitchers = await pitcher_snapshot(game_pk, at)
+            hits = await hits_at(game_pk, at)
+        except Exception:
+            pitchers, hits = {}, {}
+
+        leading = "home" if trailing == "away" else "away"
+        factors = {
+            # 1-3 come from the spot columns; the rest are raw inputs
+            "lead_pitcher": pitchers.get(leading),
+            "trail_pitcher": pitchers.get(trailing),
+            "due_up_index": h.get("due_up_index"),
+            "park_factor": park_factor,
+            "weather": None,            # v1: not replayed
+            "team_form": None,          # v1: honestly unknown (needs per-date records)
+            "we_edge": None,            # v1: honestly unknown (needs the WE table)
+            "trail_hits": (hits or {}).get(trailing),
+        }
+        spots.append({
+            "market_id": market_id, "game_pk": game_pk, "gold": gold,
+            "ts": h["ts"], "inning": h["inning"], "next_half": h["next_half"],
+            "trailing_side": trailing,
+            "trailing_is_home": 1 if trailing == "home" else 0,
+            "deficit": deficit, "innings_left": innings_left,
+            "halves_left": halves_left, **entries,
+            "factors": factors, "path": path,
+        })
     return spots
