@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     gamma_base_url: str = "https://gamma-api.polymarket.com"
     clob_base_url: str = "https://clob.polymarket.com"
 
+    # Kill switch for ALL backtest background jobs (spots backfill, favorite
+    # history, bottom-8 sweep, WE sweep). The v4 rebuild saturated the VM's
+    # disk and froze the app (Aug 24); false = the site runs with zero
+    # backtest load and sweeps only run when kicked manually.
+    backtest_jobs_enabled: bool = True
+
     # API-FOOTBALL (api-sports.io) — soccer live data + the 0-0 alert. Empty
     # key = the soccer features stay dark, everything else runs normally.
     # Polling only happens while a big-5 match is inside its live window, so

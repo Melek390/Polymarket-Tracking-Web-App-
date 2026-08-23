@@ -199,32 +199,35 @@ def start():
     scheduler.add_job(
         comeback_outcomes.record, "interval", seconds=60, id="comeback-outcomes",
     )
-    # backtest backfill: one bounded batch every 6h keeps the spots table
-    # tracking the corpus (a fresh install drains in a handful of passes);
-    # first pass a couple of minutes after boot so startup stays calm
-    scheduler.add_job(
-        backtest_backfill.run_batch, "interval", hours=6, id="backtest-backfill",
-        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=180),
-    )
-    # reconstructed T-5 favorite verdicts ride the same cadence, offset so the
-    # spots backfill has first claim on the MLB API budget
-    scheduler.add_job(
-        backtest_favhistory.run_batch, "interval", hours=6, id="backtest-favhistory",
-        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=600),
-    )
-    # the win-expectancy history (2023->today): one request per day; the
-    # historical drain runs in batches, then this keeps the current season
-    # topped up
-    scheduler.add_job(
-        backtest_we.run_batch, "interval", hours=6, id="backtest-wehistory",
-        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=420),
-    )
-    # the tied-at-the-break season record: one request per day, so a full
-    # backfill is ~150 and a daily top-up is a handful
-    scheduler.add_job(
-        backtest_bottom8.run_batch, "interval", hours=6, id="backtest-bottom8",
-        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=300),
-    )
+    # every backtest sweep sits behind one switch: the v4 rebuild
+    # saturated the disk and froze the app for users (Aug 24)
+    if settings.backtest_jobs_enabled:
+        # backtest backfill: one bounded batch every 6h keeps the spots table
+        # tracking the corpus (a fresh install drains in a handful of passes);
+        # first pass a couple of minutes after boot so startup stays calm
+        scheduler.add_job(
+            backtest_backfill.run_batch, "interval", hours=6, id="backtest-backfill",
+            next_run_time=datetime.now(timezone.utc) + timedelta(seconds=180),
+        )
+        # reconstructed T-5 favorite verdicts ride the same cadence, offset so the
+        # spots backfill has first claim on the MLB API budget
+        scheduler.add_job(
+            backtest_favhistory.run_batch, "interval", hours=6, id="backtest-favhistory",
+            next_run_time=datetime.now(timezone.utc) + timedelta(seconds=600),
+        )
+        # the win-expectancy history (2023->today): one request per day; the
+        # historical drain runs in batches, then this keeps the current season
+        # topped up
+        scheduler.add_job(
+            backtest_we.run_batch, "interval", hours=6, id="backtest-wehistory",
+            next_run_time=datetime.now(timezone.utc) + timedelta(seconds=420),
+        )
+        # the tied-at-the-break season record: one request per day, so a full
+        # backfill is ~150 and a daily top-up is a handful
+        scheduler.add_job(
+            backtest_bottom8.run_batch, "interval", hours=6, id="backtest-bottom8",
+            next_run_time=datetime.now(timezone.utc) + timedelta(seconds=300),
+        )
     # soccer: big-5 live cache + the 0-0 alert. The job itself gates on
     # whether any big-5 match is in its live window (zero upstream requests
     # otherwise), so a fixed cadence here is safe on any API-FOOTBALL plan.
