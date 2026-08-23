@@ -794,7 +794,268 @@ def run_bottom8(params: dict, include_trades: bool = False) -> dict:
     return out
 
 
+# ---- fair value: trailing team vs multi-season history (FUD test) --------
+
+_FAIR_MIN_SAMPLE = 50   # a state below this many historical games has no
+                        # trustworthy fair value; its spots are skipped and
+                        # counted, never traded on thin air
+
+
+def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
+    """Buy the trailing side when the market prices it below its historical
+    win rate for that exact state, exit at settlement (A) or on the first
+    bounce (B). Both exits are computed for every entry, so A-vs-B is the
+    same games viewed two ways — never two different selections."""
+    ent, faircfg = params["entry"], params["fair"]
+    exitcfg, ex, stake = params["exit"], params["exec"], params["stake"]
+    segment = params.get("corpus", {}).get("segment", "both")
+    deficits = set(int(d) for d in ent.get("deficits", [1, 2, 3]))
+    max_inning = int(ent.get("maxInning", 3))
+    side = ent.get("side", "both")
+    discount = float(ent.get("discountCents", 5.0))
+    bounce_c = float(exitcfg.get("bounceCents", 8.0))
+    horizon = int(exitcfg.get("horizonHalfInnings", 6))
+    mode = exitcfg.get("mode", "hold")
+
+    seasons_all = sorted(store.we_seasons())
+    current = seasons_all[-1] if seasons_all else None
+    if faircfg.get("seasons", "prior") == "prior" and len(seasons_all) > 1:
+        fair_seasons = tuple(s_ for s_ in seasons_all if s_ != current)
+        lookahead = None
+    else:
+        fair_seasons = tuple(seasons_all)
+        lookahead = ("Fair values currently include the season being traded "
+                     "— the backtest is partly grading itself with the "
+                     "answer key. Set fair seasons to \"prior\" once the "
+                     "historical sweep has past seasons loaded.")
+    fair = store.fair_table(fair_seasons) if fair_seasons else {}
+    settlements = store.home_settlements()
+    spots = store.all_spots(segment)
+
+    def fair_of(sp):
+        rec = fair.get((sp["inning"], sp["next_half"], sp["deficit"],
+                        sp["trailing_is_home"]))
+        if not rec or rec[0] < _FAIR_MIN_SAMPLE:
+            return None, rec[0] if rec else 0
+        return round(rec[1] / rec[0] * 100, 1), rec[0]
+
+    def in_scope(sp):
+        if sp["deficit"] not in deficits or not (1 <= sp["inning"] <= max_inning):
+            return False
+        if side == "home" and not sp["trailing_is_home"]:
+            return False
+        if side == "away" and sp["trailing_is_home"]:
+            return False
+        return True
+
+    scope = [sp for sp in spots if in_scope(sp)]
+    thin = 0
+
+    def entries_at(disc, want_side=None):
+        out = []
+        for sp in scope:
+            if want_side == "home" and not sp["trailing_is_home"]:
+                continue
+            if want_side == "away" and sp["trailing_is_home"]:
+                continue
+            if sp["entry0"] is None or _stale(sp):
+                continue
+            fv, _n = fair_of(sp)
+            if fv is None:
+                continue
+            if sp["entry0"] > fv - disc:
+                continue
+            out.append((sp, fv))
+        return out
+
+    def hold_result(sp, fv):
+        hw = settlements.get(sp["market_id"])
+        if hw is None:
+            return None
+        won = bool(hw) if sp["trailing_is_home"] else not hw
+        slip = ex["slippageCentsPerSide"]
+        entry_exec = sp["entry0"] + slip
+        shares = (stake["usd"] / (entry_exec / 100.0)
+                  if stake["mode"] == "flat_usd" else 100.0)
+        fee = (_taker_fee(entry_exec, shares)
+               if ex.get("feeMode", "taker_both") in ("taker_both", "maker_exit")
+               else 0.0)
+        pnl = shares * ((100.0 if won else 0.0) - entry_exec) / 100.0 - fee
+        return {"win": won, "pnl": round(pnl, 2), "hold": 0, "bounce": 0.0,
+                "fee": round(fee, 2), "ts": sp["ts"], "gold": sp["gold"],
+                "entry": sp["entry0"], "fair": fv,
+                "deficit": sp["deficit"], "is_home": sp["trailing_is_home"]}
+
+    def bounce_result(sp, fv):
+        r = _trade(sp, {"targetCents": bounce_c, "horizonHalfInnings": horizon,
+                        "giveUp": "horizon"}, ex, stake)
+        if r is not None:
+            r.update(fair=fv, deficit=sp["deficit"],
+                     is_home=sp["trailing_is_home"])
+        return r
+
+    def both_exits(pairs):
+        hold = [x for sp, fv in pairs if (x := hold_result(sp, fv))]
+        bnc = [x for sp, fv in pairs if (x := bounce_result(sp, fv))]
+        return hold, bnc
+
+    chosen = entries_at(discount)
+    hold_res, bounce_res = both_exits(chosen)
+    headline = hold_res if mode == "hold" else bounce_res
+    overall = _aggregate(headline)
+
+    # ---- the efficiency table: fair vs market per state, gate-free -------
+    fair_rows = []
+    for inn in range(1, max_inning + 1):
+        for half in ("bottom", "top"):     # after top of inn / after bottom
+            for dfc in sorted(deficits):
+                for is_home in (0, 1):
+                    rec = fair.get((inn, half, dfc, is_home))
+                    cell = [sp["entry0"] for sp in scope
+                            if sp["inning"] == inn and sp["next_half"] == half
+                            and sp["deficit"] == dfc
+                            and sp["trailing_is_home"] == is_home
+                            and sp["entry0"] is not None and not _stale(sp)]
+                    if not rec and not cell:
+                        continue
+                    fv = (round(rec[1] / rec[0] * 100, 1)
+                          if rec and rec[0] >= _FAIR_MIN_SAMPLE else None)
+                    if rec and rec[0] < _FAIR_MIN_SAMPLE:
+                        thin += len(cell)
+                    avg = round(sum(cell) / len(cell), 1) if cell else None
+                    when = ("after the top of the " if half == "bottom"
+                            else "after the ") + f"{inn}"
+                    if half == "top":
+                        when += " (full inning)"
+                    fair_rows.append({
+                        "state": f"{'Home' if is_home else 'Away'} down {dfc}, {when}",
+                        "fairPct": fv,
+                        "fairGames": rec[0] if rec else 0,
+                        "avgPriceCents": avg,
+                        "pricedSpots": len(cell),
+                        "gapCents": (round(avg - fv, 1)
+                                     if avg is not None and fv is not None else None),
+                    })
+
+    # ---- one knob at a time: discounts x both exits, then sides ----------
+    comparison = []
+    for disc in (3.0, 5.0, 7.0, 10.0):
+        pairs = entries_at(disc)
+        h, b = both_exits(pairs)
+        tag = " (saved)" if abs(disc - discount) < 1e-9 else ""
+        ah, ab = _aggregate(h), _aggregate(b)
+        comparison.append({"label": f"Discount ≥{disc:g}¢ — A: hold to end{tag}",
+                           "spots": ah["spots"], "wins": ah["wins"],
+                           "winRate": ah["winRate"], "pnl": ah["pnl"],
+                           "feesPaid": ah["feesPaid"]})
+        comparison.append({"label": f"Discount ≥{disc:g}¢ — B: sell +{bounce_c:g}¢ bounce{tag}",
+                           "spots": ab["spots"], "wins": ab["wins"],
+                           "winRate": ab["winRate"], "pnl": ab["pnl"],
+                           "feesPaid": ab["feesPaid"]})
+    for lbl, ws in (("HOME side only (saved discount)", "home"),
+                    ("AWAY side only (saved discount)", "away")):
+        pairs = entries_at(discount, want_side=ws)
+        h, b = both_exits(pairs)
+        agg = _aggregate(h if mode == "hold" else b)
+        comparison.append({"label": lbl, "spots": agg["spots"], "wins": agg["wins"],
+                           "winRate": agg["winRate"], "pnl": agg["pnl"],
+                           "feesPaid": agg["feesPaid"]})
+
+    # ---- bounce diagnostics over the saved entries -----------------------
+    bounce_stats = []
+    evaluable = [(sp, fv) for sp, fv in chosen]
+    for target in (5.0, 8.0, 10.0):
+        hits = wins_hit = losses_hit = n_won = n_lost = 0
+        for sp, _fv in evaluable:
+            hw = settlements.get(sp["market_id"])
+            if hw is None:
+                continue
+            won = bool(hw) if sp["trailing_is_home"] else not hw
+            n_won += 1 if won else 0
+            n_lost += 0 if won else 1
+            path = sp["path"]
+            top = max((path.get(str(k), {}).get("max") or 0)
+                      for k in range(1, horizon + 1)) if path else 0
+            if top >= (sp["entry0"] or 0) + target:
+                hits += 1
+                wins_hit += 1 if won else 0
+                losses_hit += 0 if won else 1
+        n = n_won + n_lost
+        bounce_stats.append({
+            "label": f"Bounced +{target:g}¢ within {horizon} half-innings",
+            "games": hits, "pct": round(hits / n * 100, 1) if n else None,
+            "inEventualWins": wins_hit, "inEventualLosses": losses_hit,
+        })
+
+    def bucket(lbl, pred):
+        sub = [x for x in headline if pred(x)]
+        agg = _aggregate(sub)
+        return {"label": lbl, "spots": agg["spots"], "winRate": agg["winRate"],
+                "pnl": agg["pnl"], "priced": agg["spots"]}
+
+    by_situation = [b for b in (
+        *[bucket(f"Down {d}", lambda x, d=d: x["deficit"] == d)
+          for d in sorted(deficits)],
+        bucket("HOME side trailing", lambda x: x["is_home"]),
+        bucket("AWAY side trailing", lambda x: not x["is_home"]),
+        bucket("Entry below 20¢", lambda x: x["entry"] < 20),
+        bucket("Entry 20–35¢", lambda x: 20 <= x["entry"] < 35),
+        bucket("Entry 35¢+", lambda x: x["entry"] >= 35),
+    ) if b["spots"] > 0]
+
+    unsettled = sum(1 for sp, _ in chosen
+                    if settlements.get(sp["market_id"]) is None)
+    avg_gap = (sum(fv - sp["entry0"] for sp, fv in chosen) / len(chosen)
+               if chosen else None)
+    out = {
+        **overall,
+        "comparisonTitle": ("A vs B at every discount — hold to settlement "
+                            "against selling the first bounce"),
+        "comparison": comparison,
+        "bySituation": by_situation,
+        "fairTable": {
+            "rows": fair_rows,
+            "seasons": list(fair_seasons),
+            "minSample": _FAIR_MIN_SAMPLE,
+        },
+        "bounceStats": bounce_stats,
+        "warning": lookahead,
+        "dateRange": _window(sp["ts"] for sp in scope),
+        "coverageNote": (
+            f"{len(scope)} trailing moments in scope across the tick corpus · "
+            f"{len(chosen)} entries at ≥{discount:g}¢ discount "
+            f"(avg edge {round(avg_gap, 1) if avg_gap is not None else '—'}¢) · "
+            f"fair values from {', '.join(str(s_) for s_ in fair_seasons) or 'no seasons yet'}"
+            + (f" · {unsettled} unsettled skipped" if unsettled else "")
+            + (f" · {thin} spots skipped for thin history (<{_FAIR_MIN_SAMPLE} games)"
+               if thin else "")),
+        "gamesWithPrice": len(chosen),
+        "exitMode": mode,
+    }
+    if include_trades:
+        out["trades"] = []
+        for sp, fv in chosen:
+            h = hold_result(sp, fv)
+            b = bounce_result(sp, fv)
+            out["trades"].append({
+                "ts": sp["ts"],
+                "state": f"{'home' if sp['trailing_is_home'] else 'away'} "
+                         f"down {sp['deficit']}, inning {sp['inning']} "
+                         f"({sp['next_half']} next)",
+                "side": "home" if sp["trailing_is_home"] else "away",
+                "entry_cents": sp["entry0"], "fair_pct": fv,
+                "edge_cents": round(fv - sp["entry0"], 1),
+                "hold_won": h["win"] if h else None,
+                "hold_pnl": h["pnl"] if h else None,
+                "bounce_won": b["win"] if b else None,
+                "bounce_pnl": b["pnl"] if b else None,
+            })
+    return out
+
+
 def run(params: dict, include_trades: bool = False) -> dict:
+    if params.get("kind") == "fairvalue_replay":
+        return run_fairvalue(params, include_trades)
     if params.get("kind") == "bottom8_replay":
         return run_bottom8(params, include_trades)
     if params.get("kind") == "comeback_replay":

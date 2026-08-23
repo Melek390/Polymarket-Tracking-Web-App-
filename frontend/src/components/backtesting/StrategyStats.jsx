@@ -99,6 +99,111 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
           ({s.dateRange.days} day{s.dateRange.days === 1 ? "" : "s"} of recorded history)
         </div>
       )}
+      {/* the fair-value strategy's core exhibit: history vs the market,
+          state by state, BEFORE any trading rule is applied */}
+      {s.fairTable && (
+        <>
+          <div style={{ ...lbl, margin: "14px 0 4px" }}>
+            Was the market right? — historical win rate vs Polymarket price
+            (fair values from {s.fairTable.seasons.join(", ") || "no seasons yet"})
+          </div>
+          <div style={{ ...card, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Situation", "Real win rate", "Games", "Avg market price",
+                    "Priced spots", "Gap"].map((h, i) => (
+                    <th key={h} style={{ ...lbl, padding: "8px 12px",
+                      textAlign: i === 0 ? "left" : "right" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {s.fairTable.rows.map((row) => (
+                  <tr key={row.state} style={{ borderTop: `1px solid ${T.border}` }}>
+                    <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>
+                      {row.state}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                      {row.fairPct == null
+                        ? <span title={`fewer than ${s.fairTable.minSample} historical games`}>thin</span>
+                        : `${row.fairPct}%`}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 12, padding: "7px 12px",
+                      textAlign: "right", color: T.faint }}>
+                      {row.fairGames}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                      {row.avgPriceCents == null ? "—" : `${row.avgPriceCents}¢`}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 12, padding: "7px 12px",
+                      textAlign: "right", color: T.faint }}>
+                      {row.pricedSpots}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px",
+                      textAlign: "right", fontWeight: 700,
+                      color: row.gapCents == null ? T.sub
+                        : row.gapCents <= -3 ? T.green
+                        : row.gapCents >= 3 ? T.red : T.ink }}
+                      title="negative = the market prices the team BELOW its history (the buy case)">
+                      {row.gapCents == null ? "—"
+                        : `${row.gapCents > 0 ? "+" : ""}${row.gapCents}¢`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: 11, color: T.faint, marginTop: 4 }}>
+            Gap = average market price − historical win rate. Negative (green)
+            means the market is MORE pessimistic than history — the discount
+            this strategy buys. This table ignores the entry gate: it is the
+            raw market-vs-history picture.
+          </div>
+        </>
+      )}
+
+      {s.bounceStats && s.bounceStats.length > 0 && (
+        <>
+          <div style={{ ...lbl, margin: "14px 0 4px" }}>
+            Bounces after entry — including games the team went on to lose
+          </div>
+          <div style={{ ...card, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  {["Event", "Entries", "% of entries", "In eventual wins",
+                    "In eventual losses"].map((h, i) => (
+                    <th key={h} style={{ ...lbl, padding: "8px 12px",
+                      textAlign: i === 0 ? "left" : "right" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {s.bounceStats.map((row) => (
+                  <tr key={row.label} style={{ borderTop: `1px solid ${T.border}` }}>
+                    <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>{row.label}</td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                      {row.games}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px",
+                      textAlign: "right", fontWeight: 700 }}>
+                      {row.pct == null ? "—" : `${row.pct}%`}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                      {row.inEventualWins}
+                    </td>
+                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                      {row.inEventualLosses}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
       {s.coverageNote && (
         <div style={{ fontSize: 12, color: T.sub, marginTop: 10 }}>{s.coverageNote}</div>
       )}

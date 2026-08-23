@@ -99,6 +99,78 @@ function ComebackFields({ p, set }) {
 // The Clear Favorite replay's sheet: the verdict thresholds, re-applied over
 // the locks. No exit section — a favorite bet holds to settlement, and the
 // winning redemption is fee-free, so only the entry leg has costs.
+function FairvalueFields({ p, set }) {
+  const toggleDeficit = (d) => {
+    const cur = new Set(p.entry.deficits || []);
+    if (cur.has(d)) cur.delete(d); else cur.add(d);
+    set("entry.deficits", [...cur].sort());
+  };
+  return (
+    <>
+      <div style={{ ...lbl, marginTop: 16 }}>
+        Entry — buy the trailing side when it is priced BELOW its historical win rate
+      </div>
+      <Row label="Minimum discount vs history (¢)"
+        hint="sweeps show 3/5/7/10 side by side either way">
+        <Num value={p.entry.discountCents} step={1} min={0}
+          onChange={(v) => set("entry.discountCents", v)} />
+      </Row>
+      <Row label="Deficits to trade">
+        <span style={{ display: "inline-flex", gap: 4 }}>
+          {[1, 2, 3].map((d) => (
+            <button key={d} onClick={() => toggleDeficit(d)}
+              style={{ ...((p.entry.deficits || []).includes(d) ? btn.primary : btn.outline),
+                fontSize: 12, padding: "5px 12px" }}>
+              down {d}
+            </button>
+          ))}
+        </span>
+      </Row>
+      <Row label="Through which inning">
+        <Choice value={String(p.entry.maxInning)}
+          options={[["1", "1st"], ["2", "2nd"], ["3", "3rd"], ["5", "5th"]]}
+          onChange={(v) => set("entry.maxInning", Number(v))} />
+      </Row>
+      <Row label="Which trailing side">
+        <Choice value={p.entry.side}
+          options={[["both", "Both"], ["home", "Home"], ["away", "Away"]]}
+          onChange={(v) => set("entry.side", v)} />
+      </Row>
+
+      <div style={{ ...lbl, marginTop: 16 }}>Fair values</div>
+      <Row label="Seasons behind the historical win rates"
+        hint="prior = past seasons only (honest); all includes the season being traded">
+        <Choice value={p.fair.seasons}
+          options={[["prior", "Prior seasons"], ["all", "All seasons"]]}
+          onChange={(v) => set("fair.seasons", v)} />
+      </Row>
+
+      <div style={{ ...lbl, marginTop: 16 }}>
+        Exit — Strategy A holds to the end, Strategy B sells the first bounce
+      </div>
+      <Row label="Headline exit">
+        <Choice value={p.exit.mode}
+          options={[["hold", "A: hold to settlement"], ["bounce", "B: sell the bounce"]]}
+          onChange={(v) => set("exit.mode", v)} />
+      </Row>
+      <Row label="Bounce target (¢ above entry)">
+        <Choice value={String(p.exit.bounceCents)}
+          options={[["5", "+5¢"], ["8", "+8¢"], ["10", "+10¢"]]}
+          onChange={(v) => set("exit.bounceCents", Number(v))} />
+      </Row>
+      <Row label="Bounce window (half-innings)">
+        <Num value={p.exit.horizonHalfInnings} step={1} min={1}
+          onChange={(v) => set("exit.horizonHalfInnings", Math.min(6, v))} />
+      </Row>
+      <div style={{ fontSize: 11, color: T.faint, marginTop: 6, lineHeight: 1.5 }}>
+        Both exits are always computed from the same entries — the comparison
+        table shows A vs B at every discount regardless of the headline choice.
+      </div>
+    </>
+  );
+}
+
+
 function Bottom8Fields({ p, set }) {
   return (
     <>
@@ -183,9 +255,10 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
   const isComeback = p.kind === "comeback_replay";
   const isFavorite = p.kind === "favorite_replay";
   const isBottom8 = p.kind === "bottom8_replay";
+  const isFairvalue = p.kind === "fairvalue_replay";
   // restore must give back THIS strategy's defaults, not another kind's
   const kindDefaults = defaults?.byKind?.[p.kind] ?? defaults?.plain ?? defaults;
-  const totalWeight = (isComeback || isFavorite || isBottom8) ? 0
+  const totalWeight = (isComeback || isFavorite || isBottom8 || isFairvalue) ? 0
     : Object.values(p.weights).reduce((a, b) => a + b, 0);
 
   return (
@@ -204,8 +277,9 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
         {isComeback && <ComebackFields p={p} set={set} />}
         {isFavorite && <FavoriteFields p={p} set={set} />}
         {isBottom8 && <Bottom8Fields p={p} set={set} />}
+        {isFairvalue && <FairvalueFields p={p} set={set} />}
 
-        {!isComeback && !isFavorite && !isBottom8 && (<>
+        {!isComeback && !isFavorite && !isBottom8 && !isFairvalue && (<>
         <div style={{ ...lbl, marginTop: 16 }}>Hard filters — applied first; a failed filter means the spot is never scored</div>
         <Row label="Max price of the trailing team (¢)">
           <Num value={p.hardFilters.maxPriceCents} step={1} onChange={(v) => set("hardFilters.maxPriceCents", v)} />
@@ -228,7 +302,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
         </Row>
         </>)}
 
-        {!isFavorite && !isBottom8 && (<>
+        {!isFavorite && !isBottom8 && !isFairvalue && (<>
         <div style={{ ...lbl, marginTop: 18 }}>Exit — what counts as a win (drafts pending the client)</div>
         <Row label="Bounce target (¢ above entry)">
           <Num value={p.bounce.targetCents} step={0.5} onChange={(v) => set("bounce.targetCents", v)} />
@@ -271,7 +345,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
           </span>
         </Row>
 
-        {!isComeback && !isFavorite && !isBottom8 && (<>
+        {!isComeback && !isFavorite && !isBottom8 && !isFairvalue && (<>
         <div style={{ ...lbl, marginTop: 18 }}>
           Checklist — total {totalWeight.toFixed(1)} pts
         </div>

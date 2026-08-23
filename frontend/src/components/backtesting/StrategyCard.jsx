@@ -121,7 +121,12 @@ export default function StrategyCard({ strategy, defaults, defaultOpen = false }
           )}
         </div>
         <div style={{ ...monoText, fontSize: 11, color: T.faint, whiteSpace: "nowrap" }}>
-          {params.kind === "bottom8_replay" ? (
+          {params.kind === "fairvalue_replay" ? (
+            <>≥{params.entry.discountCents}¢ under fair
+              {" · down "}{(params.entry.deficits || []).join("/")}
+              {" · inn ≤"}{params.entry.maxInning}
+              {" · "}{params.exit.mode === "hold" ? "hold" : `sell +${params.exit.bounceCents}¢`}</>
+          ) : params.kind === "bottom8_replay" ? (
             <>tied at the {params.situation.inning}th
               {" · back "}{params.situation.side}
               {params.situation.extras !== "all" && ` · ${params.situation.extras} only`}</>

@@ -10,6 +10,7 @@ from backend.config.settings import settings
 from backend.backtest import backfill as backtest_backfill
 from backend.backtest import bottom8history as backtest_bottom8
 from backend.backtest import favhistory as backtest_favhistory
+from backend.backtest import wehistory as backtest_we
 from backend.bottom8 import tracker as bottom8_tracker
 from backend.comeback import detector as comeback_detector
 from backend.comeback import outcomes as comeback_outcomes
@@ -210,6 +211,13 @@ def start():
     scheduler.add_job(
         backtest_favhistory.run_batch, "interval", hours=6, id="backtest-favhistory",
         next_run_time=datetime.now(timezone.utc) + timedelta(seconds=600),
+    )
+    # the win-expectancy history (2023->today): one request per day; the
+    # historical drain runs in batches, then this keeps the current season
+    # topped up
+    scheduler.add_job(
+        backtest_we.run_batch, "interval", hours=6, id="backtest-wehistory",
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=420),
     )
     # the tied-at-the-break season record: one request per day, so a full
     # backfill is ~150 and a daily top-up is a handful

@@ -31,7 +31,11 @@ from backend.mlb import client
 
 DELAYS = (0, 15, 30, 60)
 PATH_HALVES = 6
-WIDE_NET_CENTS = 45.0   # store anything under this; run-time gates narrow
+# Store anything under this; run-time gates narrow. Raised 45 -> 65 for the
+# fair-value strategy (Aug 24): a home team down 1 after the 1st trades at
+# ~45-55c, so the old cap silently excluded most early-inning small-deficit
+# spots — exactly the states that strategy studies. Schema v4 rebuild.
+WIDE_NET_CENTS = 65.0
 MAX_DEFICIT_STORED = 6
 
 _PBP_FIELDS = ("allPlays,about,endTime,halfInning,inning,result,awayScore,"

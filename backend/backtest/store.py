@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS backtest_games (
 );
 
 -- one row per qualifying moment: a completed half-inning with one side
--- trailing and its price under the WIDE net (45c) — run-time gates narrow
+-- trailing and its price under the WIDE net (65c, v4) — run-time gates narrow
 CREATE TABLE IF NOT EXISTS backtest_spots (
     id              INTEGER PRIMARY KEY,
     market_id       INTEGER NOT NULL,
@@ -85,6 +85,27 @@ CREATE TABLE IF NOT EXISTS backtest_bottom8_days (
 );
 
 
+-- Strategy #4 raw material: one row per FINISHED regular-season game across
+-- multiple seasons, with each side's runs per inning. The fair-value table
+-- (win rate of a team trailing by D after half H of inning N) is derived
+-- from these lines at query time — storing the lines rather than the
+-- aggregates means a definition change never needs a re-sweep. NOT cleared
+-- by the version wipe: this is season history, not tick-derived data.
+CREATE TABLE IF NOT EXISTS backtest_we_games (
+    game_pk   INTEGER PRIMARY KEY,
+    season    INTEGER NOT NULL,
+    game_date TEXT NOT NULL,
+    away_line TEXT NOT NULL,   -- JSON [runs inning 1, 2, ...]
+    home_line TEXT NOT NULL,   -- JSON, null where the side never batted
+    home_won  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_we_season ON backtest_we_games(season);
+
+CREATE TABLE IF NOT EXISTS backtest_we_days (
+    day  TEXT PRIMARY KEY,     -- YYYY-MM-DD, so one table covers every season
+    done INTEGER NOT NULL DEFAULT 0
+);
+
 -- reconstructed Clear Favorite verdicts: the T-5 computation re-run for
 -- HISTORICAL games from as-of-then data (timecode boxscores, season
 -- schedules sliced to the date, our own pre-game ticks). Real locks live in
@@ -112,7 +133,9 @@ CREATE TABLE IF NOT EXISTS backtest_strategies (
 # v3: entry_lag_s stored — the Aug 14 timestamp audit found 83 spots (2.4%)
 #     whose first available tick was minutes after the half end (dead-market
 #     stretches); the engine now excludes entries that stale.
-SCHEMA_VERSION = 3
+# v4: wide net raised 45c -> 65c so early-inning small deficits are stored
+#     (the fair-value strategy trades those); spots rebuild in a few passes.
+SCHEMA_VERSION = 4
 
 # The seeded strategy replays the Comeback Setup TAG (Aug 13's live trigger)
 # over the recorded corpus: every param of the tag, adjustable. minInning
@@ -198,6 +221,40 @@ BOTTOM8_SEED = (
     "extras. Whether a game was tied at that moment needs no tick data, so "
     "this covers the whole season — prices, where our recorded games supply "
     "them, come from the tick at that exact break.")
+
+
+# Strategy #4 (Aug 24, client): does the market price a trailing team
+# correctly early in the game, against multi-season historical win rates?
+# Entry: the trailing side priced at least discountCents BELOW its
+# historical win rate for that exact state (deficit x inning x half x side).
+# Fair values default to PRIOR seasons only — measuring and trading on the
+# same season would grade the backtest with the answer key.
+FAIRVALUE_DEFAULTS = {
+    "kind": "fairvalue_replay",
+    "entry": {
+        "maxInning": 3,            # his spec: after the 1st/2nd/3rd
+        "deficits": [1, 2, 3],
+        "side": "both",            # both | home | away
+        "discountCents": 5.0,      # sweeps show 3/5/7/10 side by side
+    },
+    "fair": {"seasons": "prior"},  # prior | all (all = look-ahead, warned)
+    "exit": {
+        "mode": "hold",            # hold | bounce  (A vs B; both always shown)
+        "bounceCents": 8.0,
+        "horizonHalfInnings": 6,   # ~3 innings
+    },
+    "exec": {"delaySeconds": 15, "slippageCentsPerSide": 1.0, "feeMode": "taker_both"},
+    "stake": {"mode": "flat_usd", "usd": 100},
+    "corpus": {"segment": "both"},
+}
+
+FAIRVALUE_SEED = (
+    "Fair value — trailing team vs history (FUD test)",
+    "Does the market overreact when a team falls behind early? Historical "
+    "win rates for every deficit/inning state come from multi-season MLB "
+    "results (prior seasons only, so the test never grades itself); entries "
+    "buy the trailing side when its price sits below that history by the "
+    "chosen discount, exiting either at settlement or on the first bounce.")
 
 
 # The Aug 5 checklist strategy's defaults — the engine still runs this kind;
@@ -286,6 +343,10 @@ def init():
             conn.execute(
                 "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",
                 (*FAVORITE_SEED, json.dumps(FAVORITE_DEFAULTS)))
+        if "fairvalue_replay" not in kinds:
+            conn.execute(
+                "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",
+                (*FAIRVALUE_SEED, json.dumps(FAIRVALUE_DEFAULTS)))
         if "bottom8_replay" not in kinds:
             conn.execute(
                 "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",
@@ -496,6 +557,94 @@ def mark_bottom8_day(day: str, done: bool):
             "INSERT INTO backtest_bottom8_days (day, done) VALUES (?, ?) "
             "ON CONFLICT(day) DO UPDATE SET done=excluded.done",
             (day, 1 if done else 0))
+
+
+def save_we_games(rows: list[dict]) -> None:
+    if not rows:
+        return
+    with get_db() as conn:
+        conn.executemany(
+            """INSERT OR REPLACE INTO backtest_we_games
+               (game_pk, season, game_date, away_line, home_line, home_won)
+               VALUES (:game_pk, :season, :game_date, :away_line, :home_line,
+                       :home_won)""", rows)
+
+
+def we_days_done() -> set[str]:
+    with get_db() as conn:
+        return {r["day"] for r in conn.execute(
+            "SELECT day FROM backtest_we_days WHERE done=1")}
+
+
+def mark_we_day(day: str, done: bool) -> None:
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO backtest_we_days (day, done) VALUES (?, ?) "
+            "ON CONFLICT(day) DO UPDATE SET done=excluded.done",
+            (day, 1 if done else 0))
+
+
+def we_seasons() -> dict[int, int]:
+    """{season: games stored} — drives the 'prior seasons' selection."""
+    with get_db() as conn:
+        return {r["season"]: r["n"] for r in conn.execute(
+            "SELECT season, COUNT(*) n FROM backtest_we_games GROUP BY season")}
+
+
+_fair_memo: dict[tuple, tuple[float, dict]] = {}
+_FAIR_TTL = 600.0
+
+
+def fair_table(seasons: tuple[int, ...]) -> dict[tuple, tuple[int, int]]:
+    """(inning, next_half, deficit, trailing_is_home) -> (games, wins) over
+    the given seasons — the SAME state key the spots table uses, so a spot
+    looks its fair value up directly.
+
+    Boundary semantics match replay.halves: after the TOP of inning N the
+    key is (N, 'bottom') — the away side has batted N times, home N-1; after
+    the BOTTOM of N it is (N, 'top'). A home side that never batted in an
+    inning (walk-off, rain) contributes no boundary there. Derived from raw
+    inning lines at query time and memoised; ~10k games take well under a
+    second."""
+    import time
+    mk = tuple(sorted(seasons))
+    hit = _fair_memo.get(mk)
+    if hit and time.monotonic() - hit[0] < _FAIR_TTL:
+        return hit[1]
+    counts: dict[tuple, list[int]] = {}
+    with get_db() as conn:
+        rows = conn.execute(
+            f"""SELECT away_line, home_line, home_won FROM backtest_we_games
+                WHERE season IN ({','.join('?' * len(mk))})""", mk).fetchall()
+    for r in rows:
+        away = json.loads(r["away_line"])
+        home = json.loads(r["home_line"])
+        home_won = bool(r["home_won"])
+        a_cum = h_cum = 0
+        for n in range(1, min(len(away), 9) + 1):
+            if away[n - 1] is None:
+                break
+            a_cum += away[n - 1]
+            # after the top of n: home has batted n-1 innings
+            if a_cum != h_cum:
+                trailing_home = h_cum < a_cum
+                key = (n, "bottom", abs(a_cum - h_cum), 1 if trailing_home else 0)
+                c = counts.setdefault(key, [0, 0])
+                c[0] += 1
+                c[1] += 1 if (home_won == trailing_home) else 0
+            if n - 1 >= len(home) or home[n - 1] is None:
+                break               # home never batted this inning (walk-off top? rain)
+            h_cum += home[n - 1]
+            # after the bottom of n
+            if a_cum != h_cum:
+                trailing_home = h_cum < a_cum
+                key = (n, "top", abs(a_cum - h_cum), 1 if trailing_home else 0)
+                c = counts.setdefault(key, [0, 0])
+                c[0] += 1
+                c[1] += 1 if (home_won == trailing_home) else 0
+    out = {k: (v[0], v[1]) for k, v in counts.items()}
+    _fair_memo[mk] = (time.monotonic(), out)
+    return out
 
 
 def market_matchups() -> dict[int, str]:

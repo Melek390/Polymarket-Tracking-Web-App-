@@ -14,7 +14,7 @@ import time
 
 from fastapi import APIRouter, HTTPException
 
-from backend.backtest import backfill, bottom8history, engine, favhistory, store
+from backend.backtest import backfill, bottom8history, engine, favhistory, store, wehistory
 from backend.database.db import get_db
 
 router = APIRouter(prefix="/api/backtest", tags=["backtest"])
@@ -31,6 +31,7 @@ def strategies():
     return {"strategies": store.strategies(),
             "defaults": store.DEFAULT_PARAMS,          # back-compat
             "defaultsByKind": {
+                "fairvalue_replay": store.FAIRVALUE_DEFAULTS,
                 "comeback_replay": store.DEFAULT_PARAMS,
                 "favorite_replay": store.FAVORITE_DEFAULTS,
                 "bottom8_replay": store.BOTTOM8_DEFAULTS,
@@ -63,6 +64,11 @@ async def run(body: dict):
         try:
             await bottom8history.catch_up()
         except Exception:  # noqa: BLE001 — a stale sweep must never block a run
+            pass
+    if params.get("kind") == "fairvalue_replay":
+        try:
+            await wehistory.catch_up()
+        except Exception:  # noqa: BLE001 — same rule
             pass
     try:
         return engine.run(params, include_trades=bool(body.get("includeTrades")))
@@ -100,6 +106,20 @@ async def kick_bottom8():
         return {"started": False, **bottom8history.status()}
     asyncio.get_event_loop().create_task(bottom8history.run_batch())
     return {"started": True}
+
+
+@router.post("/wesweep")
+async def kick_wesweep():
+    """Sweep historical seasons for the win-expectancy table, one batch."""
+    if wehistory.status()["running"]:
+        return {"started": False, **wehistory.status()}
+    asyncio.get_event_loop().create_task(wehistory.run_batch())
+    return {"started": True}
+
+
+@router.get("/wesweep/status")
+def wesweep_status():
+    return wehistory.status()
 
 
 @router.get("/bottom8backfill/status")
