@@ -81,35 +81,71 @@ def _json_list(value) -> list:
     return value or []
 
 
-async def fetch_events_by_tag(tag_id: int, pages: int = 3) -> list[dict]:
-    """Active events for one sport tag, paging until the list runs out."""
-    events = []
+async def fetch_events_by_tag(tag_id: int, pages: int = 3,
+                               horizon_days: int = 30) -> list[dict]:
+    """Active events for one sport tag.
+
+    Gamma HARD-REFUSES offsets past ~2100 (422), and its default order is
+    oldest-listed first — so on a busy weekend the newest matchday sat
+    beyond the ceiling and entire leagues silently vanished from the
+    screener (the client caught EPL missing on Aug 23 while two games were
+    LIVE). The fix is to page by END date ascending — soonest-ending events
+    (today's games) come first — and when a window hits the ceiling, advance
+    end_date_min to the last end date seen and keep going. Every upcoming
+    event within the horizon is reached regardless of when it was listed,
+    and no single window can outgrow the ceiling."""
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    cursor = (now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    horizon = (now + timedelta(days=horizon_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    events, seen = [], set()
     client = _http()
-    for offset in range(0, pages * 100, 100):
-        r = await client.get(
-            f"{settings.gamma_base_url}/events",
-            params={
-                "tag_id": tag_id,
-                "active": "true",
-                "closed": "false",
-                "limit": 100,
-                "offset": offset,
-            },
-        )
-        # Gamma refuses offsets past its ceiling (~2100) with a 422;
-        # that just means we have reached the end of the list
-        if r.status_code == 422:
+    for _ in range(max(1, pages)):          # window guard, not a page count
+        window_last = None
+        exhausted = False
+        for offset in range(0, 2100, 100):
+            r = await client.get(
+                f"{settings.gamma_base_url}/events",
+                params={
+                    "tag_id": tag_id,
+                    "active": "true",
+                    "closed": "false",
+                    "limit": 100,
+                    "offset": offset,
+                    "order": "endDate",
+                    "ascending": "true",
+                    "end_date_min": cursor,
+                },
+            )
+            if r.status_code == 422:        # the ceiling — advance the window
+                break
+            r.raise_for_status()
+            batch = r.json()
+            for e in batch:
+                eid = e.get("id") or e.get("slug")
+                if eid not in seen:
+                    seen.add(eid)
+                    events.append(e)
+                if e.get("endDate"):
+                    window_last = e["endDate"]
+            if len(batch) < 100:
+                exhausted = True
+                break
+        if exhausted or not window_last:
             return events
-        r.raise_for_status()
-        batch = r.json()
-        events += batch
-        if len(batch) < 100:
+        if window_last <= cursor:
+            # a single end-date bucket larger than the ceiling: cannot
+            # advance without skipping — bail loudly rather than loop
+            log.warning("tag %s: end-date bucket at %s exceeds the offset "
+                        "ceiling; events beyond it are unreachable",
+                        tag_id, window_last)
             return events
-    # ran out of pages before Polymarket ran out of events: say so loudly,
-    # because silently truncating means matches go missing from the screener
-    log.warning(
-        "tag %s has more than %d events; raise the page limit", tag_id, len(events)
-    )
+        cursor = window_last
+        if cursor > horizon:
+            return events
+    log.warning("tag %s: window guard exhausted at %d events — raise pages",
+                tag_id, len(events))
     return events
 
 

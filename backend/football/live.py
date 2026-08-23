@@ -29,6 +29,7 @@ _fixtures: dict[int, dict] = {}          # fixture_id -> live fixture row
 _stats: dict[int, tuple[float, dict]] = {}   # fixture_id -> (monotonic, stats)
 _slug_of: dict[int, str] = {}            # fixture_id -> screener event_slug
 _last_seen: dict[int, float] = {}        # fixture_id -> last time in live feed
+_missing: dict[str, int] = {"n": 0}      # live fixtures with no screener row
 _updated_at: str | None = None
 
 
@@ -128,6 +129,17 @@ async def run(stats_interval_s: float = 120.0) -> None:
                     .strftime("%Y-%m-%dT%H:%M:%SZ"),
             })
 
+    # the cross-checker the client asked for: a big-5 fixture that is LIVE
+    # per API-FOOTBALL but matches no screener row means the screener is
+    # missing a listed game (Gamma pagination, naming, or listing gap) —
+    # say so in the logs instead of silently showing less
+    missing = [f for fid, f in _fixtures.items()
+               if fid in live_ids and fid not in _slug_of]
+    _missing["n"] = len(missing)
+    for f in missing:
+        log.warning("football: LIVE big-5 fixture missing from the screener: "
+                    "%s vs %s (%s)", f.get("home"), f.get("away"), f.get("league"))
+
     _updated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -139,4 +151,5 @@ def snapshot() -> dict:
         stats = (_stats.get(fid) or (0, None))[1]
         out.append({**f, "slug": _slug_of.get(fid), "stats": stats})
     return {"fixtures": out, "updated_at": _updated_at,
-            "key_configured": client.has_key()}
+            "key_configured": client.has_key(),
+            "missing_from_screener": _missing["n"]}

@@ -190,6 +190,13 @@ export async function saveComebackConfig(cfg) {
   });
 }
 
+// GET /api/screener/slug-categories — slug prefix -> sport, learned from
+// live screener data (lal-/dfb-/scop- are Polymarket inventions that come
+// and go; a hardcoded list goes stale)
+export async function fetchSlugCategories() {
+  return request("/api/screener/slug-categories");
+}
+
 // --- Soccer (big-5 live data + the 0-0 clear-favorite alert) --------------
 export async function fetchFootballLive() {
   return request(`/api/football/live?_=${Date.now()}`);

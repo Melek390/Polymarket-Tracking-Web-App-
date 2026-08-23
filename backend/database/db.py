@@ -59,6 +59,18 @@ CREATE TABLE IF NOT EXISTS tick_counts (
 
 -- Screener cache: one row per upcoming match, rebuilt by a background job
 -- so the screener page filters instantly instead of hitting Gamma live.
+-- Every slug prefix ever seen per sport, learned from the screener cache on
+-- each refresh. The accounts tracker uses it to categorise positions: slug
+-- prefixes like lal-/dfb-/scop- are Polymarket inventions that appear and
+-- disappear with the calendar, so a hardcoded list in the frontend went
+-- stale (a Real Madrid position showed as "Other"). Rows accumulate — a
+-- league out of season keeps its mapping.
+CREATE TABLE IF NOT EXISTS slug_prefixes (
+    prefix    TEXT PRIMARY KEY,
+    sport     TEXT NOT NULL,
+    last_seen TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
 CREATE TABLE IF NOT EXISTS screener_cache (
     event_slug    TEXT PRIMARY KEY,
     sport         TEXT NOT NULL,
@@ -207,6 +219,24 @@ def set_tracking(market_id: int, tracking: bool):
             "UPDATE markets SET tracking = ? WHERE id = ?",
             (1 if tracking else 0, market_id),
         )
+
+
+def upsert_slug_prefixes(sport: str, slugs: list[str]) -> None:
+    pairs = {s.split("-")[0].lower() for s in slugs if s and "-" in s}
+    if not pairs:
+        return
+    with get_db() as conn:
+        conn.executemany(
+            "INSERT INTO slug_prefixes (prefix, sport) VALUES (?, ?) "
+            "ON CONFLICT(prefix) DO UPDATE SET sport=excluded.sport, "
+            "last_seen=strftime('%Y-%m-%dT%H:%M:%SZ','now')",
+            [(p, sport) for p in pairs])
+
+
+def slug_prefix_map() -> dict[str, str]:
+    with get_db() as conn:
+        return {r["prefix"]: r["sport"] for r in
+                conn.execute("SELECT prefix, sport FROM slug_prefixes")}
 
 
 def screener_game_pk(slug: str) -> int | None:

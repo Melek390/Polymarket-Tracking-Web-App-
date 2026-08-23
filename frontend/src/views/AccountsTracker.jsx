@@ -4,7 +4,7 @@ import { fmtCents, fmtTimestamp, fmtClock, TZ_LABEL, eventUrl } from "../utils.j
 import {
   traderList, traderAdd, traderDelete, traderSummary, traderOpen,
   traderClosed, traderActivity, traderTagToggle, traderPeak, traderTagVocab,
-  fetchMlbGameLinks, trackAndChart,
+  fetchMlbGameLinks, trackAndChart, fetchSlugCategories,
 } from "../api/client.js";
 import { playSound } from "../alerts.js";
 import Toasts, { useToasts } from "../components/Toasts.jsx";
@@ -82,9 +82,21 @@ function hold(seconds) {
   return h ? `${h}h ${m % 60}m` : `${m}m`;
 }
 
-// category from the event slug prefix, so MLB isn't lumped under "sports"
-function categoryOf(slug) {
+// Category from the event slug prefix. The server's learned prefix->sport
+// map (from live screener data) decides first — slug prefixes like lal-,
+// dfb-, scop- are Polymarket inventions that come and go with the calendar,
+// and the hardcoded list below went stale (a Real Madrid `lal-` position
+// showed as "Other"). The static rules remain as fallback for prefixes the
+// screener has never seen.
+const SPORT_LABELS = {
+  soccer: "Soccer", baseball: "MLB", basketball: "NBA", tennis: "Tennis",
+  football: "NFL", cricket: "Cricket", esports: "Esports",
+};
+
+function categoryOf(slug, prefixMap) {
   const s = (slug || "").toLowerCase();
+  const learned = prefixMap?.[s.split("-")[0]];
+  if (learned && SPORT_LABELS[learned]) return SPORT_LABELS[learned];
   if (s.startsWith("mlb-")) return "MLB";
   if (s.startsWith("nba-")) return "NBA";
   if (s.startsWith("nfl-")) return "NFL";
@@ -92,7 +104,7 @@ function categoryOf(slug) {
   if (s.startsWith("wta-") || s.startsWith("atp-")) return "Tennis";
   if (s.startsWith("ufc-")) return "UFC";
   if (/^(lol|cs2|csgo|dota|val)-/.test(s)) return "Esports";
-  if (/^(epl|ucl|laliga|seriea|mls)-|-fc-|soccer/.test(s)) return "Soccer";
+  if (/^(epl|ucl|uel|lal|laliga|seriea|ser|bun|li1|ligue|cdr|fac|dfb|scop|rus|ere|por|tur|den|mls)-|-fc-|soccer/.test(s)) return "Soccer";
   return "Other";
 }
 
@@ -254,6 +266,7 @@ export default function AccountsTracker({ onOpenHistory }) {
   const [result, setResult] = useState("all"); // all | win | loss (closed table)
   const [category, setCategory] = useState(null);
   const [mlbLinks, setMlbLinks] = useState({});   // slug -> {game_pk, url}
+  const [slugSports, setSlugSports] = useState(null); // prefix -> sport (server-learned)
   const mlbAsked = useRef(new Set());             // slugs already requested
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -292,6 +305,10 @@ export default function AccountsTracker({ onOpenHistory }) {
     }
   }
   useEffect(() => { loadAccounts(); }, []);
+  useEffect(() => {
+    fetchSlugCategories().then((r) => setSlugSports(r.prefixes || {})).catch(() => {});
+  }, []);
+  const catOf = (slug) => categoryOf(slug, slugSports);
 
   async function loadData(id) {
     if (id == null) { setSummary(null); setOpen([]); setClosed([]); setActivity([]); return; }
@@ -474,7 +491,7 @@ export default function AccountsTracker({ onOpenHistory }) {
 
   const hit = (title, slug) => {
     if (search.trim() && !(title || "").toLowerCase().includes(search.trim().toLowerCase())) return false;
-    if (category && categoryOf(slug) !== category) return false;
+    if (category && catOf(slug) !== category) return false;
     return true;
   };
   const inRange = (tsSec) => {
@@ -585,7 +602,7 @@ export default function AccountsTracker({ onOpenHistory }) {
   }, { shares: 0, cost: 0, proceeds: 0, fees: 0, gross: 0, net: 0,
        won: 0, lost: 0, wonN: 0, lostN: 0 });
   const categories = useMemo(() => {
-    const set = new Set([...open, ...closed].map((r) => categoryOf(r.event_slug)));
+    const set = new Set([...open, ...closed].map((r) => catOf(r.event_slug)));
     return [...set].sort();
   }, [open, closed]);
 
@@ -958,7 +975,7 @@ export default function AccountsTracker({ onOpenHistory }) {
                           {r.title}
                           {betLink(r.event_slug)}
                           {dashBtn(r)}
-                          <div style={{ fontSize: 11, color: T.faint }}>{categoryOf(r.event_slug)}</div>
+                          <div style={{ fontSize: 11, color: T.faint }}>{catOf(r.event_slug)}</div>
                           <TagPills tags={r.tags} />
                         </td>
                         <td style={{ ...td, fontFamily: T.ui }}>{r.outcome}</td>
@@ -1175,7 +1192,7 @@ export default function AccountsTracker({ onOpenHistory }) {
                           {betLink(r.event_slug)}
                           {dashBtn(r)}
                           <div style={{ fontSize: 11, color: T.faint }}>
-                            {r.outcome} · {categoryOf(r.event_slug)}
+                            {r.outcome} · {catOf(r.event_slug)}
                             {r.averaged_down && (
                               <span style={{ color: M.accent, fontWeight: 600 }}> · averaged down</span>
                             )}

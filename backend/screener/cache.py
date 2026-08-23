@@ -271,6 +271,9 @@ async def refresh(sport: str):
     if sport == "baseball":
         await _attach_game_pks(rows)
     db.replace_screener_cache(sport, rows)
+    # remember which slug prefixes belong to this sport (accounts tracker
+    # categorisation) — cumulative, so out-of-season leagues stay mapped
+    db.upsert_slug_prefixes(sport, [r["event_slug"] for r in rows])
     log.info("screener cache: %s -> %d matches from %d events",
              sport, len(rows), len(events))
 

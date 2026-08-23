@@ -182,6 +182,13 @@ async def mlb_timeline(slug: str):
 MAX_NEW_GAME_LINKS = 12
 
 
+@router.get("/screener/slug-categories")
+def slug_categories():
+    """slug prefix -> sport, learned from live screener data. The accounts
+    tracker uses this to categorise positions instead of a hardcoded list."""
+    return {"prefixes": db.slug_prefix_map()}
+
+
 @router.get("/mlb/game-links")
 async def mlb_game_links(slugs: str = ""):
     """Deep links from MLB positions to the game on MLB.com.
