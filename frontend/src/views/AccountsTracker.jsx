@@ -475,7 +475,14 @@ export default function AccountsTracker({ onOpenHistory }) {
   }
 
   async function removeAccount(id) {
-    await traderDelete(id);
+    try {
+      await traderDelete(id);
+    } catch (e) {
+      // e.g. a shared legacy account: the server refuses and explains
+      // (claim it by re-adding, then remove) — surface that, change nothing
+      setError(e.message);
+      return;
+    }
     delete memo.byId[id];
     await loadAccounts(null);
   }
@@ -1417,8 +1424,8 @@ export default function AccountsTracker({ onOpenHistory }) {
       {removing && (
         <ConfirmDialog
           title={`Remove “${removing.label}”?`}
-          message="This deletes the account from the tracker along with its stored fill history and tags."
-          detail="Fills older than Polymarket's 10,000-trade window cannot be re-downloaded if you add it back."
+          message="This removes the account from your tracker."
+          detail="Its stored fill history is kept safe — re-adding the same wallet brings the account back with everything intact."
           confirmLabel="Remove account"
           onConfirm={async () => {
             const id = removing.id;

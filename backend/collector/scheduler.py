@@ -1,6 +1,7 @@
 """Server-side collector — APScheduler jobs, one per distinct poll interval.
 Runs inside the FastAPI process and keeps polling with the browser closed."""
 
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -14,6 +15,7 @@ from backend.backtest import wehistory as backtest_we
 from backend.bottom8 import tracker as bottom8_tracker
 from backend.comeback import detector as comeback_detector
 from backend.comeback import outcomes as comeback_outcomes
+from backend.database import backup as db_backup
 from backend.database import db
 from backend.favorite import lock as favorite_lock
 from backend.football import live as football_live
@@ -228,6 +230,15 @@ def start():
             backtest_bottom8.run_batch, "interval", hours=6, id="backtest-bottom8",
             next_run_time=datetime.now(timezone.utc) + timedelta(seconds=300),
         )
+    # nightly dump of the un-recoverable tables (tracked-account history,
+    # users, strategy params) - the Aug 24 delete incident had nothing to
+    # restore from. A few MB gzipped; ticks are deliberately excluded.
+    async def _backup():
+        await asyncio.to_thread(db_backup.run)
+    scheduler.add_job(
+        _backup, "interval", hours=24, id="db-backup",
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=900),
+    )
     # soccer: big-5 live cache + the 0-0 alert. The job itself gates on
     # whether any big-5 match is in its live window (zero upstream requests
     # otherwise), so a fixed cadence here is safe on any API-FOOTBALL plan.

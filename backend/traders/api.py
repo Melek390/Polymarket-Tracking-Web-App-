@@ -1,5 +1,6 @@
 """HTTP surface for the accounts tracker. Mounted from main.py."""
 
+import logging
 import re
 
 import httpx
@@ -8,6 +9,8 @@ from pydantic import BaseModel
 
 from backend.auth import deps as auth_deps
 from backend.traders import service, store
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/traders")
 
@@ -67,7 +70,19 @@ async def add_account(body: AddAccount, request: Request):
 
 @router.delete("/{acct_id}")
 async def delete_account(acct_id: int, request: Request):
-    _account_or_404(acct_id, request)
+    """Only the OWNER may delete. An unclaimed shared row is explicitly not
+    deletable - one user deleting it would take it away from everyone (that
+    happened Aug 24 and cost the client his tracked history). The delete
+    itself is soft: re-adding the wallet brings everything back."""
+    acct = _account_or_404(acct_id, request)
+    user = auth_deps.current_user(request)
+    if user and acct.get("owner_id") is None:
+        raise HTTPException(409, "This is a shared legacy account. Add it to "
+                            "your own list first (that claims it, history "
+                            "included) - then you can remove it.")
+    log.info("trader account delete: id=%s wallet=%s label=%r by user=%s",
+             acct_id, acct.get("wallet"), acct.get("label"),
+             (user or {}).get("username", "no-auth"))
     store.delete_account(acct_id)
     return {"ok": True}
 

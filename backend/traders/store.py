@@ -70,6 +70,15 @@ def init() -> None:
     # were seeing - and getting alerts for - each other's tracked wallets)
     if _needs_owner_migration():
         _migrate_owner_column()
+    # Aug 24 migration: deletes became SOFT. Anyone could delete an unclaimed
+    # shared account, and the delete hard-wiped its fill history for every
+    # user (the client lost weeks of tracked data that way). A deleted row
+    # now just hides; re-adding the wallet resurrects it with history intact.
+    with get_db() as conn:
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(trader_accounts)")]
+        if "deleted" not in cols:
+            conn.execute("ALTER TABLE trader_accounts ADD COLUMN deleted "
+                         "INTEGER NOT NULL DEFAULT 0")
 
 
 def _needs_owner_migration() -> bool:
@@ -118,49 +127,65 @@ def list_accounts(owner_id: int | None = None) -> list[dict]:
     None -> every account (the sync/resolution jobs, dev mode, healthcheck)."""
     with get_db() as conn:
         if owner_id is None:
-            rows = conn.execute("SELECT * FROM trader_accounts ORDER BY id")
+            rows = conn.execute("SELECT * FROM trader_accounts WHERE deleted=0 ORDER BY id")
         else:
             rows = conn.execute(
-                "SELECT * FROM trader_accounts WHERE owner_id=? OR owner_id IS NULL "
-                "ORDER BY id", (owner_id,))
+                "SELECT * FROM trader_accounts WHERE deleted=0 "
+                "AND (owner_id=? OR owner_id IS NULL) ORDER BY id", (owner_id,))
         return [dict(r) for r in rows]
 
 
 def get_account(acct_id: int) -> dict | None:
     with get_db() as conn:
-        r = conn.execute("SELECT * FROM trader_accounts WHERE id=?", (acct_id,)).fetchone()
+        r = conn.execute("SELECT * FROM trader_accounts WHERE id=? AND deleted=0",
+                         (acct_id,)).fetchone()
         return dict(r) if r else None
 
 
 def add_account(wallet: str, label: str, owner_id: int | None = None) -> dict:
     """Create the wallet under this owner. Re-adding a wallet that exists as
-    an unclaimed legacy row CLAIMS that row instead of duplicating it - its
-    fill history (which reaches beyond Polymarket's 10k-row API window) is
-    the valuable part and must follow the account."""
+    an unclaimed legacy row CLAIMS that row instead of duplicating it, and
+    re-adding a soft-deleted wallet RESURRECTS it - its fill history (which
+    reaches beyond Polymarket's 10k-row API window) is the valuable part and
+    must follow the account."""
     with get_db() as conn:
         if owner_id is not None:
             legacy = conn.execute(
-                "SELECT id FROM trader_accounts WHERE wallet=? AND owner_id IS NULL",
-                (wallet,)).fetchone()
+                "SELECT id FROM trader_accounts WHERE wallet=? AND owner_id IS NULL "
+                "AND deleted=0", (wallet,)).fetchone()
             if legacy:
                 conn.execute("UPDATE trader_accounts SET owner_id=?, label=? WHERE id=?",
                              (owner_id, label, legacy["id"]))
                 return dict(conn.execute("SELECT * FROM trader_accounts WHERE id=?",
                                          (legacy["id"],)).fetchone())
+        # a deleted row for this wallet (any owner) comes back to life under
+        # the new owner - the richest fill history first, nothing orphaned
+        dead = conn.execute(
+            "SELECT a.id FROM trader_accounts a "
+            "LEFT JOIN trader_fills f ON f.account_id = a.id "
+            "WHERE a.wallet=? AND a.deleted=1 "
+            "GROUP BY a.id ORDER BY COUNT(f.id) DESC LIMIT 1",
+            (wallet,)).fetchone()
+        if dead:
+            conn.execute("UPDATE trader_accounts SET deleted=0, owner_id=?, label=? "
+                         "WHERE id=?", (owner_id, label, dead["id"]))
+            return dict(conn.execute("SELECT * FROM trader_accounts WHERE id=?",
+                                     (dead["id"],)).fetchone())
         conn.execute(
             "INSERT OR IGNORE INTO trader_accounts (wallet, label, owner_id) VALUES (?, ?, ?)",
             (wallet, label, owner_id))
         r = conn.execute(
-            "SELECT * FROM trader_accounts WHERE wallet=? AND owner_id IS ?",
+            "SELECT * FROM trader_accounts WHERE wallet=? AND owner_id IS ? AND deleted=0",
             (wallet, owner_id)).fetchone()
         return dict(r)
 
 
 def delete_account(acct_id: int) -> None:
+    """SOFT delete: the row hides from every list but its fills and tags
+    stay. Re-adding the same wallet resurrects everything. The old hard
+    delete destroyed weeks of shared fill history in one click (Aug 24)."""
     with get_db() as conn:
-        conn.execute("DELETE FROM trader_fills WHERE account_id=?", (acct_id,))
-        conn.execute("DELETE FROM trader_tags WHERE account_id=?", (acct_id,))
-        conn.execute("DELETE FROM trader_accounts WHERE id=?", (acct_id,))
+        conn.execute("UPDATE trader_accounts SET deleted=1 WHERE id=?", (acct_id,))
 
 
 def touch_sync(acct_id: int) -> None:
