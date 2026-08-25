@@ -107,6 +107,30 @@ app.include_router(football_router)
 app.include_router(backtest_router)
 
 
+# Heap forensics for the Aug 25 memory creep: token-guarded (the auth
+# middleware covers /api like every other route). Cheap enough to call by
+# hand; tracemalloc detail appears only when PYTHONTRACEMALLOC is set in
+# the service environment.
+@app.get("/api/debug/heap")
+def debug_heap():
+    import gc
+    import tracemalloc
+    from collections import Counter
+
+    objs = gc.get_objects()
+    top = Counter(type(o).__name__ for o in objs).most_common(40)
+    out = {"objects": len(objs), "topTypes": top,
+           "tracemalloc": None}
+    if tracemalloc.is_tracing():
+        snap = tracemalloc.take_snapshot()
+        stats = snap.statistics("lineno")[:25]
+        out["tracemalloc"] = [
+            {"site": str(st.traceback[0]), "mb": round(st.size / 1e6, 1),
+             "count": st.count} for st in stats]
+        out["tracedMB"] = round(tracemalloc.get_traced_memory()[0] / 1e6, 1)
+    return out
+
+
 # The frontend uses real paths (not hashes), so a page opened directly at
 # /screener or /market/12 must return the app shell instead of a 404.
 @app.get("/screener")
