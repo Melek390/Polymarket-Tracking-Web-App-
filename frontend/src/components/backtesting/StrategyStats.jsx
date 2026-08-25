@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { T, card, monoText, btn } from "../../theme.js";
 import EquityLine from "./EquityLine.jsx";
 
@@ -21,6 +22,10 @@ function Kpi({ title, value, color }) {
 
 export default function StrategyStats({ stats, onDownload, downloading }) {
   const s = stats;
+  // the sell-at-a-level ladder folds out of the side row on a "+" (client:
+  // "if he takes these params, what if he sold at a fixed level instead of
+  // waiting for settlement")
+  const [ladderOpen, setLadderOpen] = useState(false);
   // the headline money strip lives right above the equity curve (the client
   // reads them together), not at the top of the panel
   const kpiRow = (
@@ -322,9 +327,23 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
             </tr>
           </thead>
           <tbody>
-            {s.bySituation.map((row) => (
+            {s.bySituation.map((row) => {
+              const isLadderRow = !!(s.sellLadder && s.sellLadder.length
+                && row.label.includes("trailing"));
+              const showSold = s.bySituation.some((r) => r.pnl != null && r.priced != null);
+              return [(
               <tr key={row.label} style={{ borderTop: `1px solid ${T.border}` }}>
-                <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>{row.label}</td>
+                <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>
+                  {row.label}
+                  {isLadderRow && (
+                    <button onClick={() => setLadderOpen((v) => !v)}
+                      title="What if you sold at a fixed level instead of waiting for settlement?"
+                      style={{ ...btn.outline, fontSize: 11, fontWeight: 700,
+                        padding: "1px 8px", marginLeft: 8 }}>
+                      {ladderOpen ? "−" : "+"} sell levels
+                    </button>
+                  )}
+                </td>
                 <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>{row.spots}</td>
                 <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
                   fontWeight: 700, color: row.winRate >= 0.5 ? T.green : T.red }}>
@@ -349,60 +368,53 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
                   </td>
                 )}
               </tr>
-            ))}
+              ),
+              ...(isLadderRow && ladderOpen ? [
+                ...s.sellLadder.map((lr) => (
+                  <tr key={lr.label} style={{ borderTop: `1px solid ${T.soft}`,
+                    background: T.soft }}>
+                    <td style={{ fontFamily: T.ui, fontSize: 12.5, color: T.sub,
+                      padding: "5px 12px 5px 28px" }}>
+                      ↳ {lr.label} instead of holding
+                    </td>
+                    <td style={{ ...monoText, fontSize: 12.5, padding: "5px 12px",
+                      textAlign: "right", color: T.sub }}>{lr.spots}</td>
+                    <td style={{ ...monoText, fontSize: 12.5, padding: "5px 12px",
+                      textAlign: "right", fontWeight: 700,
+                      color: lr.winRate >= 0.5 ? T.green : T.red }}
+                      title="share of trades that actually got out at this level">
+                      {lr.winRate == null ? "—" : pct(lr.winRate)}
+                    </td>
+                    {showSold && (
+                      <td style={{ ...monoText, fontSize: 12, padding: "5px 12px",
+                        textAlign: "right", color: T.faint }}
+                        title="how many of the trades sold at this level">
+                        {lr.sold} sold
+                      </td>
+                    )}
+                    <td style={{ ...monoText, fontSize: 12.5, padding: "5px 12px",
+                      textAlign: "right", fontWeight: 700,
+                      color: lr.pnl >= 0 ? T.green : T.red }}>
+                      {usd(lr.pnl)}
+                    </td>
+                  </tr>
+                )),
+                (
+                  <tr key="ladder-note" style={{ background: T.soft }}>
+                    <td colSpan={99} style={{ fontSize: 11, color: T.faint,
+                      padding: "4px 12px 8px 28px" }}>
+                      A winner's price must pass every level on its way to $1, so wins
+                      always sell; a loss sells only if its recorded price path touched
+                      the level. Unsold trades ride to settlement.
+                    </td>
+                  </tr>
+                ),
+              ] : []),
+              ];
+            })}
           </tbody>
         </table>
       </div>
-
-      {/* the client's price ladder: a limit sell at each level — a game the
-          team went on to WIN always fills on the way to $1; unfilled trades
-          ride to settlement as a loss */}
-      {s.sellLadder && s.sellLadder.length > 0 && (
-        <>
-          <div style={{ ...lbl, margin: "14px 0 4px" }}>
-            What if you sold at a fixed price? — same entries, a limit sell at each level
-          </div>
-          <div style={{ ...card, overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {["Sell level", "Spots", "Sold there", "Win rate (sold)", "P&L"].map((h, i) => (
-                    <th key={h} style={{ ...lbl, padding: "8px 12px",
-                      textAlign: i === 0 ? "left" : "right" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {s.sellLadder.map((row) => (
-                  <tr key={row.label} style={{ borderTop: `1px solid ${T.border}` }}>
-                    <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>{row.label}</td>
-                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
-                      {row.spots}
-                    </td>
-                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
-                      {row.sold}
-                    </td>
-                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
-                      fontWeight: 700, color: row.winRate >= 0.5 ? T.green : T.red }}>
-                      {row.winRate == null ? "—" : pct(row.winRate)}
-                    </td>
-                    <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
-                      fontWeight: 700, color: row.pnl >= 0 ? T.green : T.red }}>
-                      {usd(row.pnl)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ fontSize: 11, color: T.faint, marginTop: 4 }}>
-            A winner's price must pass every level on its way to $1, so wins always
-            sell; a loss sells only if its recorded price path touched the level.
-            Unsold trades ride to settlement. "Win rate (sold)" = share of trades
-            that got out at the level.
-          </div>
-        </>
-      )}
 
       {/* the money, in its own table (client: keep the outcome tables clean).
           P&L per variant over the PRICED games only, then how far the backed
