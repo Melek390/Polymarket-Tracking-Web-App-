@@ -942,11 +942,19 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
     # always show the discount actually typed in the params)
     comparison = []
     ah, ab = _aggregate(hold_res), _aggregate(bounce_res)
-    comparison.append({"label": f"Discount ≥{discount:g}¢ — A: hold to end",
+    # the headline KPIs and equity curve come from the saved exit mode's row
+    # — the page marks and bolds it so the source of the main display is
+    # never a guess
+    a_saved = mode == "hold"
+    comparison.append({"label": ("(saved) " if a_saved else "")
+                       + f"Discount ≥{discount:g}¢ — A: hold to end",
+                       "saved": a_saved,
                        "spots": ah["spots"], "wins": ah["wins"],
                        "winRate": ah["winRate"], "pnl": ah["pnl"],
                        "feesPaid": ah["feesPaid"]})
-    comparison.append({"label": f"Discount ≥{discount:g}¢ — B: sell +{bounce_c:g}¢ bounce",
+    comparison.append({"label": ("" if a_saved else "(saved) ")
+                       + f"Discount ≥{discount:g}¢ — B: sell +{bounce_c:g}¢ bounce",
+                       "saved": not a_saved,
                        "spots": ab["spots"], "wins": ab["wins"],
                        "winRate": ab["winRate"], "pnl": ab["pnl"],
                        "feesPaid": ab["feesPaid"]})

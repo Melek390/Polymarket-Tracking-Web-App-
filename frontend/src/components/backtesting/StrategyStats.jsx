@@ -264,7 +264,8 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
                 </thead>
                 <tbody>
                   {s.comparison.map((row) => (
-                    <tr key={row.label} style={{ borderTop: `1px solid ${T.border}` }}>
+                    <tr key={row.label} style={{ borderTop: `1px solid ${T.border}`,
+                      ...(row.saved ? { fontWeight: 700 } : {}) }}>
                       <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>{row.label}</td>
                       <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>{row.spots}</td>
                       <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>{row.wins}</td>
