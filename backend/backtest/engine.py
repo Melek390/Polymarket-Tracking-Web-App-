@@ -960,9 +960,11 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
                            "feesPaid": agg["feesPaid"]})
 
     # ---- bounce diagnostics over the saved entries -----------------------
+    # one row: the bounce target actually typed in the params (the 5/8/10
+    # sweep was dropped Aug 25 with the discount sweep, same reasoning)
     bounce_stats = []
     evaluable = [(sp, fv) for sp, fv in chosen]
-    for target in (5.0, 8.0, 10.0):
+    for target in (bounce_c,):
         hits = wins_hit = losses_hit = n_won = n_lost = 0
         pnl_b, priced_b = 0.0, 0
         for sp, _fv in evaluable:
