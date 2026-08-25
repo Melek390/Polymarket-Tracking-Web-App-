@@ -14,23 +14,25 @@ const numField = {
 };
 const lbl = { fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: T.sub };
 
-function Num({ value, onChange, step = 0.5, min = 0 }) {
+function Num({ value, onChange, step = 0.5, min = 0, disabled = false }) {
   return (
     <input
-      type="number" value={value} step={step} min={min}
+      type="number" value={value} step={step} min={min} disabled={disabled}
       onChange={(e) => onChange(Number(e.target.value))}
-      style={numField}
+      style={{ ...numField, ...(disabled ? { opacity: 0.4, cursor: "not-allowed" } : {}) }}
     />
   );
 }
 
-function Choice({ value, options, onChange }) {
+function Choice({ value, options, onChange, disabled = false }) {
   return (
-    <span style={{ display: "inline-flex", gap: 4 }}>
+    <span style={{ display: "inline-flex", gap: 4, opacity: disabled ? 0.4 : 1 }}>
       {options.map(([v, label]) => (
-        <button key={String(v)} onClick={() => onChange(v)}
+        <button key={String(v)} disabled={disabled}
+          onClick={() => onChange(v)}
           style={{ ...(value === v ? btn.primary : btn.outline),
-            fontSize: 12, padding: "5px 10px" }}>
+            fontSize: 12, padding: "5px 10px",
+            ...(disabled ? { cursor: "not-allowed" } : {}) }}>
           {label}
         </button>
       ))}
@@ -153,13 +155,17 @@ function FairvalueFields({ p, set }) {
           options={[["hold", "A: hold to settlement"], ["bounce", "B: sell the bounce"]]}
           onChange={(v) => set("exit.mode", v)} />
       </Row>
-      <Row label="Bounce target (¢ above entry)">
-        <Choice value={String(p.exit.bounceCents)}
+      <Row label="Bounce target (¢ above entry)"
+        hint={p.exit.mode === "hold"
+          ? "headline holds to settlement — these only shape the B rows in the comparison"
+          : undefined}>
+        <Choice value={String(p.exit.bounceCents)} disabled={p.exit.mode === "hold"}
           options={[["5", "+5¢"], ["8", "+8¢"], ["10", "+10¢"]]}
           onChange={(v) => set("exit.bounceCents", Number(v))} />
       </Row>
       <Row label="Bounce window (half-innings)">
         <Num value={p.exit.horizonHalfInnings} step={1} min={1}
+          disabled={p.exit.mode === "hold"}
           onChange={(v) => set("exit.horizonHalfInnings", Math.min(6, v))} />
       </Row>
       <div style={{ fontSize: 11, color: T.faint, marginTop: 6, lineHeight: 1.5 }}>
