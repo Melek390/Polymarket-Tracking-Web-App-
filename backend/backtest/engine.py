@@ -966,7 +966,17 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
     evaluable = [(sp, fv) for sp, fv in chosen]
     for target in (5.0, 8.0, 10.0):
         hits = wins_hit = losses_hit = n_won = n_lost = 0
+        pnl_b, priced_b = 0.0, 0
         for sp, _fv in evaluable:
+            # the money question: sell at THIS bounce (horizon exit when it
+            # never comes) — the full B strategy at this target, same
+            # slippage/fees/delay as everywhere else
+            r = _trade(sp, {"targetCents": target,
+                            "horizonHalfInnings": horizon,
+                            "giveUp": "horizon"}, ex, stake)
+            if r is not None:
+                pnl_b += r["pnl"]
+                priced_b += 1
             hw = settlements.get(sp["market_id"])
             if hw is None:
                 continue
@@ -985,6 +995,7 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
             "label": f"Bounced +{target:g}¢ within {horizon} half-innings",
             "games": hits, "pct": round(hits / n * 100, 1) if n else None,
             "inEventualWins": wins_hit, "inEventualLosses": losses_hit,
+            "pnl": round(pnl_b, 2), "pnlSpots": priced_b,
         })
 
     def bucket(lbl, pred):

@@ -173,7 +173,9 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
               <thead>
                 <tr>
                   {["Event", "Entries", "% of entries", "In eventual wins",
-                    "In eventual losses"].map((h, i) => (
+                    "In eventual losses",
+                    ...(s.bounceStats.some((r) => r.pnl != null)
+                      ? ["P&L selling this bounce"] : [])].map((h, i) => (
                     <th key={h} style={{ ...lbl, padding: "8px 12px",
                       textAlign: i === 0 ? "left" : "right" }}>{h}</th>
                   ))}
@@ -196,6 +198,14 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
                     <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
                       {row.inEventualLosses}
                     </td>
+                    {row.pnl != null && (
+                      <td title={`full B exit at this target over ${row.pnlSpots} priced entries — sell the bounce, or exit at the window's end when it never comes`}
+                        style={{ ...monoText, fontSize: 13, padding: "7px 12px",
+                          textAlign: "right", fontWeight: 700,
+                          color: row.pnl >= 0 ? T.green : T.red }}>
+                        {usd(row.pnl)}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
