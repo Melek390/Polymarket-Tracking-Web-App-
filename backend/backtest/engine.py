@@ -937,23 +937,21 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
                                      if avg is not None and fv is not None else None),
                     })
 
-    # ---- one knob at a time: discounts x both exits, then sides ----------
+    # ---- the saved discount, four ways: A, B, then home / away only ------
+    # (the 3/5/7/10 sweep was dropped Aug 25 on the client's ask — the rows
+    # always show the discount actually typed in the params)
     comparison = []
-    for disc in (3.0, 5.0, 7.0, 10.0):
-        pairs = entries_at(disc)
-        h, b = both_exits(pairs)
-        tag = " (saved)" if abs(disc - discount) < 1e-9 else ""
-        ah, ab = _aggregate(h), _aggregate(b)
-        comparison.append({"label": f"Discount ≥{disc:g}¢ — A: hold to end{tag}",
-                           "spots": ah["spots"], "wins": ah["wins"],
-                           "winRate": ah["winRate"], "pnl": ah["pnl"],
-                           "feesPaid": ah["feesPaid"]})
-        comparison.append({"label": f"Discount ≥{disc:g}¢ — B: sell +{bounce_c:g}¢ bounce{tag}",
-                           "spots": ab["spots"], "wins": ab["wins"],
-                           "winRate": ab["winRate"], "pnl": ab["pnl"],
-                           "feesPaid": ab["feesPaid"]})
-    for lbl, ws in (("HOME side only (saved discount)", "home"),
-                    ("AWAY side only (saved discount)", "away")):
+    ah, ab = _aggregate(hold_res), _aggregate(bounce_res)
+    comparison.append({"label": f"Discount ≥{discount:g}¢ — A: hold to end",
+                       "spots": ah["spots"], "wins": ah["wins"],
+                       "winRate": ah["winRate"], "pnl": ah["pnl"],
+                       "feesPaid": ah["feesPaid"]})
+    comparison.append({"label": f"Discount ≥{discount:g}¢ — B: sell +{bounce_c:g}¢ bounce",
+                       "spots": ab["spots"], "wins": ab["wins"],
+                       "winRate": ab["winRate"], "pnl": ab["pnl"],
+                       "feesPaid": ab["feesPaid"]})
+    for lbl, ws in ((f"HOME side only (≥{discount:g}¢, headline exit)", "home"),
+                    (f"AWAY side only (≥{discount:g}¢, headline exit)", "away")):
         pairs = entries_at(discount, want_side=ws)
         h, b = both_exits(pairs)
         agg = _aggregate(h if mode == "hold" else b)
@@ -1020,8 +1018,9 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
                if chosen else None)
     out = {
         **overall,
-        "comparisonTitle": ("A vs B at every discount — hold to settlement "
-                            "against selling the first bounce"),
+        "comparisonTitle": (f"A vs B at your ≥{discount:g}¢ discount "
+                            "— hold to settlement against selling the "
+                            "first bounce"),
         "comparison": comparison,
         "bySituation": by_situation,
         "fairTable": {
