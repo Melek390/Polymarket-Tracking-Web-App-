@@ -238,12 +238,24 @@ def start():
         def trim():
             import ctypes
             try:
+                rss0 = _rss_mb()
                 ctypes.CDLL("libc.so.6").malloc_trim(0)
+                freed = rss0 - _rss_mb()
+                if freed >= 20:
+                    log.info("malloc_trim: released %dMB (rss %d -> %dMB)",
+                             freed, rss0, rss0 - freed)
             except Exception:      # noqa: BLE001 — never let hygiene crash a job
                 pass
         await asyncio.to_thread(trim)
+
+    def _rss_mb() -> int:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS"):
+                    return int(line.split()[1]) // 1024
+        return 0
     scheduler.add_job(
-        _malloc_trim, "interval", minutes=15, id="malloc-trim",
+        _malloc_trim, "interval", minutes=5, id="malloc-trim",
         next_run_time=datetime.now(timezone.utc) + timedelta(seconds=120),
     )
     # nightly dump of the un-recoverable tables (tracked-account history,
