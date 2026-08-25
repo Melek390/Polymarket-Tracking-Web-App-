@@ -1012,15 +1012,64 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
         return {"label": lbl, "spots": agg["spots"], "winRate": agg["winRate"],
                 "pnl": agg["pnl"], "priced": agg["spots"]}
 
+    # side rows follow the setting: both -> ONE combined row (the client
+    # asked not to see an empty row for a side the params exclude)
+    if side == "both":
+        side_rows = (bucket("Both sides trailing (home + away)", lambda x: True),)
+    elif side == "home":
+        side_rows = (bucket("HOME side trailing", lambda x: x["is_home"]),)
+    else:
+        side_rows = (bucket("AWAY side trailing", lambda x: not x["is_home"]),)
+
     by_situation = [b for b in (
         *[bucket(f"Down {d}", lambda x, d=d: x["deficit"] == d)
           for d in sorted(deficits)],
-        bucket("HOME side trailing", lambda x: x["is_home"]),
-        bucket("AWAY side trailing", lambda x: not x["is_home"]),
+        *side_rows,
         bucket("Entry below 20¢", lambda x: x["entry"] < 20),
         bucket("Entry 20–35¢", lambda x: 20 <= x["entry"] < 35),
         bucket("Entry 35¢+", lambda x: x["entry"] >= 35),
     ) if b["spots"] > 0]
+
+    # ---- the client's price ladder: what if you SOLD at 60..95c? ---------
+    # A limit sell at P: a game the team went on to WIN must cross P on its
+    # way to 100, so it always fills; a loss fills only if the recorded
+    # 6-half-inning path touched P (later spikes are invisible to us, so
+    # fills on losses are under-counted — the conservative direction).
+    # Unfilled trades ride to settlement as a full loss. Win rate = filled.
+    sell_ladder = []
+    slip = ex["slippageCentsPerSide"]
+    for target in (60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0, 95.0):
+        n = filled = 0
+        pnl_t = 0.0
+        for sp, _fv in evaluable:
+            hw = settlements.get(sp["market_id"])
+            if hw is None:
+                continue
+            won = bool(hw) if sp["trailing_is_home"] else not hw
+            path = sp["path"]
+            top = max((path.get(str(k), {}).get("max") or 0)
+                      for k in range(1, 7)) if path else 0
+            n += 1
+            entry_exec = sp["entry0"] + slip
+            shares = (stake["usd"] / (entry_exec / 100.0)
+                      if stake["mode"] == "flat_usd" else 100.0)
+            fee = (_taker_fee(entry_exec, shares)
+                   if ex.get("feeMode", "taker_both") in ("taker_both", "maker_exit")
+                   else 0.0)
+            if won or top >= target:
+                exit_exec = max(0.0, target - slip)
+                if ex.get("feeMode") == "taker_both":
+                    fee += _taker_fee(exit_exec, shares)
+                filled += 1
+            else:
+                exit_exec = 0.0
+            pnl_t += shares * (exit_exec - entry_exec) / 100.0 - fee
+        sell_ladder.append({
+            "label": f"Sold at {target:g}¢",
+            "spots": n, "sold": filled,
+            "winRate": round(filled / n, 4) if n else None,
+            "pnl": round(pnl_t, 2),
+        })
 
     unsettled = sum(1 for sp, _ in chosen
                     if settlements.get(sp["market_id"]) is None)
@@ -1033,6 +1082,12 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
                             "first bounce"),
         "comparison": comparison,
         "bySituation": by_situation,
+        "bySituationTitle": (
+            f"Where it wins — by situation (≥{discount:g}¢ discount, "
+            f"down {'/'.join(str(d) for d in sorted(deficits))}, "
+            f"innings 1–{max_inning}, {side} side, "
+            f"{'hold' if mode == 'hold' else f'+{bounce_c:g}¢ bounce'} exit)"),
+        "sellLadder": sell_ladder,
         "fairTable": {
             "rows": fair_rows,
             "seasons": list(fair_seasons),
