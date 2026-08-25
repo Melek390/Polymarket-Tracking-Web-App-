@@ -21,9 +21,11 @@ function Kpi({ title, value, color }) {
 
 export default function StrategyStats({ stats, onDownload, downloading }) {
   const s = stats;
-  return (
-    <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.border}`, background: T.soft }}>
-      <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "center" }}>
+  // the headline money strip lives right above the equity curve (the client
+  // reads them together), not at the top of the panel
+  const kpiRow = (
+      <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "center",
+        margin: "14px 0 10px" }}>
         <Kpi title="Win rate" value={pct(s.winRate)} color={s.winRate >= 0.5 ? T.green : T.red} />
         {/* when only part of the sample has prices, the P&L covers THAT part
             — say so in the label rather than letting it read as all of it */}
@@ -58,7 +60,9 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
           </button>
         )}
       </div>
-
+  );
+  return (
+    <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.border}`, background: T.soft }}>
       {/* gold = live-collected 1-10s ticks, silver = minute bars backfilled
           after the fact — never silently mixed (the Aug 6 rule) */}
       {s.segments && (
@@ -224,7 +228,8 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
         </div>
       )}
 
-      <div style={{ ...lbl, margin: "14px 0 4px" }}>Equity curve (cumulative P&L)</div>
+      {kpiRow}
+      <div style={{ ...lbl, margin: "0 0 4px" }}>Equity curve (cumulative P&L)</div>
       <div style={{ ...card, padding: "8px 10px" }}>
         <EquityLine points={s.equity} />
       </div>
