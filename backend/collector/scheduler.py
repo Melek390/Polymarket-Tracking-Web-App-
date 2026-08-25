@@ -230,6 +230,22 @@ def start():
             backtest_bottom8.run_batch, "interval", hours=6, id="backtest-bottom8",
             next_run_time=datetime.now(timezone.utc) + timedelta(seconds=300),
         )
+    # every 15 min, hand glibc's freed pages back to the OS. The Aug 25
+    # memory creep is fragmentation, not a Python leak: ~100k live objects
+    # under 800MB+ of anonymous heap — big JSON parse buffers churn between
+    # long-lived allocations and the freed pages never return on their own.
+    async def _malloc_trim():
+        def trim():
+            import ctypes
+            try:
+                ctypes.CDLL("libc.so.6").malloc_trim(0)
+            except Exception:      # noqa: BLE001 — never let hygiene crash a job
+                pass
+        await asyncio.to_thread(trim)
+    scheduler.add_job(
+        _malloc_trim, "interval", minutes=15, id="malloc-trim",
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=120),
+    )
     # nightly dump of the un-recoverable tables (tracked-account history,
     # users, strategy params) - the Aug 24 delete incident had nothing to
     # restore from. A few MB gzipped; ticks are deliberately excluded.
