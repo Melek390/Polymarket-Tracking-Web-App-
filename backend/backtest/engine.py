@@ -1159,6 +1159,33 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
                 "alt_bounce_pnl": b["pnl"] if b else None,
                 "data_quality": "gold" if sp["gold"] else "silver",
             })
+            # the sell-ladder audit trail: for each fixed level, would THIS
+            # trade have sold there, and for how much — same math as the
+            # sellLadder table, so its totals are reproducible per row
+            row = out["trades"][-1]
+            path_top = (max((sp["path"].get(str(k), {}).get("max") or 0)
+                            for k in range(1, 7)) if sp["path"] else 0)
+            for lt in (60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0, 95.0):
+                if h is None:
+                    row[f"sold_at_{lt:g}c"] = None
+                    row[f"pnl_if_sold_{lt:g}c"] = None
+                    continue
+                entry_exec = sp["entry0"] + slip
+                shares = (stake["usd"] / (entry_exec / 100.0)
+                          if stake["mode"] == "flat_usd" else 100.0)
+                fee = (_taker_fee(entry_exec, shares)
+                       if ex.get("feeMode", "taker_both") in ("taker_both", "maker_exit")
+                       else 0.0)
+                sold = h["win"] or path_top >= lt
+                if sold:
+                    exit_exec = max(0.0, lt - slip)
+                    if ex.get("feeMode") == "taker_both":
+                        fee += _taker_fee(exit_exec, shares)
+                else:
+                    exit_exec = 0.0
+                row[f"sold_at_{lt:g}c"] = "yes" if sold else "no"
+                row[f"pnl_if_sold_{lt:g}c"] = round(
+                    shares * (exit_exec - entry_exec) / 100.0 - fee, 2)
     return out
 
 

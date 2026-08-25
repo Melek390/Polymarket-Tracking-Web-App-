@@ -173,7 +173,8 @@ export default function StrategyCard({ strategy, defaults, defaultOpen = false }
         </div>
       )}
       {open && stats && stats !== "running" && (
-        <StrategyStats stats={stats} onDownload={downloadSpots} downloading={downloading} />
+        <StrategyStats stats={stats} onDownload={downloadSpots} downloading={downloading}
+          fetchTrades={async () => (await runBacktest(params, true)).trades || []} />
       )}
 
       {editing && (

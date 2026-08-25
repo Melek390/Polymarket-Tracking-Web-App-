@@ -1,6 +1,21 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { T, card, monoText, btn } from "../../theme.js";
 import EquityLine from "./EquityLine.jsx";
+
+// which trades belong to a by-situation row, from its label (fairvalue only —
+// its trade rows carry these fields)
+function situationFilter(label) {
+  const m = label.match(/^Down (\d)/);
+  if (m) return (t) => t.reason_deficit === `down ${m[1]}`;
+  if (label.startsWith("HOME")) return (t) => t.bought_side === "home";
+  if (label.startsWith("AWAY")) return (t) => t.bought_side === "away";
+  if (label.startsWith("Both")) return () => true;
+  if (label.includes("below 20")) return (t) => t.reason_market_price_cents < 20;
+  if (label.includes("20–35")) return (t) => t.reason_market_price_cents >= 20
+    && t.reason_market_price_cents < 35;
+  if (label.includes("35¢+")) return (t) => t.reason_market_price_cents >= 35;
+  return null;
+}
 
 // The stats block under an expanded strategy: KPI row, equity curve, and the
 // per-situation breakdown the client asked for ("79% on home teams at score X").
@@ -20,12 +35,55 @@ function Kpi({ title, value, color }) {
   );
 }
 
-export default function StrategyStats({ stats, onDownload, downloading }) {
+export default function StrategyStats({ stats, onDownload, downloading, fetchTrades }) {
   const s = stats;
   // the sell-at-a-level ladder folds out of the side row on a "+" (client:
   // "if he takes these params, what if he sold at a fixed level instead of
   // waiting for settlement")
   const [ladderOpen, setLadderOpen] = useState(false);
+
+  // per-row CSVs: one trades fetch per run, cached; each row filters it
+  const tradesRef = useRef(null);
+  const [rowBusy, setRowBusy] = useState(null);
+  useEffect(() => { tradesRef.current = null; }, [stats]);
+
+  async function downloadRow(label, filter, colPick) {
+    if (!fetchTrades) return;
+    setRowBusy(label);
+    try {
+      if (!tradesRef.current) tradesRef.current = await fetchTrades();
+      const rows = tradesRef.current.filter(filter);
+      let cols = [...new Set(rows.flatMap((t) => Object.keys(t)))];
+      if (colPick) cols = cols.filter(colPick);
+      const esc = (v) => {
+        if (v == null) return "";
+        const t = typeof v === "boolean" ? (v ? "yes" : "no") : String(v);
+        return /[",\n]/.test(t) ? `"${t.replaceAll('"', '""')}"` : t;
+      };
+      const csv = [cols.join(","),
+        ...rows.map((t) => cols.map((c) => esc(t[c])).join(","))].join("\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob(["﻿" + csv],
+        { type: "text/csv;charset=utf-8" }));
+      a.download = `${label.replace(/[^a-z0-9]+/gi, "-").toLowerCase()
+        .replace(/^-+|-+$/g, "")}-trades.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } finally {
+      setRowBusy(null);
+    }
+  }
+
+  const DlRow = ({ label, filter, colPick, hint }) => (
+    <button onClick={() => downloadRow(label, filter, colPick)}
+      disabled={rowBusy === label}
+      title={hint || "Download this row's trades as a CSV"}
+      style={{ ...btn.outline, fontSize: 10, fontWeight: 700,
+        padding: "1px 7px", marginLeft: 7,
+        opacity: rowBusy === label ? 0.5 : 1 }}>
+      {rowBusy === label ? "…" : "⬇"}
+    </button>
+  );
   // the headline money strip lives right above the equity curve (the client
   // reads them together), not at the top of the panel
   const kpiRow = (
@@ -343,6 +401,10 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
                       {ladderOpen ? "−" : "+"} sell levels
                     </button>
                   )}
+                  {s.sellLadder && fetchTrades && situationFilter(row.label) && (
+                    <DlRow label={row.label} filter={situationFilter(row.label)}
+                      hint="Every trade behind this row, as a CSV" />
+                  )}
                 </td>
                 <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>{row.spots}</td>
                 <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
@@ -376,6 +438,18 @@ export default function StrategyStats({ stats, onDownload, downloading }) {
                     <td style={{ fontFamily: T.ui, fontSize: 12.5, color: T.sub,
                       padding: "5px 12px 5px 28px" }}>
                       ↳ {lr.label} instead of holding
+                      {fetchTrades && (() => {
+                        // "Sold at 60¢" -> keep the core columns plus THIS
+                        // level's sold/pnl pair, drop the other levels
+                        const lvl = (lr.label.match(/([\d.]+)¢/) || [])[1];
+                        return lvl ? (
+                          <DlRow label={lr.label} filter={() => true}
+                            colPick={(c) => !/^(sold_at_|pnl_if_sold_)/.test(c)
+                              || c === `sold_at_${lvl}c`
+                              || c === `pnl_if_sold_${lvl}c`}
+                            hint="All entries with whether each sold at this level and for how much" />
+                        ) : null;
+                      })()}
                     </td>
                     <td style={{ ...monoText, fontSize: 12.5, padding: "5px 12px",
                       textAlign: "right", color: T.sub }}>{lr.spots}</td>
