@@ -1108,22 +1108,56 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
         "exitMode": mode,
     }
     if include_trades:
+        # the client's spreadsheet: when, who, every reason we entered (one
+        # per column), how we got out, at what price, and the money — for
+        # BOTH exits, with the saved one called out
+        names = store.game_names()
         out["trades"] = []
         for sp, fv in chosen:
             h = hold_result(sp, fv)
             b = bounce_result(sp, fv)
+            g = names.get(sp["market_id"], {})
+            trailing_home = bool(sp["trailing_is_home"])
+            team = (g.get("home") if trailing_home else g.get("away")) or (
+                "home team" if trailing_home else "away team")
+            rec = fair.get((sp["inning"], sp["next_half"], sp["deficit"],
+                            sp["trailing_is_home"]))
+            moment = ("end of top " if sp["next_half"] == "bottom"
+                      else "end of bottom ") + str(sp["inning"])
+            saved_r = h if mode == "hold" else b
+            if mode == "hold":
+                exit_where = (100.0 if h and h["win"] else 0.0) if h else None
+                exit_reason = (("settlement — team won" if h["win"]
+                                else "settlement — team lost") if h
+                               else "not settled yet")
+            else:
+                exit_where = b["exit"] if b else None
+                exit_reason = ((f"bounce target +{bounce_c:g}¢ hit" if b["win"]
+                                else f"window ended after {horizon} half-innings, "
+                                     "sold at market") if b else "no fill")
             out["trades"].append({
-                "ts": sp["ts"],
-                "state": f"{'home' if sp['trailing_is_home'] else 'away'} "
-                         f"down {sp['deficit']}, inning {sp['inning']} "
-                         f"({sp['next_half']} next)",
-                "side": "home" if sp["trailing_is_home"] else "away",
-                "entry_cents": sp["entry0"], "fair_pct": fv,
-                "edge_cents": round(fv - sp["entry0"], 1),
-                "hold_won": h["win"] if h else None,
-                "hold_pnl": h["pnl"] if h else None,
-                "bounce_won": b["win"] if b else None,
-                "bounce_pnl": b["pnl"] if b else None,
+                "date": str(sp["ts"])[:10],
+                "time_utc": str(sp["ts"])[11:19],
+                "game": g.get("slug"),
+                "away_team": g.get("away"), "home_team": g.get("home"),
+                "bought_team": team,
+                "bought_side": "home" if trailing_home else "away",
+                "entry_moment": moment,
+                "reason_deficit": f"down {sp['deficit']}",
+                "reason_market_price_cents": sp["entry0"],
+                "reason_historical_win_pct": fv,
+                "reason_discount_cents": round(fv - sp["entry0"], 1),
+                "reason_history_sample_games": rec[0] if rec else None,
+                "exit_rule": ("hold to settlement" if mode == "hold"
+                              else f"sell +{bounce_c:g}¢ bounce"),
+                "exit_reason": exit_reason,
+                "sold_at_cents": exit_where,
+                "won": saved_r["win"] if saved_r else None,
+                "pnl_usd": saved_r["pnl"] if saved_r else None,
+                "fees_usd": saved_r["fee"] if saved_r else None,
+                "alt_hold_pnl": h["pnl"] if h else None,
+                "alt_bounce_pnl": b["pnl"] if b else None,
+                "data_quality": "gold" if sp["gold"] else "silver",
             })
     return out
 

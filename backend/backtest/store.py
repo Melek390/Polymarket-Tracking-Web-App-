@@ -440,6 +440,16 @@ def insert_spots(rows: list[dict]):
             rows)
 
 
+def game_names() -> dict:
+    """{market_id: {slug, home, away}} for the trades CSV — who actually
+    played, not just a market id."""
+    with get_db() as conn:
+        return {r["market_id"]: {"slug": r["slug"], "home": r["mlb_home"],
+                                 "away": r["mlb_away"]}
+                for r in conn.execute(
+                    "SELECT market_id, slug, mlb_home, mlb_away FROM backtest_games")}
+
+
 def clear_spots(market_id: int):
     """Remove a game's spots before re-backfilling it, so a retry can never
     double-count."""
