@@ -169,7 +169,8 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
       )}
       {s.dateRange && (
         <div style={{ fontSize: 12, color: T.sub, marginTop: 10 }}>
-          Backtest window: <b>{s.dateRange.from}</b> → <b>{s.dateRange.to}</b>{" "}
+          Backtest window: <b>{s.dateRange.from}</b> → <b>{s.dateRange.to}</b>
+          {s.gamesTotal != null && <> · <b>{s.gamesTotal.toLocaleString("en-US")}</b> games</>}{" "}
           ({s.dateRange.days} day{s.dateRange.days === 1 ? "" : "s"} of recorded history)
         </div>
       )}

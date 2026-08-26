@@ -1132,6 +1132,7 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
             + (f" · {thin} spots skipped for thin history (<{_FAIR_MIN_SAMPLE} games)"
                if thin else "")),
         "gamesWithPrice": len(chosen),
+        "gamesTotal": len(chosen),
         "exitMode": mode,
     }
     if include_trades:
@@ -1410,6 +1411,7 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
             + "; in-game rows from the tick corpus)"),
         "warning": None,
         "dateRange": _window(r["ts"] for r in headline),
+        "gamesTotal": len(games),
         "coverageNote": (
             f"{len(games)} games with distinct scores ({real} real T-5 locks, "
             f"{len(games) - real} reconstructed) · {len(headline)} priced in "
