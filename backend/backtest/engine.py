@@ -1394,6 +1394,7 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
             ingame.setdefault(f"In-game, {state} — {grp}", []).append(r)
     ORDER = [f"In-game, {st} — innings {ig}" for st in ("behind", "tied", "ahead")
              for ig in ("1–3", "4–6", "7+")]
+    ingame_games = len({r["market_id"] for rows_ in ingame.values() for r in rows_})
     by_situation += [mk_bucket(k, ingame[k]) for k in ORDER if k in ingame]
 
     real = sum(1 for g in games if g["L"]["source"] != "reconstructed")
@@ -1408,7 +1409,8 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
             f"Where it wins — {which_word}-scored side "
             f"(T-5 entries {mp:g}–{xp:g}¢"
             + (f", score gap ≥{min_gap:g}" if min_gap else "")
-            + "; in-game rows from the tick corpus)"),
+            + f"; in-game rows: OUR tick recordings only — "
+            + f"{ingame_games} games)"),
         "warning": None,
         "dateRange": _window(r["ts"] for r in headline),
         "gamesTotal": len(games),
