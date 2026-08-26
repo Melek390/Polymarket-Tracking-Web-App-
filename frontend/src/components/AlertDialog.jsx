@@ -42,7 +42,13 @@ export default function AlertDialog({ sport, isMlb, hasDraw, row, existing, onSa
     { key: "home", label: row ? row.home : "Home team" },
     { key: "away", label: row ? row.away : "Away team" },
     ...(hasDrawMode ? [{ key: "draw", label: "Draw" }] : []),
-    ...(isMlbMode ? [{ key: "batting", label: "Currently batting" }] : []),
+    ...(isMlbMode ? [
+      { key: "batting", label: "Currently batting" },
+      // resolved per game from the LOCKED pre-game score (higher = favorite);
+      // games without a locked verdict simply cannot match
+      { key: "favorite", label: "★ Favorite (by our score)" },
+      { key: "underdog", label: "Underdog (by our score)" },
+    ] : []),
   ];
 
   function save() {

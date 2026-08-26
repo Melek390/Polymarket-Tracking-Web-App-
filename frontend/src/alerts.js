@@ -91,12 +91,18 @@ export function alertSummary(alert, isMlb) {
 // A short reason string for why the price rule matched — which side hit the
 // threshold — so an "Any team" alert isn't a mystery. Returns null if the
 // alert has no price rule or nothing is under the threshold.
-export function matchReason(alert, prices, live) {
+export function matchReason(alert, prices, live, favSide = null) {
   if (!alert) return null;
   let side = alert.side;
   if (side === "batting") side = live && live.status === "Live" ? live.batting : null;
+  let favWord = "";
+  if (side === "favorite" || side === "underdog") {
+    if (!favSide) return null;
+    favWord = side === "favorite" ? "favorite " : "underdog ";
+    side = side === "favorite" ? favSide : favSide === "home" ? "away" : "home";
+  }
   const sides = side && side !== "any" ? [side] : ["home", "away", "draw"];
-  const label = (s) => ({ home: "Home", away: "Away", draw: "Draw" }[s]);
+  const label = (s) => favWord + ({ home: "Home", away: "Away", draw: "Draw" }[s]);
   if (alert.priceMax != null) {
     const w = sides.find((s) => prices[s] != null && prices[s] <= alert.priceMax);
     if (w) return `${label(w)} ${prices[w]}¢ ≤ ${alert.priceMax}¢`;
@@ -138,9 +144,16 @@ export function matches(alert, ctx) {
     (alert.runDiff && alert.runDiff !== "any");
   if (wantsSituation && !isLive) return false;
 
-  // which side's price the alert watches ("batting" resolves live)
+  // which side's price the alert watches ("batting" resolves live;
+  // "favorite"/"underdog" resolve from the game's LOCKED pre-game score —
+  // no locked verdict means there is no favorite, so nothing can match)
   let side = alert.side;
   if (side === "batting") side = isLive ? live.batting : null;
+  if (side === "favorite" || side === "underdog") {
+    if (!ctx.favSide) return false;
+    side = side === "favorite" ? ctx.favSide
+      : ctx.favSide === "home" ? "away" : "home";
+  }
 
   if (alert.priceMax != null) {
     const under = (p) => p != null && p <= alert.priceMax;

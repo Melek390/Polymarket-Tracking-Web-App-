@@ -68,6 +68,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   const [noteEdit, setNoteEdit] = useState(null); // slug being edited
   const [noteDraft, setNoteDraft] = useState("");
   const [favorites, setFavorites] = useState({}); // gamePk -> Clear Favorite verdict
+  const favRef = useRef({}); // mirror for the alert poll (avoids stale closures)
   const [comeback, setComeback] = useState({}); // gamePk -> Comeback Setup trigger
   const [cbConfigOpen, setCbConfigOpen] = useState(false);
   const comebackSeen = useRef(new Set()); // trigger ids already announced
@@ -237,10 +238,16 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
       // Preview (incl. warmup) or a kickoff still in the future = not started
       const notStarted = live ? live.status === "Preview"
         : (r.kickoff ? r.kickoff > Date.now() : false);
-      const hit = rowAlerts.find((a) => matches(a, { prices, live, over, notStarted }));
+      // which side is the locked-score favorite, for "favorite"/"underdog"
+      // alerts (null until the verdict locks — those alerts stay quiet)
+      const fv = favRef.current[r.gamePk];
+      const favSide = fv?.locked && fv.home?.total != null && fv.away?.total != null
+        ? (fv.favorite || (fv.home.total >= fv.away.total ? "home" : "away"))
+        : null;
+      const hit = rowAlerts.find((a) => matches(a, { prices, live, over, notStarted, favSide }));
       const m = !!hit;
       if (m && !st.matched && !st.acked) {
-        const reason = matchReason(hit, prices, live);
+        const reason = matchReason(hit, prices, live, favSide);
         fired.push({
           text: `${r.away} @ ${r.home} matches your alert${reason ? ` · ${reason}` : ""}`,
           type: soundType(hit),
@@ -355,6 +362,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
           batch.forEach((r, j) => {
             if (res[j].status === "fulfilled") next[r.gamePk] = res[j].value;
           });
+          favRef.current = next;
           return next;
         });
       }
