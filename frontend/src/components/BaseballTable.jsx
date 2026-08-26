@@ -707,19 +707,29 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                     )}
                     {away} @ {home}
                     {/* the locked pre-game scores, one quiet line under the
-                        game name (client asked for compact, not a card) */}
-                    {fav?.locked && fav.favorite
-                      && fav.home?.total != null && fav.away?.total != null && (
-                      <div title={favTip}
-                        style={{ fontFamily: T.ui, fontSize: 10, fontWeight: 400,
-                          color: T.sub, cursor: "help" }}>
-                        <span style={{ color: "#D97706", fontWeight: 700 }}>★</span>{" "}
-                        {fav[`${fav.favorite}_name`]}{" "}
-                        <b>{fav[fav.favorite].total}</b> favorite ·{" "}
-                        {fav[`${fav.favorite === "home" ? "away" : "home"}_name`]}{" "}
-                        <b>{fav[fav.favorite === "home" ? "away" : "home"].total}</b> underdog
-                      </div>
-                    )}
+                        game name (client asked for compact, not a card).
+                        Shown for EVERY locked verdict — with no CLEAR
+                        FAVORITE tag the higher score still reads "favorite"
+                        (the client's rule: higher score = stronger); the
+                        amber star marks only the official tag */}
+                    {fav?.locked
+                      && fav.home?.total != null && fav.away?.total != null && (() => {
+                      const strong = fav.favorite
+                        || (fav.home.total >= fav.away.total ? "home" : "away");
+                      const weak = strong === "home" ? "away" : "home";
+                      return (
+                        <div title={favTip
+                          || `No CLEAR FAVORITE tag (needs 75+ points and a 59¢+ price) — `
+                             + `scores locked 5 min before first pitch`}
+                          style={{ fontFamily: T.ui, fontSize: 10, fontWeight: 400,
+                            color: T.sub, cursor: "help" }}>
+                          <span style={{ color: fav.favorite ? "#D97706" : T.faint,
+                            fontWeight: 700 }}>★</span>{" "}
+                          {fav[`${strong}_name`]} <b>{fav[strong].total}</b> favorite ·{" "}
+                          {fav[`${weak}_name`]} <b>{fav[weak].total}</b> underdog
+                        </div>
+                      );
+                    })()}
                     {/* running bullpen usage, so the depth is visible without
                         expanding the row */}
                     {inPlay && live?.pitchers && (
