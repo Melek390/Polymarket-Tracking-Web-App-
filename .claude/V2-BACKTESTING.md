@@ -608,3 +608,22 @@ now transient net errors get status 'error:transient: <type>' and re-enter
 games_pending on every pass (no date gate); _one_game calls
 store.clear_spots() first so an attempt interrupted between insert_spots and
 save_game can never double-count. The 38 were reset and reprocessed.
+
+## STRATEGY #5: Clear Favorite v2 — score vs score (Aug 26, client)
+kind favorite2_replay. No 75-point bar: every game with distinct locked
+scores (favorite_locks + fav_history merged, real lock wins per game_pk).
+Chosen side (high|low) at its T-5 price (tick_price_at at locked_at for
+tracked games, payload t5_prices otherwise), hold to settlement. comparison
+= high/low x overall/home/away (saved-tagged); bySituation = T-5 price
+bands + score-gap bands + IN-GAME rows from backtest_spots (leader mid =
+100 - trailing mid; behind/tied/ahead x innings 1-3/4-6/7+). Params: which,
+minGap, price band, source both|locked|reconstructed. Tests: scratchpad
+test_favorite2.py 25/25 hand-checked.
+FIRST RUN (1,860 priced): score picks winners (high 55.2% vs low 44.8%) but
+BUYING high at T-5 loses -$7.6k (market prices it in; fees $4k); LOW side
++$8.5k (flat-$ underdog effect — validate vs source=locked before trusting;
+reconstructed T-5 bars may skew dogs cheap). Price bands: only <40c green.
+IN-GAME is the story: high-score side TIED = green at every stage (~60-63%
+at ~54c); high-score side BEHIND innings 7+ = +$15.3k at avg 12.6c (the
+favorite-trailing-late longshot pocket — correlated entries, one season,
+mid-price approximation; treat as lead, not edge).
