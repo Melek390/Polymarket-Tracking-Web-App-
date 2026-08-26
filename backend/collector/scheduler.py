@@ -23,6 +23,8 @@ from backend.mlb import live as mlb_live
 from backend.mlb import timeline as mlb_timeline
 from backend.polymarket import clob
 from backend.screener import cache
+from backend.traders import service as traders_service
+from backend.traders import store as traders_store
 from backend.screener import live_prices
 
 log = logging.getLogger(__name__)
@@ -257,6 +259,20 @@ def start():
     scheduler.add_job(
         _malloc_trim, "interval", minutes=5, id="malloc-trim",
         next_run_time=datetime.now(timezone.utc) + timedelta(seconds=120),
+    )
+    # tracked wallets sync on a clock, not on page views: fills only used
+    # to refresh when someone opened an account's summary page, so accounts
+    # nobody clicked froze silently (the client's data stopped at Aug 24).
+    # SYNC_MIN_S inside sync_account keeps this cheap; failures wait a pass.
+    async def _trader_sync():
+        for acct in traders_store.list_accounts(None):
+            try:
+                await traders_service.sync_account(acct)
+            except Exception as e:                     # noqa: BLE001
+                log.debug("trader sync %s: %s", acct.get("wallet"), e)
+    scheduler.add_job(
+        _trader_sync, "interval", minutes=10, id="trader-sync",
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=60),
     )
     # nightly dump of the un-recoverable tables (tracked-account history,
     # users, strategy params) - the Aug 24 delete incident had nothing to

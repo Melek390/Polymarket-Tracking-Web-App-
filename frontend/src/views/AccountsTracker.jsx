@@ -337,6 +337,17 @@ export default function AccountsTracker({ onOpenHistory }) {
   }
   useEffect(() => { memo.current = current; loadData(current); setActShown(60); }, [current]);
 
+  // a tab parked on one account for hours only refreshed the activity list;
+  // summary/open/closed stayed frozen at the session cache (client: "nothing
+  // after Aug 24"). Quiet full refresh every minute while the tab is visible.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible" && current != null) loadData(current);
+    }, 60_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current]);
+
   // From a trade alert: switch to that account (its data reloads fresh),
   // clear any filter that could hide the row, and mark the asset to spotlight.
   function jumpToTrade(acctId, asset) {
