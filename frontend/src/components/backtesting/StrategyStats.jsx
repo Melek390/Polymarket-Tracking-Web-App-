@@ -45,6 +45,13 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
   // per-row CSVs: one trades fetch per run, cached; each row filters it
   const tradesRef = useRef(null);
   const [rowBusy, setRowBusy] = useState(null);
+  // which situation rows have their per-team breakdown open
+  const [openTeams, setOpenTeams] = useState(() => new Set());
+  const toggleTeams = (label) => setOpenTeams((prev) => {
+    const next = new Set(prev);
+    if (next.has(label)) next.delete(label); else next.add(label);
+    return next;
+  });
   useEffect(() => { tradesRef.current = null; }, [stats]);
 
   async function downloadRow(label, filter, colPick) {
@@ -375,6 +382,8 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
           <thead>
             <tr>
               {["Situation", "Spots", "Win rate",
+                ...(s.bySituation.some((r) => r.avgEntryCents != null)
+                  ? ["Avg entry ¢", "Median entry ¢"] : []),
                 ...(s.bySituation.some((r) => r.pnl != null && r.priced != null) ? ["Priced"] : []),
                 ...(s.bySituation.some((r) => r.pnl != null) ? ["P&L"] : []),
                 ...(s.bySituation.some((r) => r.comebackRate != null) ? ["Comeback"] : []),
@@ -389,6 +398,8 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
               const isLadderRow = !!(s.sellLadder && s.sellLadder.length
                 && row.label.includes("trailing"));
               const showSold = s.bySituation.some((r) => r.pnl != null && r.priced != null);
+              const hasEntryCols = s.bySituation.some((r) => r.avgEntryCents != null);
+              const teamsOpen = openTeams.has(row.label);
               return [(
               <tr key={row.label} style={{ borderTop: `1px solid ${T.border}` }}>
                 <td style={{ fontFamily: T.ui, fontSize: 13, padding: "7px 12px" }}>
@@ -405,12 +416,31 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
                     <DlRow label={row.label} filter={situationFilter(row.label)}
                       hint="Every trade behind this row, as a CSV" />
                   )}
+                  {row.teams && row.teams.length > 0 && (
+                    <button onClick={() => toggleTeams(row.label)}
+                      title="Team by team: what we paid and how it went in this situation"
+                      style={{ ...btn.outline, fontSize: 11, fontWeight: 700,
+                        padding: "1px 8px", marginLeft: 7 }}>
+                      {teamsOpen ? "−" : "+"} teams
+                    </button>
+                  )}
                 </td>
                 <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>{row.spots}</td>
                 <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
                   fontWeight: 700, color: row.winRate >= 0.5 ? T.green : T.red }}>
                   {pct(row.winRate)}
                 </td>
+                {hasEntryCols && (
+                  <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}
+                    title="Average price actually PAID in this situation — entries only, not every moment the situation occurred">
+                    {row.avgEntryCents == null ? "—" : `${row.avgEntryCents}¢`}
+                  </td>
+                )}
+                {hasEntryCols && (
+                  <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                    {row.medianEntryCents == null ? "—" : `${row.medianEntryCents}¢`}
+                  </td>
+                )}
                 {row.pnl != null && row.priced != null && (
                   <td style={{ ...monoText, fontSize: 12, padding: "7px 12px",
                     textAlign: "right", color: T.faint }}
@@ -431,6 +461,35 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
                 )}
               </tr>
               ),
+              ...(teamsOpen && row.teams ? row.teams.map((tr) => (
+                <tr key={row.label + tr.team} style={{ borderTop: `1px solid ${T.soft}`,
+                  background: T.soft }}>
+                  <td style={{ fontFamily: T.ui, fontSize: 12.5, color: T.sub,
+                    padding: "4px 12px 4px 28px" }}>↳ {tr.team}</td>
+                  <td style={{ ...monoText, fontSize: 12.5, padding: "4px 12px",
+                    textAlign: "right", color: T.sub }}>{tr.spots}</td>
+                  <td style={{ ...monoText, fontSize: 12.5, padding: "4px 12px",
+                    textAlign: "right", fontWeight: 700,
+                    color: tr.winRate >= 0.5 ? T.green : T.red }}>{pct(tr.winRate)}</td>
+                  {hasEntryCols && (
+                    <td style={{ ...monoText, fontSize: 12.5, padding: "4px 12px",
+                      textAlign: "right" }}>
+                      {tr.avgEntryCents == null ? "—" : `${tr.avgEntryCents}¢`}
+                    </td>
+                  )}
+                  {hasEntryCols && (
+                    <td style={{ ...monoText, fontSize: 12, padding: "4px 12px",
+                      textAlign: "right", color: T.faint }}>—</td>
+                  )}
+                  {showSold && (
+                    <td style={{ ...monoText, fontSize: 12, padding: "4px 12px",
+                      textAlign: "right", color: T.faint }}>—</td>
+                  )}
+                  <td style={{ ...monoText, fontSize: 12.5, padding: "4px 12px",
+                    textAlign: "right", fontWeight: 700,
+                    color: tr.pnl >= 0 ? T.green : T.red }}>{usd(tr.pnl)}</td>
+                </tr>
+              )) : []),
               ...(isLadderRow && ladderOpen ? [
                 ...s.sellLadder.map((lr) => (
                   <tr key={lr.label} style={{ borderTop: `1px solid ${T.soft}`,
@@ -459,6 +518,14 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
                       title="share of trades that actually got out at this level">
                       {lr.winRate == null ? "—" : pct(lr.winRate)}
                     </td>
+                    {hasEntryCols && (
+                      <td style={{ ...monoText, fontSize: 12, padding: "5px 12px",
+                        textAlign: "right", color: T.faint }}>—</td>
+                    )}
+                    {hasEntryCols && (
+                      <td style={{ ...monoText, fontSize: 12, padding: "5px 12px",
+                        textAlign: "right", color: T.faint }}>—</td>
+                    )}
                     {showSold && (
                       <td style={{ ...monoText, fontSize: 12, padding: "5px 12px",
                         textAlign: "right", color: T.faint }}

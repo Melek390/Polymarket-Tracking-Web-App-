@@ -15,6 +15,8 @@ top of the mid, and fees follow Polymarket's taker formula per leg
 (0.05 x p x (1-p) x shares; makers pay zero).
 """
 
+import statistics
+
 from backend.backtest import store
 
 # An entry whose first available tick lagged the half end this far means the
@@ -883,14 +885,14 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
         pnl = shares * ((100.0 if won else 0.0) - entry_exec) / 100.0 - fee
         return {"win": won, "pnl": round(pnl, 2), "hold": 0, "bounce": 0.0,
                 "fee": round(fee, 2), "ts": sp["ts"], "gold": sp["gold"],
-                "entry": sp["entry0"], "fair": fv,
+                "entry": sp["entry0"], "fair": fv, "market_id": sp["market_id"],
                 "deficit": sp["deficit"], "is_home": sp["trailing_is_home"]}
 
     def bounce_result(sp, fv):
         r = _trade(sp, {"targetCents": bounce_c, "horizonHalfInnings": horizon,
                         "giveUp": "horizon"}, ex, stake)
         if r is not None:
-            r.update(fair=fv, deficit=sp["deficit"],
+            r.update(fair=fv, deficit=sp["deficit"], market_id=sp["market_id"],
                      is_home=sp["trailing_is_home"])
         return r
 
@@ -1006,11 +1008,36 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
             "pnl": round(pnl_b, 2), "pnlSpots": priced_b,
         })
 
+    names = store.game_names()
+
     def bucket(lbl, pred):
         sub = [x for x in headline if pred(x)]
         agg = _aggregate(sub)
+        # the client's audit columns (Aug 26): what did we actually PAY in
+        # this situation — and per team, since a lopsided matchup prices far
+        # from the all-teams average
+        prices = [x["entry"] for x in sub if x.get("entry") is not None]
+        by_team = {}
+        for x in sub:
+            g = names.get(x.get("market_id"), {})
+            nm = (g.get("home") if x["is_home"] else g.get("away")) or "(unknown team)"
+            t = by_team.setdefault(nm, {"spots": 0, "wins": 0, "pnl": 0.0, "prices": []})
+            t["spots"] += 1
+            t["wins"] += 1 if x["win"] else 0
+            t["pnl"] += x["pnl"]
+            if x.get("entry") is not None:
+                t["prices"].append(x["entry"])
+        team_rows = sorted(({
+            "team": nm, "spots": t["spots"],
+            "winRate": round(t["wins"] / t["spots"], 4),
+            "avgEntryCents": round(statistics.mean(t["prices"]), 1) if t["prices"] else None,
+            "pnl": round(t["pnl"], 2),
+        } for nm, t in by_team.items()), key=lambda r: -r["spots"])
         return {"label": lbl, "spots": agg["spots"], "winRate": agg["winRate"],
-                "pnl": agg["pnl"], "priced": agg["spots"]}
+                "pnl": agg["pnl"], "priced": agg["spots"],
+                "avgEntryCents": round(statistics.mean(prices), 1) if prices else None,
+                "medianEntryCents": round(statistics.median(prices), 1) if prices else None,
+                "teams": team_rows}
 
     # side rows follow the setting: both -> ONE combined row (the client
     # asked not to see an empty row for a side the params exclude)
@@ -1111,7 +1138,6 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
         # the client's spreadsheet: when, who, every reason we entered (one
         # per column), how we got out, at what price, and the money — for
         # BOTH exits, with the saved one called out
-        names = store.game_names()
         out["trades"] = []
         for sp, fv in chosen:
             h = hold_result(sp, fv)
