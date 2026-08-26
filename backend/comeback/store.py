@@ -156,6 +156,15 @@ def recent(hours: int = 24) -> list[dict]:
     return [_row_dict(r) for r in rows]
 
 
+def ack_game(game_pk: int) -> int:
+    """Ack EVERY unacked trigger of one game at once."""
+    with get_db() as conn:
+        cur = conn.execute(
+            "UPDATE comeback_triggers SET ack_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') "
+            "WHERE game_pk=? AND ack_at IS NULL", (game_pk,))
+        return cur.rowcount
+
+
 def ack(trigger_id: int) -> bool:
     with get_db() as conn:
         cur = conn.execute(

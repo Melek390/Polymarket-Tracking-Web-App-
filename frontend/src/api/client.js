@@ -178,7 +178,10 @@ export async function fetchBackfillStatus() {
 export async function fetchComebackActive() {
   return request(`/api/comeback/active?_=${Date.now()}`);
 }
-export const ackComeback = (id) => post("/api/comeback/ack", { id });
+// game_pk acks every trigger of the game at once — one game can fire for
+// several relief pitchers, and Check means "I've seen this game"
+export const ackComeback = (id, gamePk) =>
+  post("/api/comeback/ack", { id, game_pk: gamePk });
 export async function fetchComebackConfig() {
   return request("/api/comeback/config");
 }

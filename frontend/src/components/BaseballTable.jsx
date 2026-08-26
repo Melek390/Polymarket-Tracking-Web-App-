@@ -379,14 +379,16 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
       }
       if (stop) return;
       const byPk = {};
+      // live unacked > stale > acked — a stale trigger (game over, or hours
+      // old) is a quiet day-tag, never an active alert
+      const rank = (t) => (t.ack_at ? 0 : t.stale ? 1 : 2);
       for (const t of r.triggers || []) {
-        // newest first from the API; an unacked trigger outranks an acked one
         const cur = byPk[t.game_pk];
-        if (!cur || (!t.ack_at && cur.ack_at)) byPk[t.game_pk] = t;
+        if (!cur || rank(t) > rank(cur)) byPk[t.game_pk] = t;
       }
       setComeback(byPk);
       for (const t of r.triggers || []) {
-        if (t.ack_at || comebackSeen.current.has(t.id)) continue;
+        if (t.ack_at || t.stale || comebackSeen.current.has(t.id)) continue;
         comebackSeen.current.add(t.id);
         const price = t.home_price_cents != null
           ? ` · ${t.home_abbr ?? t.home_name} ${fmtCents(t.home_price_cents)}` : "";
@@ -406,7 +408,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
   async function checkComeback(t) {
     setComeback((prev) => ({ ...prev, [t.game_pk]: { ...t, ack_at: new Date().toISOString() } }));
     try {
-      await ackComeback(t.id);
+      await ackComeback(t.id, t.game_pk);
     } catch {
       /* the next pull re-flags it if the ack didn't land */
     }
@@ -666,7 +668,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
               // outranks any inline background); checked = a quiet tag remains
               // for the rest of the day so "did it fire?" has an answer.
               const cb = comeback[r.gamePk];
-              const cbActive = !!cb && !cb.ack_at;
+              const cbActive = !!cb && !cb.ack_at && !cb.stale;
               return [
                 <tr
                   key={r.slug}
