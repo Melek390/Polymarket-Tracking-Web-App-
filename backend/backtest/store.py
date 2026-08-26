@@ -195,6 +195,29 @@ FAVORITE_SEED = (
     "re-scores the same history.")
 
 
+# Clear Favorite v2 (Aug 26, client): the RAW scores against the market,
+# no 75-point bar. Every game where the two locked scores differ: how often
+# does the higher-scored side win, at what T-5 price, and what does buying
+# it pay — pre-game and DURING the game (by innings, behind/tied/ahead).
+FAVORITE2_DEFAULTS = {
+    "kind": "favorite2_replay",
+    "entry": {"which": "high", "minGap": 0.0,
+              "minPriceCents": 0.0, "maxPriceCents": 100.0},
+    "exec": {"slippageCentsPerSide": 1.0, "feeMode": "taker_both"},
+    "stake": {"mode": "flat_usd", "usd": 100.0},
+    "corpus": {"segment": "both", "source": "both"},
+}
+
+FAVORITE2_SEED = (
+    "Clear Favorite v2 — score vs score (T-5, whole season)",
+    "No 75-point bar: every game where our locked scores differ. Backs the "
+    "higher- (or lower-) scored team at its T-5 price — the same delayed "
+    "pre-game mark the verdict itself used, taken 5 minutes before first "
+    "pitch — and holds to settlement. Splits by home/away, T-5 price band "
+    "and score gap, then re-buys the same team DURING the game from the "
+    "tick corpus: by innings, behind, tied or ahead.")
+
+
 # Strategy #3 (Aug 20, client): every game TIED at the middle of the 8th —
 # away just batted in the top, the break is on, the bottom is about to start —
 # replayed over the whole season. The question is the base rate: who actually
@@ -347,6 +370,10 @@ def init():
             conn.execute(
                 "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",
                 (*FAIRVALUE_SEED, json.dumps(FAIRVALUE_DEFAULTS)))
+        if "favorite2_replay" not in kinds:
+            conn.execute(
+                "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",
+                (*FAVORITE2_SEED, json.dumps(FAVORITE2_DEFAULTS)))
         if "bottom8_replay" not in kinds:
             conn.execute(
                 "INSERT INTO backtest_strategies (name, description, params) VALUES (?, ?, ?)",

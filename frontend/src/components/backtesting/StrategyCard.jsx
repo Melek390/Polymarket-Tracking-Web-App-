@@ -130,6 +130,11 @@ export default function StrategyCard({ strategy, defaults, defaultOpen = false }
             <>tied at the {params.situation.inning}th
               {" · back "}{params.situation.side}
               {params.situation.extras !== "all" && ` · ${params.situation.extras} only`}</>
+          ) : params.kind === "favorite2_replay" ? (
+            <>{params.entry.which === "high" ? "higher" : "lower"} score
+              {params.entry.minGap > 0 && <>{" · gap ≥"}{params.entry.minGap}</>}
+              {" · T-5 "}{params.entry.minPriceCents}–{params.entry.maxPriceCents}¢
+              {" · hold"}</>
           ) : params.kind === "favorite_replay" ? (
             <>total ≥{params.filter.minTotal}
               {" · "}{params.filter.minPriceCents}–{params.filter.maxPriceCents}¢

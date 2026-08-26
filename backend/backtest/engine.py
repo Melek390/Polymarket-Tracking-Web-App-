@@ -1215,7 +1215,237 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
     return out
 
 
+# ---- Clear Favorite v2: the raw scores vs the market (client, Aug 26) -----
+
+def run_favorite2(params: dict, include_trades: bool = False) -> dict:
+    """Every game where the two locked scores DIFFER — no 75-point bar, no
+    disqualifiers. Back the higher- (or lower-) scored side at its T-5 price
+    and hold to settlement; slice by home/away, price band and score gap;
+    then re-buy the same side DURING the game from the tick corpus (a
+    leader's mid is 100 minus the trailing side's stored mid)."""
+    ent, ex, stake = params["entry"], params["exec"], params["stake"]
+    which = ent.get("which", "high")
+    min_gap = float(ent.get("minGap", 0) or 0)
+    mp = float(ent.get("minPriceCents", 0) or 0)
+    xp = float(ent.get("maxPriceCents", 100) or 100)
+    corpus = params.get("corpus", {})
+    segment = corpus.get("segment", "both")
+    source = corpus.get("source", "both")
+    slip = ex["slippageCentsPerSide"]
+
+    locks = store.favorite_locks() + store.fav_history_rows()
+    if source != "both":
+        locks = [L for L in locks if L["source"] == source]
+    settlements = store.home_settlements()
+
+    def price_at_lock(L, side):
+        oid = (L["home_outcome_id"] if side == "home" else L["away_outcome_id"])
+        if oid:
+            px = store.tick_price_at(oid, L["locked_at"])
+            if px is not None:
+                return px
+        return (L["verdict"].get("t5_prices") or {}).get(side)
+
+    games, unsettled, tied_scores = [], 0, 0
+    seen_pk = set()
+    for L in locks:
+        if L["market_id"] is None or L["game_pk"] in seen_pk:
+            continue
+        v = L["verdict"]
+        ht = (v.get("home") or {}).get("total")
+        at = (v.get("away") or {}).get("total")
+        if ht is None or at is None:
+            continue
+        if ht == at:
+            tied_scores += 1
+            continue
+        if abs(ht - at) < min_gap:
+            continue
+        outside = not L["market_id"]
+        if outside and segment != "both":
+            continue
+        if not outside:
+            if segment == "gold" and not L["gold"]:
+                continue
+            if segment == "silver" and L["gold"]:
+                continue
+        hw = (settlements.get(L["market_id"]) if L["market_id"]
+              else v.get("home_won"))
+        if hw is None:
+            unsettled += 1
+            continue
+        seen_pk.add(L["game_pk"])
+        high = "home" if ht > at else "away"
+        games.append({
+            "L": L, "v": v, "hw": bool(hw), "high": high,
+            "gap": abs(ht - at),
+            "p": {"home": price_at_lock(L, "home"),
+                  "away": price_at_lock(L, "away")},
+        })
+
+    def result_for(g, side, price=None):
+        """One settled trade on `side` of game g; None when unpriced/filtered."""
+        px = g["p"][side] if price is None else price
+        if px is None or not (mp <= px <= xp):
+            return None
+        won = g["hw"] if side == "home" else not g["hw"]
+        entry_exec = px + slip
+        shares = (stake["usd"] / (entry_exec / 100.0)
+                  if stake["mode"] == "flat_usd" else 100.0)
+        fee = (_taker_fee(entry_exec, shares)
+               if ex.get("feeMode", "taker_both") in ("taker_both", "maker_exit")
+               else 0.0)
+        pnl = shares * ((100.0 if won else 0.0) - entry_exec) / 100.0 - fee
+        return {"win": won, "pnl": round(pnl, 2), "fee": round(fee, 2),
+                "ts": g["v"].get("game_date") or g["L"]["locked_at"],
+                "gold": g["L"].get("gold") or 0, "entry": px,
+                "is_home": side == "home", "market_id": g["L"]["market_id"],
+                "team": g["v"].get(f"{side}_name") or side, "gap": g["gap"],
+                "hold": 0, "bounce": 0.0}
+
+    def chosen_side(g, pick=None):
+        w = pick or which
+        return g["high"] if w == "high" else ("away" if g["high"] == "home" else "home")
+
+    headline = [r for g in games if (r := result_for(g, chosen_side(g)))]
+    overall = _aggregate(headline)
+
+    def agg_row(label, recs, saved=False):
+        a = _aggregate(recs)
+        return {"label": ("(saved) " if saved else "") + label, "saved": saved,
+                "spots": a["spots"], "wins": a["wins"], "winRate": a["winRate"],
+                "pnl": a["pnl"], "feesPaid": a["feesPaid"]}
+
+    hi = [r for g in games if (r := result_for(g, chosen_side(g, "high")))]
+    lo = [r for g in games if (r := result_for(g, chosen_side(g, "low")))]
+    comparison = [
+        agg_row("HIGH score side — buy at T-5", hi, saved=which == "high"),
+        agg_row("LOW score side — buy at T-5", lo, saved=which != "high"),
+        agg_row("HIGH score side, when HOME", [r for r in hi if r["is_home"]]),
+        agg_row("HIGH score side, when AWAY", [r for r in hi if not r["is_home"]]),
+        agg_row("LOW score side, when HOME", [r for r in lo if r["is_home"]]),
+        agg_row("LOW score side, when AWAY", [r for r in lo if not r["is_home"]]),
+    ]
+
+    def mk_bucket(label, recs):
+        prices = [r["entry"] for r in recs if r.get("entry") is not None]
+        by_team = {}
+        for r in recs:
+            t = by_team.setdefault(r["team"], {"spots": 0, "wins": 0,
+                                               "pnl": 0.0, "prices": []})
+            t["spots"] += 1
+            t["wins"] += 1 if r["win"] else 0
+            t["pnl"] += r["pnl"]
+            if r.get("entry") is not None:
+                t["prices"].append(r["entry"])
+        teams = sorted(({
+            "team": nm, "spots": t["spots"],
+            "winRate": round(t["wins"] / t["spots"], 4),
+            "avgEntryCents": round(statistics.mean(t["prices"]), 1) if t["prices"] else None,
+            "pnl": round(t["pnl"], 2),
+        } for nm, t in by_team.items()), key=lambda r: -r["spots"])
+        a = _aggregate(recs)
+        return {"label": label, "spots": a["spots"], "winRate": a["winRate"],
+                "pnl": a["pnl"], "priced": a["spots"],
+                "avgEntryCents": round(statistics.mean(prices), 1) if prices else None,
+                "medianEntryCents": round(statistics.median(prices), 1) if prices else None,
+                "teams": teams}
+
+    by_situation = [b for b in (
+        mk_bucket("T-5 price below 40¢", [r for r in headline if r["entry"] < 40]),
+        mk_bucket("T-5 price 40–50¢", [r for r in headline if 40 <= r["entry"] < 50]),
+        mk_bucket("T-5 price 50–60¢", [r for r in headline if 50 <= r["entry"] < 60]),
+        mk_bucket("T-5 price 60–70¢", [r for r in headline if 60 <= r["entry"] < 70]),
+        mk_bucket("T-5 price 70¢+", [r for r in headline if r["entry"] >= 70]),
+        mk_bucket("Score gap 1–10", [r for r in headline if r["gap"] <= 10]),
+        mk_bucket("Score gap 11–25", [r for r in headline if 10 < r["gap"] <= 25]),
+        mk_bucket("Score gap 26+", [r for r in headline if r["gap"] > 25]),
+    ) if b["spots"] > 0]
+
+    # ---- the same side bought DURING the game (tick corpus only) ---------
+    spots_by_mid = {}
+    for sp in store.all_spots(segment):
+        spots_by_mid.setdefault(sp["market_id"], []).append(sp)
+    ingame = {}
+    for g in games:
+        mid = g["L"]["market_id"]
+        if not mid or mid not in spots_by_mid:
+            continue
+        side = chosen_side(g)
+        for sp in spots_by_mid[mid]:
+            if sp["entry0"] is None or _stale(sp):
+                continue
+            trailing = sp["trailing_side"]
+            if sp["deficit"] == 0:
+                state = "tied"
+                px = sp["entry0"] if side == "home" else round(100 - sp["entry0"], 1)
+            elif trailing == side:
+                state = "behind"
+                px = sp["entry0"]
+            else:
+                state = "ahead"
+                px = round(100 - sp["entry0"], 1)
+            grp = ("innings 1–3" if sp["inning"] <= 3
+                   else "innings 4–6" if sp["inning"] <= 6 else "innings 7+")
+            r = result_for(g, side, price=px)
+            if r is None:
+                continue
+            ingame.setdefault(f"In-game, {state} — {grp}", []).append(r)
+    ORDER = [f"In-game, {st} — innings {ig}" for st in ("behind", "tied", "ahead")
+             for ig in ("1–3", "4–6", "7+")]
+    by_situation += [mk_bucket(k, ingame[k]) for k in ORDER if k in ingame]
+
+    real = sum(1 for g in games if g["L"]["source"] != "reconstructed")
+    which_word = "higher" if which == "high" else "lower"
+    out = {
+        **overall,
+        "comparisonTitle": ("Score vs score — who to back, pre-game at the "
+                            "T-5 mark, home and away"),
+        "comparison": comparison,
+        "bySituation": by_situation,
+        "bySituationTitle": (
+            f"Where it wins — {which_word}-scored side "
+            f"(T-5 entries {mp:g}–{xp:g}¢"
+            + (f", score gap ≥{min_gap:g}" if min_gap else "")
+            + "; in-game rows from the tick corpus)"),
+        "warning": None,
+        "dateRange": _window(r["ts"] for r in headline),
+        "coverageNote": (
+            f"{len(games)} games with distinct scores ({real} real T-5 locks, "
+            f"{len(games) - real} reconstructed) · {len(headline)} priced in "
+            f"{mp:g}–{xp:g}¢ · {tied_scores} tied-score games excluded · "
+            f"{unsettled} unsettled skipped · in-game entries replay the "
+            f"tick corpus only"),
+        "gamesWithPrice": len(headline),
+        "exitMode": "hold",
+    }
+    if include_trades:
+        out["trades"] = []
+        for g in games:
+            side = chosen_side(g)
+            r = result_for(g, side)
+            if r is None:
+                continue
+            v = g["v"]
+            out["trades"].append({
+                "date": str(r["ts"])[:10],
+                "away_team": v.get("away_name"), "home_team": v.get("home_name"),
+                "bought_team": r["team"],
+                "bought_side": "home" if r["is_home"] else "away",
+                "score_high_side": g["high"],
+                "score_home": (v.get("home") or {}).get("total"),
+                "score_away": (v.get("away") or {}).get("total"),
+                "score_gap": g["gap"],
+                "t5_price_cents": r["entry"],
+                "source": g["L"]["source"],
+                "won": r["win"], "pnl_usd": r["pnl"], "fees_usd": r["fee"],
+            })
+    return out
+
+
 def run(params: dict, include_trades: bool = False) -> dict:
+    if params.get("kind") == "favorite2_replay":
+        return run_favorite2(params, include_trades)
     if params.get("kind") == "fairvalue_replay":
         return run_fairvalue(params, include_trades)
     if params.get("kind") == "bottom8_replay":

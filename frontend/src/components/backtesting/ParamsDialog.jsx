@@ -53,6 +53,50 @@ function Row({ label, children, hint }) {
   );
 }
 
+// Clear Favorite v2: raw scores vs the market, entered at the T-5 mark.
+function Favorite2Fields({ p, set }) {
+  return (
+    <>
+      <div style={{ ...lbl, marginTop: 16 }}>
+        Entry — back a side by SCORE, at the T-5 price the verdict itself used
+      </div>
+      <Row label="Which side">
+        <Choice value={p.entry.which} onChange={(v) => set("entry.which", v)}
+          options={[["high", "Higher score"], ["low", "Lower score"]]} />
+      </Row>
+      <Row label="Minimum score gap" hint="0 = any difference counts">
+        <Num value={p.entry.minGap} step={1} min={0}
+          onChange={(v) => set("entry.minGap", v)} />
+      </Row>
+      <Row label="T-5 price between (¢)">
+        <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+          <Num value={p.entry.minPriceCents} step={1} min={0}
+            onChange={(v) => set("entry.minPriceCents", v)} />
+          <span style={{ fontSize: 12, color: T.sub }}>and</span>
+          <Num value={p.entry.maxPriceCents} step={1} min={0}
+            onChange={(v) => set("entry.maxPriceCents", v)} />
+        </span>
+      </Row>
+      <Row label="Verdict source"
+        hint="real = actual T-5 locks; reconstructed = rebuilt for the whole season">
+        <Choice value={p.corpus.source} onChange={(v) => set("corpus.source", v)}
+          options={[["both", "Both"], ["locked", "Real locks"],
+            ["reconstructed", "Reconstructed"]]} />
+      </Row>
+      <div style={{ ...lbl, marginTop: 16 }}>Execution</div>
+      <Row label="Slippage per side (¢)">
+        <Num value={p.exec.slippageCentsPerSide} step={0.5}
+          onChange={(v) => set("exec.slippageCentsPerSide", v)} />
+      </Row>
+      <Row label="Fees" hint="takers pay 5% × p × (1−p) on the entry; redemption is free">
+        <Choice value={p.exec.feeMode} onChange={(v) => set("exec.feeMode", v)}
+          options={[["taker_both", "Taker"], ["maker_none", "Maker (none)"]]} />
+      </Row>
+    </>
+  );
+}
+
+
 // The Comeback Setup replay's own param sheet — the tag's spec, adjustable.
 function ComebackFields({ p, set }) {
   const states = p.situation.scoreStates || [];
@@ -262,9 +306,10 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
   const isFavorite = p.kind === "favorite_replay";
   const isBottom8 = p.kind === "bottom8_replay";
   const isFairvalue = p.kind === "fairvalue_replay";
+  const isFavorite2 = p.kind === "favorite2_replay";
   // restore must give back THIS strategy's defaults, not another kind's
   const kindDefaults = defaults?.byKind?.[p.kind] ?? defaults?.plain ?? defaults;
-  const totalWeight = (isComeback || isFavorite || isBottom8 || isFairvalue) ? 0
+  const totalWeight = (isComeback || isFavorite || isBottom8 || isFairvalue || isFavorite2) ? 0
     : Object.values(p.weights).reduce((a, b) => a + b, 0);
 
   return (
@@ -284,8 +329,9 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
         {isFavorite && <FavoriteFields p={p} set={set} />}
         {isBottom8 && <Bottom8Fields p={p} set={set} />}
         {isFairvalue && <FairvalueFields p={p} set={set} />}
+        {isFavorite2 && <Favorite2Fields p={p} set={set} />}
 
-        {!isComeback && !isFavorite && !isBottom8 && !isFairvalue && (<>
+        {!isComeback && !isFavorite && !isBottom8 && !isFairvalue && !isFavorite2 && (<>
         <div style={{ ...lbl, marginTop: 16 }}>Hard filters — applied first; a failed filter means the spot is never scored</div>
         <Row label="Max price of the trailing team (¢)">
           <Num value={p.hardFilters.maxPriceCents} step={1} onChange={(v) => set("hardFilters.maxPriceCents", v)} />
@@ -308,7 +354,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
         </Row>
         </>)}
 
-        {!isFavorite && !isBottom8 && !isFairvalue && (<>
+        {!isFavorite && !isBottom8 && !isFairvalue && !isFavorite2 && (<>
         <div style={{ ...lbl, marginTop: 18 }}>Exit — what counts as a win (drafts pending the client)</div>
         <Row label="Bounce target (¢ above entry)">
           <Num value={p.bounce.targetCents} step={0.5} onChange={(v) => set("bounce.targetCents", v)} />
@@ -351,7 +397,7 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
           </span>
         </Row>
 
-        {!isComeback && !isFavorite && !isBottom8 && !isFairvalue && (<>
+        {!isComeback && !isFavorite && !isBottom8 && !isFairvalue && !isFavorite2 && (<>
         <div style={{ ...lbl, marginTop: 18 }}>
           Checklist — total {totalWeight.toFixed(1)} pts
         </div>

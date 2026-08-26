@@ -34,6 +34,7 @@ def strategies():
                 "fairvalue_replay": store.FAIRVALUE_DEFAULTS,
                 "comeback_replay": store.DEFAULT_PARAMS,
                 "favorite_replay": store.FAVORITE_DEFAULTS,
+                "favorite2_replay": store.FAVORITE2_DEFAULTS,
                 "bottom8_replay": store.BOTTOM8_DEFAULTS,
                 "checklist": store.CHECKLIST_DEFAULTS,
             }}
