@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { T, card, label, monoText, page, btn } from "../theme.js";
-import { fmtTimestamp, fmtVolume, TZ_LABEL } from "../utils.js";
+import { fmtTimestamp, fmtVolume, TZ_LABEL, eventUrl } from "../utils.js";
 import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected,
   fetchFootballLive, fetchFootballActive, ackFootball,
   fetchFootballConfig, trackAndChart } from "../api/client.js";
@@ -295,7 +295,8 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
           pushToast(`⚽ 0-0 Alert — ${t.home_name} vs ${t.away_name} (${t.league}), `
             + `${t.minute}': favorite ${t.favorite_name} was `
             + `${t[`prematch_${t.favorite}_cents`]}¢ pre-match`
-            + (t.favorite_red_cards ? ` · 🟥 favorite a man down!` : ""));
+            + (t.favorite_red_cards ? ` · 🟥 favorite a man down!` : ""),
+            eventUrl(t.slug));
           playSound("situation");
         }
       } catch {
@@ -437,6 +438,7 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
           fired.push({
             text: `${m.away} @ ${m.home} matches your ${sport} alert${reason ? ` · ${reason}` : ""}`,
             type: soundType(hit),
+            url: eventUrl(m.slug),
           });
         }
         st.matched = true;
@@ -449,7 +451,7 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
     });
     if (fired.length) {
       playSound(fired[0].type); // one sound per tick, however many matched
-      fired.forEach((f) => pushToast(f.text));
+      fired.forEach((f) => pushToast(f.text, f.url));
     }
     setHits(nextHits);
   }

@@ -90,3 +90,10 @@ export function gameWhen(date) {
 export function fmtCents(cents) {
   return `${cents.toFixed(2).replace(/\.?0+$/, "")}¢`;
 }
+
+// Deep link to a bet on Polymarket. Alerts carry one so a popup is one click
+// from the market itself — the client was copying titles into Polymarket's
+// search to find the bet an alert was about.
+export function eventUrl(slug) {
+  return slug ? `https://polymarket.com/event/${slug}` : null;
+}

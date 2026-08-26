@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { T, card, monoText, btn } from "../theme.js";
-import { fmtCents } from "../utils.js";
+import { fmtCents, eventUrl } from "../utils.js";
 import { fetchMlbGame, fetchLivePrice, fetchMlbAnalyze, fetchMlbMatchup, fetchFavorite,
   fetchComebackActive, ackComeback } from "../api/client.js";
 import { loadAlerts, persistAlerts, matches, playSound, soundType, matchReason } from "../alerts.js";
@@ -244,6 +244,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
         fired.push({
           text: `${r.away} @ ${r.home} matches your alert${reason ? ` · ${reason}` : ""}`,
           type: soundType(hit),
+          url: eventUrl(r.slug),
         });
       }
       if (!m) st.acked = false;
@@ -253,7 +254,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
     }
     if (fired.length) {
       playSound(fired[0].type); // one sound per tick, however many matched
-      fired.forEach((f) => pushToast(f.text));
+      fired.forEach((f) => pushToast(f.text, f.url));
     }
     setHits(nextHits);
   }
@@ -390,7 +391,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
         const price = t.home_price_cents != null
           ? ` · ${t.home_abbr ?? t.home_name} ${fmtCents(t.home_price_cents)}` : "";
         pushToast(`⚡ Comeback Setup — ${t.away_abbr} ${t.away_runs}-${t.home_runs} ${t.home_abbr}, `
-          + `inning ${t.inning}: ${t.pitcher_name} in${price}`);
+          + `inning ${t.inning}: ${t.pitcher_name} in${price}`, eventUrl(t.slug));
         playSound("situation");
       }
     }
@@ -703,6 +704,20 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                       </span>
                     )}
                     {away} @ {home}
+                    {/* the locked pre-game scores, one quiet line under the
+                        game name (client asked for compact, not a card) */}
+                    {fav?.locked && fav.favorite
+                      && fav.home?.total != null && fav.away?.total != null && (
+                      <div title={favTip}
+                        style={{ fontFamily: T.ui, fontSize: 10, fontWeight: 400,
+                          color: T.sub, cursor: "help" }}>
+                        <span style={{ color: "#D97706", fontWeight: 700 }}>★</span>{" "}
+                        {fav[`${fav.favorite}_name`]}{" "}
+                        <b>{fav[fav.favorite].total}</b> favorite ·{" "}
+                        {fav[`${fav.favorite === "home" ? "away" : "home"}_name`]}{" "}
+                        <b>{fav[fav.favorite === "home" ? "away" : "home"].total}</b> underdog
+                      </div>
+                    )}
                     {/* running bullpen usage, so the depth is visible without
                         expanding the row */}
                     {inPlay && live?.pitchers && (
