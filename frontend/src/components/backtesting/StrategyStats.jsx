@@ -396,6 +396,17 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
           </thead>
           <tbody>
             {s.bySituation.map((row) => {
+              if (row.separator) {
+                return [(
+                  <tr key={row.label} style={{ borderTop: `2px solid ${T.border}`,
+                    background: T.soft }}>
+                    <td colSpan={99} style={{ fontFamily: T.ui, fontSize: 11.5,
+                      color: T.sub, padding: "8px 12px", lineHeight: 1.5 }}>
+                      {row.label}
+                    </td>
+                  </tr>
+                )];
+              }
               const isLadderRow = !!(s.sellLadder && s.sellLadder.length
                 && row.label.includes("trailing"));
               const showSold = s.bySituation.some((r) => r.pnl != null && r.priced != null);
@@ -426,7 +437,15 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
                     </button>
                   )}
                 </td>
-                <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>{row.spots}</td>
+                <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right" }}>
+                  {row.spots}
+                  {row.games != null && row.games !== row.spots && (
+                    <div style={{ fontSize: 10, color: T.faint }}
+                      title="distinct games behind these entries">
+                      {row.games} games
+                    </div>
+                  )}
+                </td>
                 <td style={{ ...monoText, fontSize: 13, padding: "7px 12px", textAlign: "right",
                   fontWeight: 700, color: row.winRate >= 0.5 ? T.green : T.red }}>
                   {pct(row.winRate)}
@@ -442,11 +461,13 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
                     {row.medianEntryCents == null ? "—" : `${row.medianEntryCents}¢`}
                   </td>
                 )}
-                {row.pnl != null && row.priced != null && (
+                {showSold && (
                   <td style={{ ...monoText, fontSize: 12, padding: "7px 12px",
                     textAlign: "right", color: T.faint }}
-                    title="Games in this row with a recorded price — the only ones the P&L covers">
-                    {row.priced}
+                    title={row.priced == null
+                      ? "not a per-game count here — see the entry count on the left"
+                      : "Games in this row with a recorded price — the only ones the P&L covers"}>
+                    {row.priced == null ? "" : row.priced}
                   </td>
                 )}
                 {row.pnl != null && (

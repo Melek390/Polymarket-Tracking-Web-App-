@@ -1303,6 +1303,7 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
                 "ts": g["v"].get("game_date") or g["L"]["locked_at"],
                 "gold": g["L"].get("gold") or 0, "entry": px,
                 "is_home": side == "home", "market_id": g["L"]["market_id"],
+                "game_pk": g["L"]["game_pk"],
                 "team": g["v"].get(f"{side}_name") or side, "gap": g["gap"],
                 "hold": 0, "bounce": 0.0}
 
@@ -1330,7 +1331,7 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
         agg_row("LOW score side, when AWAY", [r for r in lo if not r["is_home"]]),
     ]
 
-    def mk_bucket(label, recs):
+    def mk_bucket(label, recs, ingame=False):
         prices = [r["entry"] for r in recs if r.get("entry") is not None]
         by_team = {}
         for r in recs:
@@ -1348,8 +1349,16 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
             "pnl": round(t["pnl"], 2),
         } for nm, t in by_team.items()), key=lambda r: -r["spots"])
         a = _aggregate(recs)
+        # by GAME id: outside-corpus games carry market_id 0, so counting
+        # markets silently dropped them
+        games = len({r.get("game_pk") for r in recs if r.get("game_pk")})
         return {"label": label, "spots": a["spots"], "winRate": a["winRate"],
-                "pnl": a["pnl"], "priced": a["spots"],
+                "pnl": a["pnl"],
+                # pre-game rows are one bet per game, so spots ARE games; the
+                # in-game rows are several entries per game, so the "priced
+                # games" column would read as an impossible count
+                "priced": None if ingame else a["spots"],
+                "games": games,
                 "avgEntryCents": round(statistics.mean(prices), 1) if prices else None,
                 "medianEntryCents": round(statistics.median(prices), 1) if prices else None,
                 "teams": teams}
@@ -1396,8 +1405,20 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
             ingame.setdefault(f"In-game, {state} — {grp}", []).append(r)
     ORDER = [f"In-game, {st} — innings {ig}" for st in ("behind", "tied", "ahead")
              for ig in ("1–3", "4–6", "7+")]
-    ingame_games = len({r["market_id"] for rows_ in ingame.values() for r in rows_})
-    by_situation += [mk_bucket(k, ingame[k]) for k in ORDER if k in ingame]
+    ingame_games = len({r["game_pk"] for rows_ in ingame.values() for r in rows_})
+    ingame_days = _window(r["ts"] for rows_ in ingame.values() for r in rows_)
+    if ingame:
+        by_situation.append({
+            "separator": True,
+            "label": (
+                f"During the game — our own recorded tick prices, "
+                f"{ingame_games} game" + ("s" if ingame_games != 1 else "")
+                + (f" ({ingame_days['from']} → {ingame_days['to']})" if ingame_days else "")
+                + ". Every game gives several entries here, one at each "
+                  "half-inning boundary, so the entry count is larger than "
+                  "the number of games."),
+        })
+    by_situation += [mk_bucket(k, ingame[k], ingame=True) for k in ORDER if k in ingame]
 
     real = sum(1 for g in games if g["L"]["source"] != "reconstructed")
     which_word = "higher" if which == "high" else "lower"
