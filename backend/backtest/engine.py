@@ -437,9 +437,11 @@ def run_favorite(params: dict, include_trades: bool = False) -> dict:
                     continue
                 oid = (L["home_outcome_id"] if side == "home"
                        else L["away_outcome_id"])
-                if oid:
-                    price = store.tick_price_at(oid, L["locked_at"])
-                else:   # outside the tick corpus: the stored T-5 bar price
+                # our own tick at lock time when we have one; else the
+                # stored T-5 bar (many corpus games were tracked only from
+                # mid-game, so their ticks never reach back to T-5)
+                price = store.tick_price_at(oid, L["locked_at"]) if oid else None
+                if price is None:
                     price = (v.get("t5_prices") or {}).get(side)
                 if price is None or not (mp <= price <= f["maxPriceCents"]):
                     continue

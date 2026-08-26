@@ -715,13 +715,16 @@ def fav_history_rows() -> list[dict]:
         # "outside" (268 of 421 corpus games, caught Aug 26)
         for r in conn.execute(
                 """SELECT h.game_pk, h.t5_ts, h.payload, h.market_id AS h_mid,
-                          g.market_id AS g_mid, g.gold,
-                          g.home_outcome_id, g.away_outcome_id
+                          COALESCE(g.market_id, g2.market_id, h.market_id) AS mid,
+                          COALESCE(g.gold, g2.gold) AS gold,
+                          COALESCE(g.home_outcome_id, g2.home_outcome_id) AS hoid,
+                          COALESCE(g.away_outcome_id, g2.away_outcome_id) AS aoid
                    FROM backtest_fav_history h
                    LEFT JOIN backtest_games g ON g.market_id = (
                        SELECT market_id FROM backtest_games
                        WHERE game_pk = h.game_pk AND status = 'done'
                        ORDER BY gold DESC, spots DESC LIMIT 1)
+                   LEFT JOIN backtest_games g2 ON g2.market_id = h.market_id
                    ORDER BY h.t5_ts"""):
             try:
                 v = json.loads(r["payload"])
@@ -729,9 +732,9 @@ def fav_history_rows() -> list[dict]:
                 continue
             out.append({
                 "game_pk": r["game_pk"], "locked_at": r["t5_ts"], "verdict": v,
-                "market_id": r["g_mid"] or r["h_mid"], "gold": r["gold"],
-                "home_outcome_id": r["home_outcome_id"],
-                "away_outcome_id": r["away_outcome_id"],
+                "market_id": r["mid"], "gold": r["gold"],
+                "home_outcome_id": r["hoid"],
+                "away_outcome_id": r["aoid"],
                 "source": "reconstructed",
             })
     return out
