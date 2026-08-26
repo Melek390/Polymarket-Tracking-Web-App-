@@ -1316,9 +1316,14 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
 
     def agg_row(label, recs, saved=False):
         a = _aggregate(recs)
+        px = [r["entry"] for r in recs if r.get("entry") is not None]
         return {"label": ("(saved) " if saved else "") + label, "saved": saved,
                 "spots": a["spots"], "wins": a["wins"], "winRate": a["winRate"],
-                "pnl": a["pnl"], "feesPaid": a["feesPaid"]}
+                "pnl": a["pnl"], "feesPaid": a["feesPaid"],
+                # what we actually PAID — the comparison is unreadable without
+                # it: a 55% win rate is only good news under ~55c
+                "avgEntryCents": round(statistics.mean(px), 1) if px else None,
+                "medianEntryCents": round(statistics.median(px), 1) if px else None}
 
     hi = [r for g in games if (r := result_for(g, chosen_side(g, "high")))]
     lo = [r for g in games if (r := result_for(g, chosen_side(g, "low")))]

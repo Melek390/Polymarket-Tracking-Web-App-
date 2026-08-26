@@ -312,7 +312,9 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
         // strategies with a separate money table keep these rows outcome-only
         const hasPnl = s.comparison.some((r) => r.pnl != null);
         const hasPriced = hasPnl && s.comparison.some((r) => r.priced != null);
+        const hasEntry = s.comparison.some((r) => r.avgEntryCents != null);
         const heads = ["Variant", "Spots", "Wins", "Win rate",
+          ...(hasEntry ? ["Avg entry ¢", "Median entry ¢"] : []),
           ...(hasPriced ? ["Priced"] : []), ...(hasPnl ? ["P&L", "Fees"] : []),
           ...(hasCb ? ["Comeback"] : [])];
         return (
@@ -344,6 +346,19 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
                         fontWeight: 700, color: row.winRate >= 0.5 ? T.green : T.red }}>
                         {pct(row.winRate)}
                       </td>
+                      {hasEntry && (
+                        <td style={{ ...monoText, fontSize: 13, padding: "7px 12px",
+                          textAlign: "right" }}
+                          title="average price paid — compare it with the win rate: paying more than the win rate loses over time">
+                          {row.avgEntryCents == null ? "" : `${row.avgEntryCents}¢`}
+                        </td>
+                      )}
+                      {hasEntry && (
+                        <td style={{ ...monoText, fontSize: 13, padding: "7px 12px",
+                          textAlign: "right" }}>
+                          {row.medianEntryCents == null ? "" : `${row.medianEntryCents}¢`}
+                        </td>
+                      )}
                       {hasPriced && (
                         <td style={{ ...monoText, fontSize: 12, padding: "7px 12px",
                           textAlign: "right", color: T.faint }}
