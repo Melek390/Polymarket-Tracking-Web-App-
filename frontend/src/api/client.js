@@ -200,6 +200,12 @@ export async function fetchSlugCategories() {
   return request("/api/screener/slug-categories");
 }
 
+// GET /api/lol/scores — the Oracle's Elixir six-point team scorecards,
+// keyed by event slug (the sweep writes them daily; this only reads)
+export async function fetchLolScores() {
+  return request("/api/lol/scores");
+}
+
 // --- Soccer (big-5 live data + the 0-0 clear-favorite alert) --------------
 export async function fetchFootballLive() {
   return request(`/api/football/live?_=${Date.now()}`);

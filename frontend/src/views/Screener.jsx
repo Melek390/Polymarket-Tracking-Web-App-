@@ -3,7 +3,7 @@ import { T, card, label, monoText, page, btn } from "../theme.js";
 import { fmtTimestamp, fmtVolume, TZ_LABEL, eventUrl } from "../utils.js";
 import { fetchScreener, fetchLivePrice, lookupEvent, trackSelected,
   fetchFootballLive, fetchFootballActive, ackFootball,
-  fetchFootballConfig, trackAndChart } from "../api/client.js";
+  fetchFootballConfig, trackAndChart, fetchLolScores } from "../api/client.js";
 import FootballDialog from "../components/FootballDialog.jsx";
 import Bottom8Table from "../components/Bottom8Table.jsx";
 import ScreenerPanel from "../components/ScreenerPanel.jsx";
@@ -222,6 +222,7 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
   // soccer: big-5 live fixtures (score/minute/possession/shots/reds) and the
   // 0-0 clear-favorite triggers — server detects, the browser only reads
   const [fbLive, setFbLive] = useState({});     // slug -> live fixture + stats
+  const [lolScores, setLolScores] = useState({}); // slug -> LoL team scorecard
   const [fbTrig, setFbTrig] = useState({});     // slug -> newest trigger
   const [fbCfgOpen, setFbCfgOpen] = useState(false);
   // the Bottom-8th page is its own view, not a status filter — it lists games
@@ -269,6 +270,19 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
     if (sport !== "soccer" || fbCfgOpen) return;
     fetchFootballConfig().then(setFbCfg).catch(() => {});
   }, [sport, fbCfgOpen]);
+
+  // LoL team scorecards: written daily by the server sweep and frozen at
+  // kickoff, so this is a plain read — no polling, no waiting on Oracle.
+  useEffect(() => {
+    if (sport !== "esports") return undefined;
+    let stop = false;
+    const load = () => fetchLolScores()
+      .then((r) => { if (!stop) setLolScores(r.scores || {}); })
+      .catch(() => {});
+    load();
+    const id = setInterval(load, 300_000);
+    return () => { stop = true; clearInterval(id); };
+  }, [sport]);
 
   useEffect(() => {
     if (sport !== "soccer") return;
@@ -1113,6 +1127,41 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
                       );
                     })()}
                     {m.home} vs {m.away}
+                    {/* LoL: the client's six-point team scorecard, computed
+                        from Oracle's Elixir split stats, refreshed daily and
+                        FROZEN at kickoff (the inputs are season aggregates,
+                        so nothing in-play can move them) */}
+                    {(() => {
+                      const lc = lolScores[m.slug];
+                      if (!lc || lc.pickSide == null) return null;
+                      const side = (which) => (
+                        <span style={which === lc.pickSide
+                          ? { color: T.green, fontWeight: 700 }
+                          : { color: T.sub }}>
+                          {which === "home" ? m.home : m.away}{" "}
+                          {which === "home" ? lc.homePoints : lc.awayPoints}
+                        </span>
+                      );
+                      const tip = [
+                        `${lc.tournament} — ${lc.homeOracle} ${lc.homeRecord}`
+                          + ` vs ${lc.awayOracle} ${lc.awayRecord}`,
+                        ...(lc.lines || []).map((ln) => {
+                          const who = ln.winner === "home" || ln.winner === "a"
+                            ? m.home : ln.winner ? m.away : "nobody";
+                          return `${ln.label}: ${ln.a} vs ${ln.b} → ${who}`
+                            + (ln.note ? ` (${ln.note})` : "");
+                        }),
+                        lc.frozen ? "locked at match start" : "refreshes daily until the match starts",
+                      ].join("\n");
+                      return (
+                        <div title={tip}
+                          style={{ fontFamily: T.ui, fontSize: 10, fontWeight: 400,
+                            color: T.sub, cursor: "help", marginTop: 2 }}>
+                          <span style={{ color: "#D97706", fontWeight: 700 }}>★</span>{" "}
+                          {side("home")} · {side("away")}
+                        </div>
+                      );
+                    })()}
                     {/* live match strip — the data the client asked to see:
                         score/minute, possession, shots (on target), reds */}
                     {fl && (

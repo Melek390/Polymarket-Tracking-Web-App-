@@ -19,6 +19,7 @@ from backend.database import backup as db_backup
 from backend.database import db
 from backend.favorite import lock as favorite_lock
 from backend.football import live as football_live
+from backend.lol import service as lol_service
 from backend.mlb import live as mlb_live
 from backend.mlb import timeline as mlb_timeline
 from backend.polymarket import clob
@@ -273,6 +274,19 @@ def start():
     scheduler.add_job(
         _trader_sync, "interval", minutes=10, id="trader-sync",
         next_run_time=datetime.now(timezone.utc) + timedelta(seconds=60),
+    )
+    # LoL team scorecards from Oracle's Elixir: ~18 requests a day (one per
+    # active tournament, every league). Daily is the client's choice — the
+    # split stats only move when games are played, and a match's card is
+    # frozen at kickoff so it never changes while he is looking at it.
+    async def _lol_sweep():
+        try:
+            await lol_service.run()
+        except Exception as e:                       # noqa: BLE001
+            log.warning("lol sweep failed: %s", e)
+    scheduler.add_job(
+        _lol_sweep, "interval", hours=24, id="lol-scores",
+        next_run_time=datetime.now(timezone.utc) + timedelta(seconds=150),
     )
     # nightly dump of the un-recoverable tables (tracked-account history,
     # users, strategy params) - the Aug 24 delete incident had nothing to
