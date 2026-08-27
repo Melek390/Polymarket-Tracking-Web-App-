@@ -57,9 +57,10 @@ def _pick_pair(home: str, away: str):
     return None
 
 
-async def refresh_stats() -> dict:
-    """Pull every active tournament's team table. ~18 requests."""
-    tournaments = await client.active_tournaments()
+async def refresh_stats(days: int = 120) -> dict:
+    """Pull the team table of every tournament in season. One directory call
+    plus one per tournament (~105 in August 2026), once a day."""
+    tournaments = await client.recent_tournaments(days)
     teams = 0
     for t in tournaments:
         tid = t.get("id")
@@ -70,7 +71,8 @@ async def refresh_stats() -> dict:
         except Exception as e:                      # noqa: BLE001
             log.warning("lol stats: %s failed: %s", tid, e)
             continue
-        teams += store.save_team_stats(tid, t.get("mostRecentGame"), rows)
+        teams += store.save_team_stats(
+            tid, t.get("mostRecentGame") or t.get("startDate"), rows)
     log.info("lol stats: %d tournaments, %d team rows", len(tournaments), teams)
     return {"tournaments": len(tournaments), "teams": teams}
 
