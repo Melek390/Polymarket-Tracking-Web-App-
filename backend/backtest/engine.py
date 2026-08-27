@@ -867,8 +867,23 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
             return None, rec[0] if rec else 0
         return round(rec[1] / rec[0] * 100, 1), rec[0]
 
+    # WHICH break to buy at. next_half == "top" means the BOTTOM just ended,
+    # i.e. the full inning is over — the client's "end of the inning" (buying
+    # mid-inning, after only the top half, is the risky one he wants to
+    # isolate). "any" keeps both, as before.
+    boundary = ent.get("boundary", "any")
+
+    def in_boundary(sp):
+        if boundary == "end_of_inning":
+            return sp["next_half"] == "top"
+        if boundary == "mid_inning":
+            return sp["next_half"] == "bottom"
+        return True
+
     def in_scope(sp):
         if sp["deficit"] not in deficits or not (1 <= sp["inning"] <= max_inning):
+            return False
+        if not in_boundary(sp):
             return False
         if side == "home" and not sp["trailing_is_home"]:
             return False
@@ -938,6 +953,9 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
     fair_rows = []
     for inn in range(1, max_inning + 1):
         for half in ("bottom", "top"):     # after top of inn / after bottom
+            if (boundary == "end_of_inning" and half != "top") or (
+                    boundary == "mid_inning" and half != "bottom"):
+                continue                   # not a moment this run can buy at
             for dfc in sorted(deficits):
                 for is_home in (0, 1):
                     rec = fair.get((inn, half, dfc, is_home))
@@ -1060,7 +1078,9 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
             "winRate": round(t["wins"] / t["spots"], 4),
             "avgEntryCents": round(statistics.mean(t["prices"]), 1) if t["prices"] else None,
             "pnl": round(t["pnl"], 2),
-        } for nm, t in by_team.items()), key=lambda r: -r["spots"])
+        } for nm, t in by_team.items()),
+            # best return first — the client reads this list to pick teams
+            key=lambda r: (-r["pnl"], -r["spots"]))
         return {"label": lbl, "spots": agg["spots"], "winRate": agg["winRate"],
                 "pnl": agg["pnl"], "priced": agg["spots"],
                 "avgEntryCents": round(statistics.mean(prices), 1) if prices else None,
@@ -1141,7 +1161,9 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
             f"Where it wins — by situation (≥{discount:g}¢ discount, "
             f"down {'/'.join(str(d) for d in sorted(deficits))}, "
             f"innings 1–{max_inning}, {side} side, "
-            f"{'hold' if mode == 'hold' else f'+{bounce_c:g}¢ bounce'} exit)"),
+            + ("end of full innings only, " if boundary == "end_of_inning"
+               else "mid-inning breaks only, " if boundary == "mid_inning" else "")
+            + f"{'hold' if mode == 'hold' else f'+{bounce_c:g}¢ bounce'} exit)"),
         "sellLadder": sell_ladder,
         "fairTable": {
             "rows": fair_rows,
@@ -1378,7 +1400,9 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
             "winRate": round(t["wins"] / t["spots"], 4),
             "avgEntryCents": round(statistics.mean(t["prices"]), 1) if t["prices"] else None,
             "pnl": round(t["pnl"], 2),
-        } for nm, t in by_team.items()), key=lambda r: -r["spots"])
+        } for nm, t in by_team.items()),
+            # best return first — the client reads this list to pick teams
+            key=lambda r: (-r["pnl"], -r["spots"]))
         a = _aggregate(recs)
         # by GAME id: outside-corpus games carry market_id 0, so counting
         # markets silently dropped them

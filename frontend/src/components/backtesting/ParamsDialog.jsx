@@ -182,6 +182,13 @@ function FairvalueFields({ p, set }) {
           options={[["both", "Both"], ["home", "Home"], ["away", "Away"]]}
           onChange={(v) => set("entry.side", v)} />
       </Row>
+      <Row label="Buy at which break"
+        hint="end of inning = only once BOTH halves are done; mid-inning = after the top half, the riskier entry">
+        <Choice value={p.entry.boundary || "any"}
+          options={[["any", "Any break"], ["end_of_inning", "End of inning only"],
+            ["mid_inning", "Mid-inning only"]]}
+          onChange={(v) => set("entry.boundary", v)} />
+      </Row>
 
       <div style={{ ...lbl, marginTop: 16 }}>Fair values</div>
       <Row label="Seasons behind the historical win rates"

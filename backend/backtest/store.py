@@ -259,6 +259,9 @@ FAIRVALUE_DEFAULTS = {
         "deficits": [1, 2, 3],
         "side": "both",            # both | home | away
         "discountCents": 5.0,      # sweeps show 3/5/7/10 side by side
+        # any | end_of_inning (buy only when a FULL inning has finished) |
+        # mid_inning — the client rates a mid-inning entry as the risky one
+        "boundary": "any",
     },
     "fair": {"seasons": "prior"},  # prior | all (all = look-ahead, warned)
     "exit": {

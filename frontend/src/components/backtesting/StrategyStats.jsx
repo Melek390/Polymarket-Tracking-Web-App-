@@ -498,11 +498,22 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
                 )}
               </tr>
               ),
-              ...(teamsOpen && row.teams ? row.teams.map((tr) => (
+              ...(teamsOpen && row.teams ? row.teams.map((tr, ti) => {
+                // teams arrive best-return-first; flag the top earners, but
+                // only with a real sample — one lucky game is not a pick
+                const best = ti < 3 && tr.pnl > 0 && tr.spots >= 3;
+                return (
                 <tr key={row.label + tr.team} style={{ borderTop: `1px solid ${T.soft}`,
-                  background: T.soft }}>
-                  <td style={{ fontFamily: T.ui, fontSize: 12.5, color: T.sub,
-                    padding: "4px 12px 4px 28px" }}>↳ {tr.team}</td>
+                  background: best ? "#ECFDF5" : T.soft }}>
+                  <td style={{ fontFamily: T.ui, fontSize: 12.5,
+                    color: best ? T.ink : T.sub, fontWeight: best ? 700 : 400,
+                    padding: "4px 12px 4px 28px" }}>
+                    ↳ {tr.team}
+                    {best && (
+                      <span title="one of this row's best returns, on 3+ entries"
+                        style={{ color: T.green, marginLeft: 6, fontWeight: 800 }}>▲</span>
+                    )}
+                  </td>
                   <td style={{ ...monoText, fontSize: 12.5, padding: "4px 12px",
                     textAlign: "right", color: T.sub }}>{tr.spots}</td>
                   <td style={{ ...monoText, fontSize: 12.5, padding: "4px 12px",
@@ -526,7 +537,8 @@ export default function StrategyStats({ stats, onDownload, downloading, fetchTra
                     textAlign: "right", fontWeight: 700,
                     color: tr.pnl >= 0 ? T.green : T.red }}>{usd(tr.pnl)}</td>
                 </tr>
-              )) : []),
+                );
+              }) : []),
               ...(isLadderRow && ladderOpen ? [
                 ...s.sellLadder.map((lr) => (
                   <tr key={lr.label} style={{ borderTop: `1px solid ${T.soft}`,
