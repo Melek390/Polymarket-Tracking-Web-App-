@@ -1402,14 +1402,21 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
             else:
                 state = "ahead"
                 px = round(100 - sp["entry0"], 1)
+            # the late innings are split out: 7th, 8th and 9th+ are very
+            # different bets (client, Aug 26) — a 9th-inning deficit has one
+            # half-inning left, a 7th-inning one has five
             grp = ("innings 1–3" if sp["inning"] <= 3
-                   else "innings 4–6" if sp["inning"] <= 6 else "innings 7+")
+                   else "innings 4–6" if sp["inning"] <= 6
+                   else "inning 7" if sp["inning"] == 7
+                   else "inning 8" if sp["inning"] == 8
+                   else "innings 9+")
             r = result_for(g, side, price=px)
             if r is None:
                 continue
             ingame.setdefault(f"In-game, {state} — {grp}", []).append(r)
-    ORDER = [f"In-game, {st} — innings {ig}" for st in ("behind", "tied", "ahead")
-             for ig in ("1–3", "4–6", "7+")]
+    ORDER = [f"In-game, {st} — {ig}" for st in ("behind", "tied", "ahead")
+             for ig in ("innings 1–3", "innings 4–6", "inning 7", "inning 8",
+                        "innings 9+")]
     ingame_games = len({r["game_pk"] for rows_ in ingame.values() for r in rows_})
     ingame_days = _window(r["ts"] for rows_ in ingame.values() for r in rows_)
     if ingame:
