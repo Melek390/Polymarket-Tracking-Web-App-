@@ -22,8 +22,6 @@ CREATE TABLE IF NOT EXISTS lol_team_stats (
     updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     PRIMARY KEY (tournament_id, team)
 );
-CREATE INDEX IF NOT EXISTS idx_lol_stats_norm ON lol_team_stats(norm);
-CREATE INDEX IF NOT EXISTS idx_lol_stats_core ON lol_team_stats(core);
 
 CREATE TABLE IF NOT EXISTS lol_scores (
     event_slug  TEXT PRIMARY KEY,
@@ -38,10 +36,17 @@ CREATE TABLE IF NOT EXISTS lol_scores (
 def init() -> None:
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        # the column BEFORE any index that mentions it: on a table created by
+        # the previous release, indexing `core` first fails and the whole app
+        # refuses to start (Aug 27)
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(lol_team_stats)")]
-        if "core" not in cols:      # added with the FURIA fix (Aug 27)
+        if "core" not in cols:      # added with the FURIA fix
             conn.execute("ALTER TABLE lol_team_stats ADD COLUMN core TEXT "
                          "NOT NULL DEFAULT ''")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_lol_stats_norm "
+                     "ON lol_team_stats(norm)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_lol_stats_core "
+                     "ON lol_team_stats(core)")
 
 
 def norm(name: str) -> str:
