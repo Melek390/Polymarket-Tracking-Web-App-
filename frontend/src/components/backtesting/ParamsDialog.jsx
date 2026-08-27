@@ -396,6 +396,18 @@ export default function ParamsDialog({ strategy, defaults, onSave, onClose }) {
             )}
           </span>
         </Row>
+        {/* only where one game can fire several entries: the pre-game
+            strategies bet once per game, so splitting would change nothing */}
+        {(isFairvalue || isFavorite2) && (
+          <Row label="When one game fires several spots"
+            hint={p.stake.perGame
+              ? "SPLIT: the stake above is shared across that game's entries — one game = one position"
+              : "EACH: every entry stakes the full amount, so a game behind all night opens several positions on the same outcome"}>
+            <Choice value={p.stake.perGame ? "split" : "each"}
+              onChange={(v) => set("stake.perGame", v === "split")}
+              options={[["each", "Full stake each"], ["split", "Split across the game"]]} />
+          </Row>
+        )}
 
         {!isComeback && !isFavorite && !isBottom8 && !isFairvalue && !isFavorite2 && (<>
         <div style={{ ...lbl, marginTop: 18 }}>

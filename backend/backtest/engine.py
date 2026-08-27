@@ -173,6 +173,30 @@ def _trade(spot: dict, bounce: dict, ex: dict, stake: dict) -> dict | None:
             "entry": fill_mid, "exit": round(exit_exec, 2)}
 
 
+def _split_by_game(results: list[dict], enabled: bool) -> list[dict]:
+    """One GAME risks the stake, however many spots it fired.
+
+    A game that stays behind at five half-inning boundaries otherwise opens
+    five full positions on the same outcome — five ways to be right or wrong
+    about one game, which flatters (or punishes) correlated entries. With
+    this on, those five spots stake a fifth each, so a game is ONE position.
+    P&L and fees are both linear in stake (shares scale with it), so dividing
+    by the game's own entry count is exact, not an approximation."""
+    if not enabled or not results:
+        return results
+    counts: dict = {}
+    for r in results:
+        key = r.get("game_pk") or r.get("market_id")
+        counts[key] = counts.get(key, 0) + 1
+    for r in results:
+        k = counts.get(r.get("game_pk") or r.get("market_id"), 1)
+        if k > 1:
+            r["pnl"] = round(r["pnl"] / k, 2)
+            if r.get("fee") is not None:
+                r["fee"] = round(r["fee"] / k, 2)
+    return results
+
+
 def _simulate(spot: dict, prm: dict) -> dict | None:
     """Checklist kind: hard gates first, then the trade."""
     hf = prm["hardFilters"]
@@ -898,10 +922,12 @@ def run_fairvalue(params: dict, include_trades: bool = False) -> dict:
                      is_home=sp["trailing_is_home"])
         return r
 
+    per_game = bool(stake.get("perGame"))
+
     def both_exits(pairs):
         hold = [x for sp, fv in pairs if (x := hold_result(sp, fv))]
         bnc = [x for sp, fv in pairs if (x := bounce_result(sp, fv))]
-        return hold, bnc
+        return (_split_by_game(hold, per_game), _split_by_game(bnc, per_game))
 
     chosen = entries_at(discount)
     hold_res, bounce_res = both_exits(chosen)
@@ -1417,6 +1443,10 @@ def run_favorite2(params: dict, include_trades: bool = False) -> dict:
     ORDER = [f"In-game, {st} — {ig}" for st in ("behind", "tied", "ahead")
              for ig in ("innings 1–3", "innings 4–6", "inning 7", "inning 8",
                         "innings 9+")]
+    # the in-game entries are the correlated ones: one game can fire at every
+    # half-inning boundary it stays behind
+    _split_by_game([r for rows_ in ingame.values() for r in rows_],
+                   bool(stake.get("perGame")))
     ingame_games = len({r["game_pk"] for rows_ in ingame.values() for r in rows_})
     ingame_days = _window(r["ts"] for rows_ in ingame.values() for r in rows_)
     if ingame:

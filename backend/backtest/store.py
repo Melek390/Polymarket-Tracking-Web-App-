@@ -204,7 +204,7 @@ FAVORITE2_DEFAULTS = {
     "entry": {"which": "high", "minGap": 0.0,
               "minPriceCents": 0.0, "maxPriceCents": 100.0},
     "exec": {"slippageCentsPerSide": 1.0, "feeMode": "taker_both"},
-    "stake": {"mode": "flat_usd", "usd": 100.0},
+    "stake": {"mode": "flat_usd", "usd": 100.0, "perGame": False},
     "corpus": {"segment": "both", "source": "both"},
 }
 
@@ -267,7 +267,7 @@ FAIRVALUE_DEFAULTS = {
         "horizonHalfInnings": 6,   # ~3 innings
     },
     "exec": {"delaySeconds": 15, "slippageCentsPerSide": 1.0, "feeMode": "taker_both"},
-    "stake": {"mode": "flat_usd", "usd": 100},
+    "stake": {"mode": "flat_usd", "usd": 100, "perGame": False},
     "corpus": {"segment": "both"},
 }
 
