@@ -716,15 +716,22 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                     {away} @ {home}
                     {/* the locked pre-game scores, one quiet line under the
                         game name (client asked for compact, not a card).
-                        Shown for EVERY locked verdict — with no CLEAR
-                        FAVORITE tag the higher score still reads "favorite"
-                        (the client's rule: higher score = stronger); the
-                        amber star marks only the official tag */}
+                        ALWAYS away-then-home, matching the game title above
+                        it — leading with the favourite read as a different
+                        matchup (client, Aug 26). Green IS the "favorite"
+                        label, so the words are gone; the amber star marks
+                        the official CLEAR FAVORITE tag. */}
                     {fav?.locked
                       && fav.home?.total != null && fav.away?.total != null && (() => {
                       const strong = fav.favorite
                         || (fav.home.total >= fav.away.total ? "home" : "away");
-                      const weak = strong === "home" ? "away" : "home";
+                      const side = (which) => (
+                        <span style={which === strong
+                          ? { color: T.green, fontWeight: 700 }
+                          : { color: T.sub }}>
+                          {fav[`${which}_name`]} {fav[which].total}
+                        </span>
+                      );
                       return (
                         <div title={favTip
                           || `No CLEAR FAVORITE tag (needs 75+ points and a 59¢+ price) — `
@@ -733,8 +740,7 @@ export default function BaseballTable({ rows, onTrack, trackBusy, trackedCount =
                             color: T.sub, cursor: "help" }}>
                           <span style={{ color: fav.favorite ? "#D97706" : T.faint,
                             fontWeight: 700 }}>★</span>{" "}
-                          {fav[`${strong}_name`]} <b>{fav[strong].total}</b> favorite ·{" "}
-                          {fav[`${weak}_name`]} <b>{fav[weak].total}</b> underdog
+                          {side("away")} · {side("home")}
                         </div>
                       );
                     })()}
