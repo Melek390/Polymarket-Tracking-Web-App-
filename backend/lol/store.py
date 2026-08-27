@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS lol_team_stats (
     tournament_id TEXT NOT NULL,
     team          TEXT NOT NULL,
     norm          TEXT NOT NULL,     -- normalised name, for matching
+    core          TEXT NOT NULL DEFAULT '',  -- org words stripped, fallback
     games         INTEGER NOT NULL DEFAULT 0,
     last_game     TEXT,              -- tournament's mostRecentGame
     payload       TEXT NOT NULL,     -- the whole Oracle row, JSON
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS lol_team_stats (
     PRIMARY KEY (tournament_id, team)
 );
 CREATE INDEX IF NOT EXISTS idx_lol_stats_norm ON lol_team_stats(norm);
+CREATE INDEX IF NOT EXISTS idx_lol_stats_core ON lol_team_stats(core);
 
 CREATE TABLE IF NOT EXISTS lol_scores (
     event_slug  TEXT PRIMARY KEY,
@@ -36,6 +38,10 @@ CREATE TABLE IF NOT EXISTS lol_scores (
 def init() -> None:
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(lol_team_stats)")]
+        if "core" not in cols:      # added with the FURIA fix (Aug 27)
+            conn.execute("ALTER TABLE lol_team_stats ADD COLUMN core TEXT "
+                         "NOT NULL DEFAULT ''")
 
 
 def norm(name: str) -> str:
@@ -45,32 +51,65 @@ def norm(name: str) -> str:
     return "".join(ch for ch in (name or "").lower() if ch.isalnum())
 
 
+# Generic org words the two sources disagree about: Polymarket writes "FURIA
+# Esports" and "Leviatan Esports" where Oracle writes "FURIA" and "Leviatan".
+# Deliberately NOT stripped: academy, challengers, blue, star and the like —
+# those name a DIFFERENT roster, and collapsing them would silently score the
+# wrong team.
+_ORG_WORDS = {"esports", "esport", "gaming", "club", "org"}
+
+
+def core(name: str) -> str:
+    """The name with generic org words removed, for the fallback match."""
+    words = [w for w in "".join(
+        ch if ch.isalnum() else " " for ch in (name or "").lower()).split()
+        if w not in _ORG_WORDS]
+    if len(words) > 1 and words[0] == "team":   # "Team Vitality" -> "vitality"
+        words = words[1:]
+    return "".join(words) or norm(name)
+
+
 def save_team_stats(tournament_id: str, last_game: str | None,
                     rows: list[dict]) -> int:
     with get_db() as conn:
         conn.executemany(
             """INSERT INTO lol_team_stats
-                   (tournament_id, team, norm, games, last_game, payload,
-                    updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+                   (tournament_id, team, norm, core, games, last_game,
+                    payload, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ','now'))
                ON CONFLICT(tournament_id, team) DO UPDATE SET
-                   games=excluded.games, last_game=excluded.last_game,
-                   payload=excluded.payload, updated_at=excluded.updated_at""",
+                   norm=excluded.norm, core=excluded.core, games=excluded.games,
+                   last_game=excluded.last_game, payload=excluded.payload,
+                   updated_at=excluded.updated_at""",
             [(tournament_id, r.get("Team") or r.get("id") or "",
               norm(r.get("Team") or r.get("id") or ""),
+              core(r.get("Team") or r.get("id") or ""),
               int(r.get("GP") or 0), last_game, json.dumps(r))
              for r in rows if (r.get("Team") or r.get("id"))])
     return len(rows)
 
 
 def lookup_team(name: str) -> list[dict]:
-    """Every active tournament this team appears in, freshest first."""
+    """Every active tournament this team appears in, freshest first.
+
+    Exact name first; only if nothing matches do we fall back to the
+    org-word-stripped form, and then ONLY when it points at a single team —
+    an ambiguous fallback is dropped rather than guessed at.
+    """
     with get_db() as conn:
         rows = conn.execute(
             """SELECT tournament_id, team, games, last_game, payload
                FROM lol_team_stats WHERE norm = ?
                ORDER BY COALESCE(last_game,'') DESC, games DESC""",
             (norm(name),)).fetchall()
+        if not rows:
+            rows = conn.execute(
+                """SELECT tournament_id, team, games, last_game, payload
+                   FROM lol_team_stats WHERE core = ?
+                   ORDER BY COALESCE(last_game,'') DESC, games DESC""",
+                (core(name),)).fetchall()
+            if len({r["team"] for r in rows}) > 1:
+                return []           # ambiguous: two different orgs, no guess
     out = []
     for r in rows:
         try:
