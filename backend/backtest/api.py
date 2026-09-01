@@ -132,6 +132,24 @@ def bottom8_status():
 def favbackfill_status():
     return favhistory.status()
 
+_football: dict | None = None
+
+
+@router.get("/football")
+def football():
+    """The frozen draw-at-60 2025 study (backend/backtest/football.py wrote
+    it once; calendar 2025 is over, so the file ships with the app instead
+    of re-polling two external APIs on every visit)."""
+    global _football
+    if _football is None:
+        import json
+        import os
+        path = os.path.join(os.path.dirname(__file__), "football_results.json")
+        with open(path, encoding="utf-8") as f:
+            _football = json.load(f)
+    return _football
+
+
 MIN_TICKS = 1000
 _cache: tuple[float, dict] | None = None
 _TTL = 300  # the corpus grows a few games a day — five minutes is plenty fresh

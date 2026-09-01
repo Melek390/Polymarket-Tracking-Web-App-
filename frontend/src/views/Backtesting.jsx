@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { T, card, page, btn, label, monoText } from "../theme.js";
 import StrategyCard from "../components/backtesting/StrategyCard.jsx";
-import { fetchBacktestCorpus, fetchBacktestStrategies, fetchBackfillStatus } from "../api/client.js";
+import FootballDraw60 from "../components/backtesting/FootballDraw60.jsx";
+import {
+  fetchBacktestCorpus, fetchBacktestStrategies, fetchBackfillStatus,
+  fetchFootballBacktest,
+} from "../api/client.js";
 
 // Backtesting — wired. Strategies and their params live server-side; a run is
 // arithmetic over the backfilled spots table (see backend/backtest/). The
@@ -24,13 +28,24 @@ function MenuStat({ title, value, sub }) {
 // page and coming back used to refetch everything from zero — a blank
 // "Loading…" on every visit. The cached copy paints immediately and the
 // fresh fetch replaces it underneath (same pattern as Screener/Accounts).
-const memo = { corpus: null, strategies: null, defaults: null, backfill: null };
+const memo = { corpus: null, strategies: null, defaults: null, backfill: null, football: null };
+
+// Section divider — the page now holds two sports, so each gets a banner.
+function SportHeader({ title, sub }) {
+  return (
+    <div style={{ borderBottom: `2px solid ${T.line}`, paddingBottom: 6, marginTop: 8 }}>
+      <span style={{ fontSize: 17, fontWeight: 700 }}>{title}</span>
+      {sub && <span style={{ fontSize: 12, color: T.sub, marginLeft: 10 }}>{sub}</span>}
+    </div>
+  );
+}
 
 export default function Backtesting() {
   const [corpus, setCorpus] = useState(() => memo.corpus);     // null loading, false failed
   const [strategies, setStrategies] = useState(() => memo.strategies);
   const [defaults, setDefaults] = useState(() => memo.defaults);
   const [backfill, setBackfill] = useState(() => memo.backfill);
+  const [football, setFootball] = useState(() => memo.football);
 
   useEffect(() => {
     fetchBacktestCorpus()
@@ -47,6 +62,9 @@ export default function Backtesting() {
     fetchBackfillStatus()
       .then((r) => { memo.backfill = r; setBackfill(r); })
       .catch(() => {});
+    fetchFootballBacktest()
+      .then((r) => { memo.football = r; setFootball(r); })
+      .catch(() => setFootball((f) => f ?? false));
   }, []);
 
   return (
@@ -78,6 +96,8 @@ export default function Backtesting() {
           + New strategy
         </button>
       </div>
+
+      <SportHeader title="MLB" sub="live replays over the recorded tick corpus" />
 
       {/* main menu — the size of the lab at a glance */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -125,6 +145,42 @@ export default function Backtesting() {
         MLB markets against MLB's own play-by-play timestamps. Gold = live-collected
         ticks; silver = minute-bar backfills — results are always tagged, never mixed.
       </div>
+
+      <SportHeader title="Football" sub="historical studies over api-football × Polymarket" />
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <MenuStat
+          title="Games on both APIs"
+          value={football === null ? "…" : football === false ? "—"
+            : football.meta.available_both_apis}
+          sub={football && football.meta
+            ? `of ${football.meta.fixtures_2025} finished 2025 games · ${football.meta.clubs} clubs`
+            : "7 clubs · calendar 2025"}
+        />
+        <MenuStat
+          title="Draws at 60'"
+          value={football === null ? "…" : football === false ? "—"
+            : football.meta.draws_at_60}
+          sub={football && football.meta
+            ? `won ${football.meta.won} · drew ${football.meta.drew} · lost ${football.meta.lost}`
+            : "level games at the hour"}
+        />
+        <MenuStat
+          title="Avg win price @60'"
+          value={football === null ? "…" : football === false ? "—"
+            : `${football.meta.avg_price60}¢`}
+          sub={football && football.meta
+            ? `${football.meta.priced} games with usable price history`
+            : "Polymarket, 1-minute history"}
+        />
+      </div>
+
+      {football === false && (
+        <div style={{ fontSize: 13, color: T.red }}>
+          Could not load the football study — is the backend up to date?
+        </div>
+      )}
+      {football && football.meta && <FootballDraw60 data={football} />}
     </main>
   );
 }

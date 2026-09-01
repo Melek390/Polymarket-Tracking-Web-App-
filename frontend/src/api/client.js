@@ -157,6 +157,11 @@ export async function fetchBacktestCorpus() {
   return request("/api/backtest/corpus");
 }
 
+// GET /api/backtest/football — the frozen draw-at-60' 2025 football study
+export async function fetchFootballBacktest() {
+  return request("/api/backtest/football");
+}
+
 // strategies + their saved params live server-side; defaults ride along so
 // "Restore defaults" has one source of truth
 export async function fetchBacktestStrategies() {
