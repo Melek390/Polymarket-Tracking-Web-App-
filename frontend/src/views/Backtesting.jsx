@@ -136,8 +136,9 @@ export default function Backtesting() {
           Could not load the strategies — is the backend up to date?
         </div>
       )}
-      {Array.isArray(strategies) && strategies.map((s, i) => (
-        <StrategyCard key={s.id} strategy={s} defaults={defaults} defaultOpen={i === 0} />
+      {/* all cards start collapsed — the user chooses what to expand */}
+      {Array.isArray(strategies) && strategies.map((s) => (
+        <StrategyCard key={s.id} strategy={s} defaults={defaults} />
       ))}
 
       <div style={{ fontSize: 12, color: T.faint }}>
@@ -160,17 +161,17 @@ export default function Backtesting() {
         <MenuStat
           title="Draws at 60'"
           value={football === null ? "…" : football === false ? "—"
-            : football.meta.draws_at_60}
-          sub={football && football.meta
-            ? `won ${football.meta.won} · drew ${football.meta.drew} · lost ${football.meta.lost}`
+            : football.byMinute?.["60"]?.summary.draws ?? "—"}
+          sub={football && football.byMinute?.["60"]
+            ? `won ${football.byMinute["60"].summary.won} · drew ${football.byMinute["60"].summary.drew} · lost ${football.byMinute["60"].summary.lost}`
             : "level games at the hour"}
         />
         <MenuStat
           title="Avg win price @60'"
           value={football === null ? "…" : football === false ? "—"
-            : `${football.meta.avg_price60}¢`}
-          sub={football && football.meta
-            ? `${football.meta.priced} games with usable price history`
+            : `${football.byMinute?.["60"]?.summary.avg_price ?? "—"}¢`}
+          sub={football && football.byMinute?.["60"]
+            ? `${football.byMinute["60"].summary.priced} games with usable price history`
             : "Polymarket, 1-minute history"}
         />
       </div>
@@ -180,7 +181,7 @@ export default function Backtesting() {
           Could not load the football study — is the backend up to date?
         </div>
       )}
-      {football && football.meta && <FootballDraw60 data={football} />}
+      {football && football.byMinute && <FootballDraw60 data={football} />}
     </main>
   );
 }

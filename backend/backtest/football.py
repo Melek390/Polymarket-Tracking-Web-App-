@@ -248,10 +248,18 @@ def tally(goals, home_id, upto):
 
 
 # ------------------------------------------------------------- the price
-def price_at_60(cache: dict, slug: str, team_title: str, kickoff_iso: str,
-                g: httpx.Client, clob: httpx.Client):
-    """The club's WIN price ~minute 60 (wall clock kickoff+75'), in cents."""
-    key = "px:%s:%s" % (slug, norm(team_title))
+def _taker_fee(price_cents: float, shares: float) -> float:
+    """Same sports-fee formula as engine.py — shares x 5% x p(1-p)."""
+    p = price_cents / 100.0
+    return shares * 0.05 * p * (1 - p)
+
+
+def price_at_minute(cache: dict, slug: str, team_title: str, kickoff_iso: str,
+                    minute: int, g: httpx.Client, clob: httpx.Client):
+    """The club's WIN price at a given minute of PLAY, in cents. Wall clock =
+    kickoff + minute (+15' half-time once past the break)."""
+    offset = minute + (15 if minute > 45 else 0)
+    key = "px%d:%s:%s" % (minute, slug, norm(team_title))
     if key in cache:
         return cache[key]
     out = None
@@ -281,12 +289,12 @@ def price_at_60(cache: dict, slug: str, team_title: str, kickoff_iso: str,
                 break
         if token:
             k = datetime.fromisoformat(kickoff_iso.replace("Z", "+00:00"))
-            lo = int((k + timedelta(minutes=68)).timestamp())
-            hi = int((k + timedelta(minutes=82)).timestamp())
+            lo = int((k + timedelta(minutes=offset - 7)).timestamp())
+            hi = int((k + timedelta(minutes=offset + 7)).timestamp())
             r2 = clob.get("/prices-history", params={
                 "market": token, "startTs": lo, "endTs": hi, "fidelity": 1})
             hist = (r2.json() or {}).get("history") or []
-            want = (k + timedelta(minutes=75)).timestamp()
+            want = (k + timedelta(minutes=offset)).timestamp()
             if hist:
                 p = min(hist, key=lambda x: abs(x["t"] - want))
                 out = round(float(p["p"]) * 100, 1)
@@ -299,6 +307,80 @@ def price_at_60(cache: dict, slug: str, team_title: str, kickoff_iso: str,
 
 
 # ------------------------------------------------------------------ main
+MINUTES = [30, 45, 60, 70, 75, 80]   # the Adjust-settings choices in the UI
+
+
+def run_minute(minute: int, matched: dict, cache: dict, fb, g, clob) -> dict:
+    """One pass: every matched game LEVEL at `minute`, its regulation result,
+    the club's win price at that moment, and P&L with and without fees
+    ($100 flat, taker fee on the buy leg — settlement pays none)."""
+    team_ids = {v: k for k, v in TEAMS.items()}
+    teams = {}
+    for tname, rows in matched.items():
+        tid = team_ids[tname]
+        det = []
+        for fx in rows:
+            goals = score_at_60(cache, fx["fixture_id"], fb)
+            if goals is None:
+                continue
+            at_home = same_team(fx["home"], tname)
+            mine = sum(1 for x in goals if x["min"] <= minute and x["team_id"] == tid)
+            opp = sum(1 for x in goals if x["min"] <= minute and x["team_id"] != tid)
+            if mine != opp:
+                continue                         # not level at that minute
+            mine90 = sum(1 for x in goals if x["min"] <= 90 and x["team_id"] == tid)
+            opp90 = sum(1 for x in goals if x["min"] <= 90 and x["team_id"] != tid)
+            res = "W" if mine90 > opp90 else ("D" if mine90 == opp90 else "L")
+            px = None
+            if not fx["advance"]:
+                px = price_at_minute(cache, fx["poly_slug"], fx["poly_team"],
+                                     fx["utc"], minute, g, clob)
+            det.append({
+                "date": fx["date"], "opp": fx["away"] if at_home else fx["home"],
+                "ha": "H" if at_home else "A", "league": fx["league"],
+                "scoreAt": "%d-%d" % (mine, opp), "result90": res,
+                "priceAt": px, "slug": fx["poly_slug"],
+            })
+        pnl = fees = 0.0
+        priced = [d for d in det if d["priceAt"] is not None]
+        for d in priced:
+            px = d["priceAt"]
+            shares = 100.0 / (px / 100.0)
+            fee = _taker_fee(px, shares)
+            fees += fee
+            pnl += shares * (100 - px) / 100.0 if d["result90"] == "W" else -100.0
+        teams[tname] = {
+            "backtestable": len(rows),
+            "draws": len(det),
+            "won": sum(1 for d in det if d["result90"] == "W"),
+            "drew": sum(1 for d in det if d["result90"] == "D"),
+            "lost": sum(1 for d in det if d["result90"] == "L"),
+            "win_rate": round(100.0 * sum(1 for d in det if d["result90"] == "W")
+                              / len(det), 1) if det else None,
+            "priced": len(priced),
+            "avg_price": round(sum(d["priceAt"] for d in priced) / len(priced), 1)
+            if priced else None,
+            "pnl100": round(pnl, 2),
+            "pnl100_fees": round(pnl - fees, 2),
+            "games": det,
+        }
+    s = {k: sum(t[k] for t in teams.values())
+         for k in ("draws", "won", "drew", "lost", "priced")}
+    px_sum = sum((t["avg_price"] or 0) * t["priced"] for t in teams.values())
+    summary = {
+        **s,
+        "win_rate": round(100.0 * s["won"] / s["draws"], 1) if s["draws"] else None,
+        "avg_price": round(px_sum / s["priced"], 1) if s["priced"] else None,
+        "pnl100": round(sum(t["pnl100"] for t in teams.values()), 2),
+        "pnl100_fees": round(sum(t["pnl100_fees"] for t in teams.values()), 2),
+    }
+    print("  minute %2d: draws %3d -> W %d / D %d / L %d  avg px %s  "
+          "pnl %+0.0f (%+0.0f after fees)" % (
+              minute, s["draws"], s["won"], s["drew"], s["lost"],
+              summary["avg_price"], summary["pnl100"], summary["pnl100_fees"]))
+    return {"summary": summary, "teams": teams}
+
+
 def run():
     cache = _load_cache()
     print("[1/4] fixtures (api-football)")
@@ -314,61 +396,28 @@ def run():
     g = httpx.Client(base_url="https://gamma-api.polymarket.com", timeout=30)
     clob = httpx.Client(base_url="https://clob.polymarket.com", timeout=30)
 
-    # home team id per fixture comes from name matching the timeline teams —
-    # cheaper: a goal's team either IS the club or is not, and we know
-    # whether the club played at home from the fixture row.
-    team_ids = {v: k for k, v in TEAMS.items()}
-    print("[4/4] scores at 60' + prices")
-    report = {}
-    for tname, rows in matched.items():
-        tid = team_ids[tname]
-        det = []
-        for fx in rows:
-            goals = score_at_60(cache, fx["fixture_id"], fb)
-            if goals is None:
-                continue
-            at_home = same_team(fx["home"], tname)
-            # club goals vs opponent goals, from the club's point of view
-            mine60 = sum(1 for x in goals if x["min"] <= 60 and
-                         (x["team_id"] == tid))
-            opp60 = sum(1 for x in goals if x["min"] <= 60 and
-                        (x["team_id"] != tid))
-            if mine60 != opp60:
-                continue                         # not level at the hour
-            mine90 = sum(1 for x in goals if x["min"] <= 90 and x["team_id"] == tid)
-            opp90 = sum(1 for x in goals if x["min"] <= 90 and x["team_id"] != tid)
-            res = "W" if mine90 > opp90 else ("D" if mine90 == opp90 else "L")
-            px = None
-            if not fx["advance"]:
-                px = price_at_60(cache, fx["poly_slug"], fx["poly_team"],
-                                 fx["utc"], g, clob)
-            det.append({
-                "date": fx["date"], "opp": fx["away"] if at_home else fx["home"],
-                "ha": "H" if at_home else "A", "league": fx["league"],
-                "score60": "%d-%d" % (mine60, opp60), "result90": res,
-                "price60": px, "slug": fx["poly_slug"],
-            })
-        priced = [d for d in det if d["price60"] is not None]
-        report[tname] = {
-            "backtestable": len(rows),
-            "with_timeline": len(det) and None,   # filled below
-            "draw_at_60": len(det),
-            "won": sum(1 for d in det if d["result90"] == "W"),
-            "drew": sum(1 for d in det if d["result90"] == "D"),
-            "lost": sum(1 for d in det if d["result90"] == "L"),
-            "priced": len(priced),
-            "avg_price60": round(sum(d["price60"] for d in priced) / len(priced), 1)
-            if priced else None,
-            "games": det,
-        }
-        r = report[tname]
-        print("  %-14s draws@60: %2d -> W %2d / D %2d / L %2d   "
-              "avg win price @60: %s (%d priced)" % (
-                  tname, r["draw_at_60"], r["won"], r["drew"], r["lost"],
-                  r["avg_price60"], r["priced"]))
-    json.dump(report, open(RESULTS, "w"), indent=1)
+    print("[4/4] level-at-minute scans")
+    by_minute = {str(m): run_minute(m, matched, cache, fb, g, clob)
+                 for m in MINUTES}
+    out = {
+        "meta": {
+            "name": "Draw at 60' — 2025",
+            "year": 2025, "clubs": len(TEAMS),
+            "fixtures_2025": sum(len(r) for r in fixtures.values()),
+            "available_both_apis": sum(len(r) for r in matched.values()),
+            "minutes": MINUTES, "default_minute": 60,
+            "computed_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            "note": ("Regulation result only (90'). Price = the club's win "
+                     "price at the chosen minute of play (wall clock adds the "
+                     "15' half-time past 45'), CLOB 1-minute history. P&L = "
+                     "$100 flat per priced game; the after-fees column charges "
+                     "Polymarket's sports taker fee on the buy leg."),
+        },
+        "byMinute": by_minute,
+    }
+    json.dump(out, open(RESULTS, "w"), indent=1)
     print("\nresults ->", RESULTS)
-    return report
+    return out
 
 
 if __name__ == "__main__":
