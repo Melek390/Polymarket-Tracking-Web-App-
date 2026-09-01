@@ -18,6 +18,44 @@ const money = (v) => (
   </span>
 );
 
+// Aggregates recomputed from the per-game rows so the Home/Away filter can
+// slice everything client-side — same $100-flat and taker-fee arithmetic as
+// backend/backtest/football.py, which ships every game in the bundle.
+function aggregate(teams, side) {
+  const out = {};
+  let draws = 0, won = 0, drew = 0, lost = 0, priced = 0, pxSum = 0, pnl = 0, pnlFees = 0;
+  for (const [name, d] of Object.entries(teams)) {
+    const games = side === "both" ? d.games : d.games.filter((g) => g.ha === side);
+    let w = 0, dr = 0, l = 0, p = 0, px = 0, money0 = 0, fee = 0;
+    for (const g of games) {
+      if (g.result90 === "W") w++; else if (g.result90 === "D") dr++; else l++;
+      if (g.priceAt != null) {
+        p++; px += g.priceAt;
+        const shares = 100 / (g.priceAt / 100);
+        fee += shares * 0.05 * (g.priceAt / 100) * (1 - g.priceAt / 100);
+        money0 += g.result90 === "W" ? (shares * (100 - g.priceAt)) / 100 : -100;
+      }
+    }
+    out[name] = {
+      games, draws: games.length, won: w, drew: dr, lost: l,
+      win_rate: games.length ? (100 * w) / games.length : null,
+      priced: p, avg_price: p ? px / p : null,
+      pnl100: money0, pnl100_fees: money0 - fee,
+    };
+    draws += games.length; won += w; drew += dr; lost += l;
+    priced += p; pxSum += px; pnl += money0; pnlFees += money0 - fee;
+  }
+  return {
+    teams: out,
+    summary: {
+      draws, won, drew, lost, priced,
+      win_rate: draws ? (100 * won) / draws : null,
+      avg_price: priced ? pxSum / priced : null,
+      pnl100: pnl, pnl100_fees: pnlFees,
+    },
+  };
+}
+
 function TeamGames({ games }) {
   return (
     <tr>
@@ -52,9 +90,12 @@ export default function FootballDraw60({ data }) {
   const [teamOpen, setTeamOpen] = useState({});
   const { meta, byMinute } = data;
   const [minute, setMinute] = useState(meta.default_minute);
-  const view = byMinute[String(minute)];
-  if (!view) return null;
+  const [side, setSide] = useState("both");
+  const raw = byMinute[String(minute)];
+  if (!raw) return null;
+  const view = aggregate(raw.teams, side);
   const s = view.summary;
+  const sideLabel = side === "H" ? " · home only" : side === "A" ? " · away only" : "";
 
   return (
     <div style={{ ...card, overflow: "hidden" }}>
@@ -70,7 +111,7 @@ export default function FootballDraw60({ data }) {
           <div style={{ fontFamily: T.ui, fontSize: 15, fontWeight: 600 }}>
             {meta.name}
             <span style={{ fontWeight: 400, color: T.sub, fontSize: 12, marginLeft: 8 }}>
-              level at {minute}&apos; · {s.draws} spots · W {s.won} / D {s.drew} / L {s.lost}
+              level at {minute}&apos;{sideLabel} · {s.draws} spots · W {s.won} / D {s.drew} / L {s.lost}
               {" "}· after fees {money(s.pnl100_fees)}
             </span>
           </div>
@@ -88,26 +129,40 @@ export default function FootballDraw60({ data }) {
       </div>
 
       {editing && (
-        <div style={{
-          display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
-          padding: "0 16px 12px",
-        }}>
-          <span style={{ fontSize: 12, color: T.sub }}>Bet when the game is level at minute:</span>
-          {meta.minutes.map((m) => (
-            <button
-              key={m}
-              onClick={() => { setMinute(m); setOpen(true); }}
-              style={{
-                ...(m === minute ? btn.green : btn.outline),
-                fontSize: 13, padding: "4px 12px",
-              }}
-            >
-              {m}&apos;
-            </button>
-          ))}
-          <span style={{ fontSize: 11, color: T.faint }}>
-            price sampled at that minute of play — switches instantly, all variants precomputed
-          </span>
+        <div style={{ padding: "0 16px 12px", display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: T.sub }}>Bet when the game is level at minute:</span>
+            {meta.minutes.map((m) => (
+              <button
+                key={m}
+                onClick={() => { setMinute(m); setOpen(true); }}
+                style={{
+                  ...(m === minute ? btn.green : btn.outline),
+                  fontSize: 13, padding: "4px 12px",
+                }}
+              >
+                {m}&apos;
+              </button>
+            ))}
+            <span style={{ fontSize: 11, color: T.faint }}>
+              price sampled at that minute of play — switches instantly, all variants precomputed
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: T.sub }}>Where the club is playing:</span>
+            {[["both", "Both"], ["H", "Home"], ["A", "Away"]].map(([v, lbl]) => (
+              <button
+                key={v}
+                onClick={() => { setSide(v); setOpen(true); }}
+                style={{
+                  ...(v === side ? btn.green : btn.outline),
+                  fontSize: 13, padding: "4px 12px",
+                }}
+              >
+                {lbl}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -148,7 +203,7 @@ export default function FootballDraw60({ data }) {
                     <td style={td}>{d.drew}</td>
                     <td style={{ ...td, color: T.red }}>{d.lost}</td>
                     <td style={td}>{d.win_rate != null ? `${Math.round(d.win_rate)}%` : "—"}</td>
-                    <td style={td}>{d.avg_price != null ? `${d.avg_price}¢` : "—"}</td>
+                    <td style={td}>{d.avg_price != null ? `${d.avg_price.toFixed(1)}¢` : "—"}</td>
                     <td style={td}>{money(d.pnl100)}</td>
                     <td style={td}>{money(d.pnl100_fees)}</td>
                   </tr>,
@@ -163,7 +218,7 @@ export default function FootballDraw60({ data }) {
                   <td style={{ ...td, fontWeight: 700 }}>
                     {s.win_rate != null ? `${Math.round(s.win_rate)}%` : "—"}
                   </td>
-                  <td style={{ ...td, fontWeight: 700 }}>{s.avg_price}¢</td>
+                  <td style={{ ...td, fontWeight: 700 }}>{s.avg_price != null ? s.avg_price.toFixed(1) : "—"}¢</td>
                   <td style={{ ...td, fontWeight: 700 }}>{money(s.pnl100)}</td>
                   <td style={{ ...td, fontWeight: 700 }}>{money(s.pnl100_fees)}</td>
                 </tr>
