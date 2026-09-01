@@ -206,13 +206,15 @@ def match_events(fixtures: dict, events: list) -> dict:
                     if sd and abs(_daynum(sd) - fd) <= 30:
                         best = best or e
             if best:
-                # which title side is the club we are studying
-                mine = best["sides"][0] if same_team(best["sides"][0], tname) or \
-                    (same_team(best["sides"][0], fx["home"]) and same_team(fx["home"], tname)) or \
-                    (same_team(best["sides"][0], fx["away"]) and same_team(fx["away"], tname)) \
-                    else best["sides"][1]
+                # which title side is the club we are studying — the other
+                # side is the opponent, needed for the buy-NO variant
+                a, b = best["sides"]
+                first_is_mine = same_team(a, tname) or \
+                    (same_team(a, fx["home"]) and same_team(fx["home"], tname)) or \
+                    (same_team(a, fx["away"]) and same_team(fx["away"], tname))
+                mine, opp_side = (a, b) if first_is_mine else (b, a)
                 hit.append({**fx, "poly_slug": best["slug"], "poly_team": mine,
-                            "advance": best["advance"]})
+                            "poly_opp": opp_side, "advance": best["advance"]})
         out[tname] = hit
         print("  matched %-14s %d of %d" % (tname, len(hit), len(rows)))
     return out
@@ -331,15 +333,20 @@ def run_minute(minute: int, matched: dict, cache: dict, fb, g, clob) -> dict:
             mine90 = sum(1 for x in goals if x["min"] <= 90 and x["team_id"] == tid)
             opp90 = sum(1 for x in goals if x["min"] <= 90 and x["team_id"] != tid)
             res = "W" if mine90 > opp90 else ("D" if mine90 == opp90 else "L")
-            px = None
+            px = px_opp = None
             if not fx["advance"]:
                 px = price_at_minute(cache, fx["poly_slug"], fx["poly_team"],
                                      fx["utc"], minute, g, clob)
+                # the opponent's win price at the same moment: buying its NO
+                # (entry = 100 - this) pays on a club win OR a draw
+                px_opp = price_at_minute(cache, fx["poly_slug"],
+                                         fx.get("poly_opp") or "",
+                                         fx["utc"], minute, g, clob)
             det.append({
                 "date": fx["date"], "opp": fx["away"] if at_home else fx["home"],
                 "ha": "H" if at_home else "A", "league": fx["league"],
                 "scoreAt": "%d-%d" % (mine, opp), "result90": res,
-                "priceAt": px, "slug": fx["poly_slug"],
+                "priceAt": px, "oppPriceAt": px_opp, "slug": fx["poly_slug"],
             })
         pnl = fees = 0.0
         priced = [d for d in det if d["priceAt"] is not None]

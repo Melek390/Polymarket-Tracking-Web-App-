@@ -18,65 +18,81 @@ const money = (v) => (
   </span>
 );
 
-// Aggregates recomputed from the per-game rows so the Home/Away filter can
-// slice everything client-side — same $100-flat and taker-fee arithmetic as
-// backend/backtest/football.py, which ships every game in the bundle.
-function aggregate(teams, side) {
+// Aggregates recomputed from the per-game rows so the Home/Away and YES/NO
+// filters can slice everything client-side — same $100-flat and taker-fee
+// arithmetic as backend/backtest/football.py, which ships every game.
+//
+// mode "yes": buy the club's win — pays only on a W.
+// mode "no":  buy NO on the opponent's win (entry = 100 - opponent price) —
+//             pays on a W or a D, at a much higher entry price.
+export function entryPrice(g, mode) {
+  if (mode === "no") return g.oppPriceAt != null ? 100 - g.oppPriceAt : null;
+  return g.priceAt;
+}
+
+function aggregate(teams, side, mode) {
   const out = {};
   let draws = 0, won = 0, drew = 0, lost = 0, priced = 0, pxSum = 0, pnl = 0, pnlFees = 0;
+  let hits = 0;
   for (const [name, d] of Object.entries(teams)) {
     const games = side === "both" ? d.games : d.games.filter((g) => g.ha === side);
-    let w = 0, dr = 0, l = 0, p = 0, px = 0, money0 = 0, fee = 0;
+    let w = 0, dr = 0, l = 0, h = 0, p = 0, px = 0, money0 = 0, fee = 0;
     for (const g of games) {
       if (g.result90 === "W") w++; else if (g.result90 === "D") dr++; else l++;
-      if (g.priceAt != null) {
-        p++; px += g.priceAt;
-        const shares = 100 / (g.priceAt / 100);
-        fee += shares * 0.05 * (g.priceAt / 100) * (1 - g.priceAt / 100);
-        money0 += g.result90 === "W" ? (shares * (100 - g.priceAt)) / 100 : -100;
+      const hit = mode === "no" ? g.result90 !== "L" : g.result90 === "W";
+      if (hit) h++;
+      const entry = entryPrice(g, mode);
+      if (entry != null && entry > 0 && entry < 100) {
+        p++; px += entry;
+        const shares = 100 / (entry / 100);
+        fee += shares * 0.05 * (entry / 100) * (1 - entry / 100);
+        money0 += hit ? (shares * (100 - entry)) / 100 : -100;
       }
     }
     out[name] = {
       games, draws: games.length, won: w, drew: dr, lost: l,
-      win_rate: games.length ? (100 * w) / games.length : null,
+      win_rate: games.length ? (100 * h) / games.length : null,
       priced: p, avg_price: p ? px / p : null,
       pnl100: money0, pnl100_fees: money0 - fee,
     };
-    draws += games.length; won += w; drew += dr; lost += l;
+    draws += games.length; won += w; drew += dr; lost += l; hits += h;
     priced += p; pxSum += px; pnl += money0; pnlFees += money0 - fee;
   }
   return {
     teams: out,
     summary: {
       draws, won, drew, lost, priced,
-      win_rate: draws ? (100 * won) / draws : null,
+      win_rate: draws ? (100 * hits) / draws : null,
       avg_price: priced ? pxSum / priced : null,
       pnl100: pnl, pnl100_fees: pnlFees,
     },
   };
 }
 
-function TeamGames({ games }) {
+function TeamGames({ games, mode }) {
   return (
     <tr>
       <td colSpan={9} style={{ padding: "2px 10px 10px 26px" }}>
         <table style={{ borderCollapse: "collapse" }}>
           <tbody>
-            {games.map((g, i) => (
-              <tr key={i} style={{ color: T.sub, fontSize: 12 }}>
-                <td style={{ ...monoText, padding: "1px 10px 1px 0", fontSize: 12 }}>{g.date}</td>
-                <td style={{ padding: "1px 10px 1px 0" }}>{g.ha === "H" ? "vs" : "at"} {g.opp}</td>
-                <td style={{ padding: "1px 10px 1px 0", color: T.faint }}>{g.league}</td>
-                <td style={{ ...monoText, padding: "1px 10px 1px 0", fontSize: 12 }}>{g.scoreAt}</td>
-                <td style={{
-                  ...monoText, padding: "1px 10px 1px 0", fontSize: 12, fontWeight: 700,
-                  color: g.result90 === "W" ? T.green : g.result90 === "L" ? T.red : T.sub,
-                }}>{g.result90}</td>
-                <td style={{ ...monoText, padding: "1px 0", fontSize: 12 }}>
-                  {g.priceAt != null ? `${g.priceAt}¢` : "no price"}
-                </td>
-              </tr>
-            ))}
+            {games.map((g, i) => {
+              const entry = entryPrice(g, mode);
+              return (
+                <tr key={i} style={{ color: T.sub, fontSize: 12 }}>
+                  <td style={{ ...monoText, padding: "1px 10px 1px 0", fontSize: 12 }}>{g.date}</td>
+                  <td style={{ padding: "1px 10px 1px 0" }}>{g.ha === "H" ? "vs" : "at"} {g.opp}</td>
+                  <td style={{ padding: "1px 10px 1px 0", color: T.faint }}>{g.league}</td>
+                  <td style={{ ...monoText, padding: "1px 10px 1px 0", fontSize: 12 }}>{g.scoreAt}</td>
+                  <td style={{
+                    ...monoText, padding: "1px 10px 1px 0", fontSize: 12, fontWeight: 700,
+                    color: g.result90 === "W" ? T.green : g.result90 === "L" ? T.red : T.sub,
+                  }}>{g.result90}</td>
+                  <td style={{ ...monoText, padding: "1px 0", fontSize: 12 }}>
+                    {entry != null ? `${entry.toFixed(1)}¢` : "no price"}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </td>
@@ -91,11 +107,13 @@ export default function FootballDraw60({ data }) {
   const { meta, byMinute } = data;
   const [minute, setMinute] = useState(meta.default_minute);
   const [side, setSide] = useState("both");
+  const [mode, setMode] = useState("yes");
   const raw = byMinute[String(minute)];
   if (!raw) return null;
-  const view = aggregate(raw.teams, side);
+  const view = aggregate(raw.teams, side, mode);
   const s = view.summary;
-  const sideLabel = side === "H" ? " · home only" : side === "A" ? " · away only" : "";
+  const sideLabel = (side === "H" ? " · home only" : side === "A" ? " · away only" : "")
+    + (mode === "no" ? " · NO on the opponent" : "");
 
   return (
     <div style={{ ...card, overflow: "hidden" }}>
@@ -163,6 +181,24 @@ export default function FootballDraw60({ data }) {
               </button>
             ))}
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: T.sub }}>What to buy:</span>
+            {[["yes", "YES — club to win"], ["no", "NO — opponent to win"]].map(([v, lbl]) => (
+              <button
+                key={v}
+                onClick={() => { setMode(v); setOpen(true); }}
+                style={{
+                  ...(v === mode ? btn.green : btn.outline),
+                  fontSize: 13, padding: "4px 12px",
+                }}
+              >
+                {lbl}
+              </button>
+            ))}
+            <span style={{ fontSize: 11, color: T.faint }}>
+              NO pays when the club wins OR draws — pricier entry, draws count as hits
+            </span>
+          </div>
         </div>
       )}
 
@@ -177,9 +213,9 @@ export default function FootballDraw60({ data }) {
                   <th style={th}>W</th>
                   <th style={th}>D</th>
                   <th style={th}>L</th>
-                  <th style={th}>Win rate</th>
+                  <th style={th} title="YES mode: wins. NO mode: wins + draws (the bet's hit rate)">Hit rate</th>
                   <th style={th}>Avg price @{minute}&apos;</th>
-                  <th style={th} title="Buy the club's win at that minute's price, $100 per priced game, hold to settlement">
+                  <th style={th} title="$100 per priced game at that minute's entry price, hold to settlement">
                     P&amp;L ($100 flat)
                   </th>
                   <th style={th} title="Same, minus Polymarket's sports taker fee on the buy leg">
@@ -207,7 +243,7 @@ export default function FootballDraw60({ data }) {
                     <td style={td}>{money(d.pnl100)}</td>
                     <td style={td}>{money(d.pnl100_fees)}</td>
                   </tr>,
-                  teamOpen[name] && <TeamGames key={name + ":games"} games={d.games} />,
+                  teamOpen[name] && <TeamGames key={name + ":games"} games={d.games} mode={mode} />,
                 ])}
                 <tr style={{ borderTop: `2px solid ${T.line}` }}>
                   <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>Total</td>

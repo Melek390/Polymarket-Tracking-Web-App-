@@ -1,0 +1,107 @@
+FOOTBALL STRATEGIES ON POLYMARKET — RESEARCHED RULEBOOKS
+=========================================================
+Compiled 2026-09-01 from published studies, quant write-ups and our own
+2025 draw-at-60 backtest (backend/backtest/football.py). Documented edges
+are 2-5c per $1, so the fee/slippage arithmetic decides survival — every
+strategy here is backtestable on our existing pipeline before risking a cent.
+
+
+STRATEGY 1 — FAVORITE-LONGSHOT BIAS
+-----------------------------------
+Universe: Polymarket soccer moneylines, volume above $10k.
+
+Rules:
+  1. Never buy any YES priced under 20c.
+  2. Buy the favorite's YES only when priced 60-85c.
+  3. Buy NO on any outcome priced 5-15c ONLY IF Pinnacle's de-vigged
+     probability for that outcome is at least 3c lower than the Polymarket
+     price (the sharp book is the filter — no guessing).
+  4. Limit orders only; skip if the spread is wider than 2c.
+
+Exit: hold to settlement. No in-play management.
+Size: flat stake, equal per trade. Judge after 100+ trades, never sooner.
+
+References:
+  - QuantPedia — Systematic Edges in Prediction Markets
+    https://quantpedia.com/systematic-edges-in-prediction-markets/
+  - The Polymarket Quant Playbook (0xIcaruss)
+    https://medium.com/@0xicaruss/the-polymarket-quant-playbook-a-data-driven-framework-for-extracting-edge-in-prediction-markets-d9744d90477d
+  - Favorite-longshot bias evidence (college sports)
+    https://ideas.repec.org/a/eee/quaeco/v63y2017icp233-239.html
+
+
+STRATEGY 2 — BACK THE DRAW
+--------------------------
+Universe: evenly-matched games, defined mechanically: both win prices
+within 10c of each other pre-kickoff. (The Soccermatics version restricts
+further to EPL top-6 vs top-6.)
+
+Rules — pre-kickoff:
+  1. Buy Draw when priced below 27c in a qualifying game.
+  2. Draw at 27c or higher -> no bet.
+
+Rules — in-play (supported by our own 2025 backtest, 70'/75' rows):
+  1. Game still level at the 70th minute -> buy Draw at market.
+  2. A goal is scored after entry -> sell immediately, take the loss.
+  3. Otherwise hold to settlement.
+
+Size: flat stake; ~3 of 4 pre-kickoff bets lose — the 3-4x payouts carry
+the strategy, so never increase stake after losses.
+
+References:
+  - Back the Draw in EPL — backtested (from David Sumpter's Soccermatics)
+    https://medium.com/@fadaimammadov/two-football-betting-strategies-98f5e9d5b804
+  - World Cup prediction-market math — draws underpriced on Polymarket
+    https://medium.com/mountain-movers/the-mathematics-of-world-cup-prediction-markets-how-to-calculate-true-edge-over-the-crowd-29bfe92fb5ac
+  - Our own draw-at-60 2025 study (Backtesting page, Football section)
+
+
+STRATEGY 3 — MODEL-VS-ODDS VALUE BETTING (POISSON)
+--------------------------------------------------
+Universe: leagues with clean stats (big five + UCL via api-football).
+
+Rules:
+  1. Expected goals per team = team's average goals scored x opponent's
+     average goals conceded / league average; multiply the home side by
+     the home factor (~1.2).
+  2. Convert the two expected-goal numbers into win/draw/lose
+     probabilities with a Poisson table (fixed formula, no judgment).
+  3. Buy an outcome only when model probability - Polymarket price >= 5c.
+  4. Gap under 5c -> no bet. Zero bets most days is the system working.
+
+Exit: hold to settlement.
+Size: flat stake, cap any single game at 2% of bankroll.
+
+References:
+  - Bivariate Poisson profitable-betting study
+    https://www.sciencepublishinggroup.com/article/10.11648/j.ajtas.20150403.15
+  - The Market for EPL Odds (arXiv)
+    https://arxiv.org/pdf/1604.03614
+  - Machine Learning in Sports Betting — systematic review (arXiv)
+    https://arxiv.org/pdf/2410.21484
+
+
+STRATEGY 4 — CLOSING-LINE VALUE (PINNACLE FILTER)
+-------------------------------------------------
+Universe: any Polymarket soccer game Pinnacle also prices.
+
+Rules:
+  1. Within 1 hour of kickoff, take Pinnacle's three odds; convert each to
+     a probability (1/odds); divide each by their sum -> the FAIR price
+     (removes Pinnacle's ~2-4% margin).
+  2. Buy any Polymarket outcome priced 4c or more below its fair price.
+  3. Gap under 4c -> no bet.
+
+Exit: hold to settlement, or sell when Polymarket converges to within 1c
+of the Pinnacle fair price.
+
+Second use — the grader: log every bet from strategies 1-3 against the
+Pinnacle closing fair price. A strategy whose entries beat the close on
+average is good even during losing weeks; one that does not beat the
+close gets switched off regardless of recent profit.
+
+References:
+  - A view from the Pinnacle
+    https://networked.substack.com/p/a-view-from-the-pinnacle
+  - What is Closing Line Value?
+    https://gametheorypicks.substack.com/p/what-is-closing-line-value
