@@ -38,10 +38,12 @@ RESULTS = "/tmp/football_backtest_results.json"
 
 # api-football team ids, in the client's own wording — two strategy cards
 GROUPS = [
-    {"key": "top", "name": "Draw at 60' — 2025", "teams": {
+    {"key": "top", "name": "Draw at 60' — 2025",
+     "down_name": "Down 1-0 — 2025", "teams": {
         42: "Arsenal", 50: "Man City", 497: "Roma", 505: "Inter Milan",
         541: "Real Madrid", 529: "Barcelona", 157: "Bayern Munich"}},
-    {"key": "other", "name": "Other Leagues — 2025", "teams": {
+    {"key": "other", "name": "Other Leagues — 2025",
+     "down_name": "Other Leagues Down 1-0 — 2025", "teams": {
         645: "Galatasaray", 611: "Fenerbahce",           # Turkey Super Lig
         212: "Porto", 228: "Sporting CP", 211: "Benfica",  # Liga Portugal
         85: "PSG",                                        # Ligue 1
@@ -327,10 +329,11 @@ MINUTES = [30, 45, 60, 70, 75, 80]   # the Adjust-settings choices in the UI
 
 
 def run_minute(minute: int, matched: dict, cache: dict, fb, g, clob,
-               teams: dict) -> dict:
-    """One pass: every matched game LEVEL at `minute`, its regulation result,
-    the club's win price at that moment, and P&L with and without fees
-    ($100 flat, taker fee on the buy leg — settlement pays none)."""
+               teams: dict, trigger: str = "level") -> dict:
+    """One pass: every matched game where the club is LEVEL (trigger
+    "level") or A GOAL BEHIND (trigger "down") at `minute`, its regulation
+    result, the club's win price at that moment, and P&L with and without
+    fees ($100 flat, taker fee on the buy leg — settlement pays none)."""
     team_ids = {v: k for k, v in teams.items()}
     teams = {}
     for tname, rows in matched.items():
@@ -343,8 +346,9 @@ def run_minute(minute: int, matched: dict, cache: dict, fb, g, clob,
             at_home = same_team(fx["home"], tname)
             mine = sum(1 for x in goals if x["min"] <= minute and x["team_id"] == tid)
             opp = sum(1 for x in goals if x["min"] <= minute and x["team_id"] != tid)
-            if mine != opp:
-                continue                         # not level at that minute
+            want = (mine == opp) if trigger == "level" else (opp - mine == 1)
+            if not want:
+                continue                         # wrong scoreline at that minute
             mine90 = sum(1 for x in goals if x["min"] <= 90 and x["team_id"] == tid)
             opp90 = sum(1 for x in goals if x["min"] <= 90 and x["team_id"] != tid)
             res = "W" if mine90 > opp90 else ("D" if mine90 == opp90 else "L")
@@ -426,23 +430,27 @@ def run():
         print("[2/3] fixtures + matching: %s" % grp["name"])
         fixtures = fetch_fixtures(cache, grp["teams"], "fixtures:" + grp["key"])
         matched = match_events(fixtures, events)
-        print("[3/3] level-at-minute scans: %s" % grp["name"])
-        by_minute = {str(m): run_minute(m, matched, cache, fb, g, clob,
-                                        grp["teams"])
-                     for m in MINUTES}
-        strategies.append({
-            "key": grp["key"],
-            "meta": {
-                "name": grp["name"],
-                "year": 2025, "clubs": len(grp["teams"]),
-                "fixtures_2025": sum(len(r) for r in fixtures.values()),
-                "available_both_apis": sum(len(r) for r in matched.values()),
-                "minutes": MINUTES, "default_minute": 60,
-                "computed_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                "note": NOTE,
-            },
-            "byMinute": by_minute,
-        })
+        # the same matched corpus feeds two triggers: level (the draw study)
+        # and a goal behind (the client's down-1-0 comeback study)
+        for trigger, name in (("level", grp["name"]),
+                              ("down", grp["down_name"])):
+            print("[3/3] %s-at-minute scans: %s" % (trigger, name))
+            by_minute = {str(m): run_minute(m, matched, cache, fb, g, clob,
+                                            grp["teams"], trigger)
+                         for m in MINUTES}
+            strategies.append({
+                "key": grp["key"] + ("" if trigger == "level" else "_down"),
+                "meta": {
+                    "name": name, "trigger": trigger,
+                    "year": 2025, "clubs": len(grp["teams"]),
+                    "fixtures_2025": sum(len(r) for r in fixtures.values()),
+                    "available_both_apis": sum(len(r) for r in matched.values()),
+                    "minutes": MINUTES, "default_minute": 60,
+                    "computed_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                    "note": NOTE,
+                },
+                "byMinute": by_minute,
+            })
     out = {"strategies": strategies}
     json.dump(out, open(RESULTS, "w"), indent=1)
     print("\nresults ->", RESULTS)

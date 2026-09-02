@@ -38,12 +38,13 @@ export function entryPrice(g, mode, spread = 0) {
   return e > 0 && e < 100 ? e : null;
 }
 
-function aggregate(teams, side, mode, spread) {
+function aggregate(teams, side, mode, spread, keep) {
   const out = {};
   let draws = 0, won = 0, drew = 0, lost = 0, priced = 0, pxSum = 0, pnl = 0, pnlFees = 0;
   let hits = 0;
   for (const [name, d] of Object.entries(teams)) {
-    const games = side === "both" ? d.games : d.games.filter((g) => g.ha === side);
+    let games = side === "both" ? d.games : d.games.filter((g) => g.ha === side);
+    if (keep) games = games.filter(keep);
     let w = 0, dr = 0, l = 0, h = 0, p = 0, px = 0, money0 = 0, fee = 0;
     for (const g of games) {
       if (g.result90 === "W") w++; else if (g.result90 === "D") dr++; else l++;
@@ -117,10 +118,15 @@ export default function FootballDraw60({ data }) {
   const [side, setSide] = useState("both");
   const [mode, setMode] = useState("yes");
   const [spread, setSpread] = useState(0);
+  const [scoreline, setScoreline] = useState("01"); // down cards: 0-1 only vs any 1-goal deficit
+  const isDown = meta.trigger === "down";
   const raw = byMinute[String(minute)];
   if (!raw) return null;
-  const view = aggregate(raw.teams, side, mode, spread);
+  const keep = isDown && scoreline === "01" ? (g) => g.scoreAt === "0-1" : null;
+  const view = aggregate(raw.teams, side, mode, spread, keep);
   const s = view.summary;
+  const trigLabel = isDown
+    ? (scoreline === "01" ? "down 0-1" : "a goal down") : "level";
   const sideLabel = (side === "H" ? " · home only" : side === "A" ? " · away only" : "")
     + (mode === "no" ? " · NO on the opponent" : "")
     + (spread ? ` · ±${spread}¢ spread` : "");
@@ -139,13 +145,14 @@ export default function FootballDraw60({ data }) {
           <div style={{ fontFamily: T.ui, fontSize: 15, fontWeight: 600 }}>
             {meta.name}
             <span style={{ fontWeight: 400, color: T.sub, fontSize: 12, marginLeft: 8 }}>
-              level at {minute}&apos;{sideLabel} · {s.draws} spots · W {s.won} / D {s.drew} / L {s.lost}
+              {trigLabel} at {minute}&apos;{sideLabel} · {s.draws} spots · W {s.won} / D {s.drew} / L {s.lost}
               {" "}· after fees {money(s.pnl100_fees)}
             </span>
           </div>
           <div style={{ fontSize: 12, color: T.sub, marginTop: 2 }}>
             {meta.clubs} clubs · calendar {meta.year} · {meta.available_both_apis} games
-            on both APIs · frozen study, every minute precomputed
+            on both APIs · {isDown ? "the club is a goal behind" : "the game is level"} at
+            the chosen minute · frozen study, every minute precomputed
           </div>
         </div>
         <button
@@ -159,7 +166,9 @@ export default function FootballDraw60({ data }) {
       {editing && (
         <div style={{ padding: "0 16px 12px", display: "grid", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, color: T.sub }}>Bet when the game is level at minute:</span>
+            <span style={{ fontSize: 12, color: T.sub }}>
+              Bet when the club is {isDown ? "a goal behind" : "level"} at minute:
+            </span>
             {meta.minutes.map((m) => (
               <button
                 key={m}
@@ -209,6 +218,26 @@ export default function FootballDraw60({ data }) {
               NO pays when the club wins OR draws — pricier entry, draws count as hits
             </span>
           </div>
+          {isDown && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: T.sub }}>Scoreline:</span>
+              {[["01", "0-1 only"], ["any", "any one-goal deficit"]].map(([v, lbl]) => (
+                <button
+                  key={v}
+                  onClick={() => { setScoreline(v); setOpen(true); }}
+                  style={{
+                    ...(v === scoreline ? btn.green : btn.outline),
+                    fontSize: 13, padding: "4px 12px",
+                  }}
+                >
+                  {lbl}
+                </button>
+              ))}
+              <span style={{ fontSize: 11, color: T.faint }}>
+                0-1 is the client&apos;s spec; any deficit (1-2, 2-3…) widens the sample
+              </span>
+            </div>
+          )}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 12, color: T.sub }}>Fake spread (delayed-data safety):</span>
             {[[0, "none"], [5, "±5¢"], [10, "±10¢"]].map(([v, lbl]) => (
@@ -238,7 +267,7 @@ export default function FootballDraw60({ data }) {
               <thead>
                 <tr>
                   <th style={{ ...th, textAlign: "left" }}>Team</th>
-                  <th style={th}>Level at {minute}&apos;</th>
+                  <th style={th}>{isDown ? "Down" : "Level"} at {minute}&apos;</th>
                   <th style={th}>W</th>
                   <th style={th}>D</th>
                   <th style={th}>L</th>

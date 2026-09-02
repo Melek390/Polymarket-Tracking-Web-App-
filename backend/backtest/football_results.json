@@ -4,6 +4,7 @@
    "key": "top",
    "meta": {
     "name": "Draw at 60' \u2014 2025",
+    "trigger": "level",
     "year": 2025,
     "clubs": 7,
     "fixtures_2025": 439,
@@ -6125,9 +6126,3352 @@
    }
   },
   {
+   "key": "top_down",
+   "meta": {
+    "name": "Down 1-0 \u2014 2025",
+    "trigger": "down",
+    "year": 2025,
+    "clubs": 7,
+    "fixtures_2025": 439,
+    "available_both_apis": 296,
+    "minutes": [
+     30,
+     45,
+     60,
+     70,
+     75,
+     80
+    ],
+    "default_minute": 60,
+    "computed_at": "2026-09-02",
+    "note": "Regulation result only (90'). Price = the club's win price at the chosen minute of play (wall clock adds the 15' half-time past 45'), CLOB 1-minute history. P&L = $100 flat per priced game; the after-fees column charges Polymarket's sports taker fee on the buy leg."
+   },
+   "byMinute": {
+    "30": {
+     "summary": {
+      "draws": 43,
+      "won": 16,
+      "drew": 8,
+      "lost": 19,
+      "priced": 37,
+      "win_rate": 37.2,
+      "avg_price": 33.4,
+      "pnl100": 372.8,
+      "pnl100_fees": 249.52
+     },
+     "teams": {
+      "Arsenal": {
+       "backtestable": 49,
+       "draws": 5,
+       "won": 2,
+       "drew": 1,
+       "lost": 2,
+       "win_rate": 40.0,
+       "priced": 5,
+       "avg_price": 28.4,
+       "pnl100": -3.76,
+       "pnl100_fees": -21.66,
+       "games": [
+        {
+         "date": "2025-01-15",
+         "opp": "Tottenham",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 47.5,
+         "oppPriceAt": 27.5,
+         "slug": "epl-ars-tot-2025-01-15"
+        },
+        {
+         "date": "2025-01-29",
+         "opp": "Girona",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 35.0,
+         "oppPriceAt": 35.0,
+         "slug": "ucl-girona-vs-arsenal"
+        },
+        {
+         "date": "2025-04-29",
+         "opp": "Paris Saint Germain",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 20.0,
+         "oppPriceAt": 54.5,
+         "slug": "ucl-ars-psg-2025-04-29"
+        },
+        {
+         "date": "2025-05-07",
+         "opp": "Paris Saint Germain",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 17.0,
+         "oppPriceAt": 59.5,
+         "slug": "ucl-psg-ars-2025-05-07"
+        },
+        {
+         "date": "2025-09-21",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 22.5,
+         "oppPriceAt": 51.5,
+         "slug": "epl-ars-mac-2025-09-21"
+        }
+       ]
+      },
+      "Man City": {
+       "backtestable": 48,
+       "draws": 7,
+       "won": 3,
+       "drew": 0,
+       "lost": 4,
+       "win_rate": 42.9,
+       "priced": 6,
+       "avg_price": 22.0,
+       "pnl100": 140.74,
+       "pnl100_fees": 117.34,
+       "games": [
+        {
+         "date": "2025-01-25",
+         "opp": "Chelsea",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 27.0,
+         "oppPriceAt": 51.0,
+         "slug": "epl-mac-che-2025-01-25"
+        },
+        {
+         "date": "2025-02-02",
+         "opp": "Arsenal",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 12.0,
+         "oppPriceAt": 70.0,
+         "slug": "epl-ars-mac-2025-02-02"
+        },
+        {
+         "date": "2025-02-23",
+         "opp": "Liverpool",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 26.5,
+         "oppPriceAt": 45.0,
+         "slug": "epl-mac-liv-2025-02-23"
+        },
+        {
+         "date": "2025-02-08",
+         "opp": "Leyton Orient",
+         "ha": "A",
+         "league": "FA Cup",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fa-cup-leyton-orient-vs-manchester-city-to-advance"
+        },
+        {
+         "date": "2025-02-19",
+         "opp": "Real Madrid",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 8.5,
+         "oppPriceAt": 73.0,
+         "slug": "ucl-rma-mac-2025-02-19"
+        },
+        {
+         "date": "2025-10-26",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 31.0,
+         "oppPriceAt": 40.5,
+         "slug": "epl-ast-mac-2025-10-26"
+        },
+        {
+         "date": "2025-12-10",
+         "opp": "Real Madrid",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 27.0,
+         "oppPriceAt": 54.5,
+         "slug": "ucl-rma-mnc-2025-12-10"
+        }
+       ]
+      },
+      "Roma": {
+       "backtestable": 32,
+       "draws": 5,
+       "won": 1,
+       "drew": 0,
+       "lost": 4,
+       "win_rate": 20.0,
+       "priced": 4,
+       "avg_price": 32.5,
+       "pnl100": 34.78,
+       "pnl100_fees": 21.28,
+       "games": [
+        {
+         "date": "2025-05-12",
+         "opp": "Atalanta",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 67.5,
+         "oppPriceAt": 67.5,
+         "slug": "serie-a-atalanta-vs-roma-529"
+        },
+        {
+         "date": "2025-02-05",
+         "opp": "AC Milan",
+         "ha": "A",
+         "league": "Coppa Italia",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "copa-italia-ac-milan-vs-roma-to-advance"
+        },
+        {
+         "date": "2025-02-20",
+         "opp": "FC Porto",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 23.0,
+         "oppPriceAt": 48.0,
+         "slug": "uel-rom-por-2025-02-20"
+        },
+        {
+         "date": "2025-10-18",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 9.5,
+         "oppPriceAt": 69.0,
+         "slug": "sea-rom-int-2025-10-18"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "Lille",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 30.0,
+         "oppPriceAt": 42.5,
+         "slug": "uel-rom-lil-2025-10-02"
+        }
+       ]
+      },
+      "Inter Milan": {
+       "backtestable": 39,
+       "draws": 3,
+       "won": 1,
+       "drew": 1,
+       "lost": 1,
+       "win_rate": 33.3,
+       "priced": 2,
+       "avg_price": 41.2,
+       "pnl100": -9.52,
+       "pnl100_fees": -15.4,
+       "games": [
+        {
+         "date": "2025-06-18",
+         "opp": "Monterrey",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 30.0,
+         "oppPriceAt": 30.0,
+         "slug": "fifa-club-world-cup-monterrey-vs-inter-milan"
+        },
+        {
+         "date": "2025-06-21",
+         "opp": "Urawa",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 52.5,
+         "oppPriceAt": 52.5,
+         "slug": "fifa-club-world-cup-inter-milan-vs-urawa"
+        },
+        {
+         "date": "2025-06-30",
+         "opp": "Fluminense",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fifa-club-world-cup-inter-milan-vs-fluminense-to-advance"
+        }
+       ]
+      },
+      "Real Madrid": {
+       "backtestable": 46,
+       "draws": 5,
+       "won": 3,
+       "drew": 1,
+       "lost": 1,
+       "win_rate": 60.0,
+       "priced": 5,
+       "avg_price": 30.4,
+       "pnl100": 522.33,
+       "pnl100_fees": 504.93,
+       "games": [
+        {
+         "date": "2025-05-14",
+         "opp": "Mallorca",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 38.0,
+         "oppPriceAt": 38.0,
+         "slug": "la-liga-real-madrid-vs-mallorca"
+        },
+        {
+         "date": "2025-02-11",
+         "opp": "Manchester City",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 17.0,
+         "oppPriceAt": 63.5,
+         "slug": "ucl-mac-rma-2025-02-11"
+        },
+        {
+         "date": "2025-03-12",
+         "opp": "Atletico Madrid",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 18.0,
+         "oppPriceAt": 60.0,
+         "slug": "ucl-mad-rma-2025-03-12"
+        },
+        {
+         "date": "2025-04-26",
+         "opp": "Barcelona",
+         "ha": "A",
+         "league": "Copa del Rey",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 20.5,
+         "oppPriceAt": 79.5,
+         "slug": "copa-del-rey-final-real-madrid-vs-barcelona"
+        },
+        {
+         "date": "2025-08-30",
+         "opp": "Mallorca",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 58.5,
+         "oppPriceAt": 17.5,
+         "slug": "lal-rea-mal-2025-08-30"
+        }
+       ]
+      },
+      "Barcelona": {
+       "backtestable": 41,
+       "draws": 11,
+       "won": 4,
+       "drew": 3,
+       "lost": 4,
+       "win_rate": 36.4,
+       "priced": 11,
+       "avg_price": 37.3,
+       "pnl100": -241.26,
+       "pnl100_fees": -275.76,
+       "games": [
+        {
+         "date": "2025-05-03",
+         "opp": "Valladolid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 24.5,
+         "oppPriceAt": 24.5,
+         "slug": "la-liga-valladolid-vs-barcelona"
+        },
+        {
+         "date": "2025-05-11",
+         "opp": "Real Madrid",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "W",
+         "priceAt": 79.5,
+         "oppPriceAt": 20.5,
+         "slug": "copa-del-rey-final-real-madrid-vs-barcelona"
+        },
+        {
+         "date": "2025-04-15",
+         "opp": "Borussia Dortmund",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 21.5,
+         "oppPriceAt": 59.0,
+         "slug": "ucl-dor-bar-2025-04-15"
+        },
+        {
+         "date": "2025-04-30",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 36.0,
+         "oppPriceAt": 38.0,
+         "slug": "ucl-bar-int-2025-04-30"
+        },
+        {
+         "date": "2025-05-06",
+         "opp": "Inter",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 20.0,
+         "oppPriceAt": 57.0,
+         "slug": "ucl-int-bar-2025-05-06"
+        },
+        {
+         "date": "2025-08-23",
+         "opp": "Levante",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 58.5,
+         "oppPriceAt": 20.0,
+         "slug": "lal-lev-bar-2025-08-23"
+        },
+        {
+         "date": "2025-10-05",
+         "opp": "Sevilla",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 35.0,
+         "oppPriceAt": 40.5,
+         "slug": "lal-sev-bar-2025-10-05"
+        },
+        {
+         "date": "2025-10-26",
+         "opp": "Real Madrid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 15.0,
+         "oppPriceAt": 68.0,
+         "slug": "lal-rea-bar-2025-10-26"
+        },
+        {
+         "date": "2025-11-05",
+         "opp": "Club Brugge KV",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 39.5,
+         "oppPriceAt": 37.0,
+         "slug": "ucl-bru-fcb-2025-11-05"
+        },
+        {
+         "date": "2025-11-25",
+         "opp": "Chelsea",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 15.5,
+         "oppPriceAt": 64.5,
+         "slug": "ucl-cfc-fcb1-2025-11-25"
+        },
+        {
+         "date": "2025-12-09",
+         "opp": "Eintracht Frankfurt",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 65.0,
+         "oppPriceAt": 14.5,
+         "slug": "ucl-fcb-fra-2025-12-09"
+        }
+       ]
+      },
+      "Bayern Munich": {
+       "backtestable": 41,
+       "draws": 7,
+       "won": 2,
+       "drew": 2,
+       "lost": 3,
+       "win_rate": 28.6,
+       "priced": 4,
+       "avg_price": 46.5,
+       "pnl100": -70.51,
+       "pnl100_fees": -81.21,
+       "games": [
+        {
+         "date": "2025-05-03",
+         "opp": "RB Leipzig",
+         "ha": "A",
+         "league": "Bundesliga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": 30.5,
+         "slug": "bundesliga-bayern-munich-vs-rb-leipzig-797"
+        },
+        {
+         "date": "2025-01-22",
+         "opp": "Feyenoord",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 26.5,
+         "slug": "ucl-feyenoord-vs-bayern-munich"
+        },
+        {
+         "date": "2025-06-24",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 51.0,
+         "slug": "fifa-club-world-cup-benfica-vs-bayern-munich"
+        },
+        {
+         "date": "2025-11-08",
+         "opp": "Union Berlin",
+         "ha": "A",
+         "league": "Bundesliga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 53.0,
+         "oppPriceAt": 22.0,
+         "slug": "bun-uni-bay-2025-11-08"
+        },
+        {
+         "date": "2025-11-22",
+         "opp": "SC Freiburg",
+         "ha": "H",
+         "league": "Bundesliga",
+         "scoreAt": "1-2",
+         "result90": "W",
+         "priceAt": 59.0,
+         "oppPriceAt": 17.0,
+         "slug": "bun-bay-fre-2025-11-22"
+        },
+        {
+         "date": "2025-11-29",
+         "opp": "FC St. Pauli",
+         "ha": "H",
+         "league": "Bundesliga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 62.5,
+         "oppPriceAt": 14.4,
+         "slug": "bun-bay-pau-2025-11-29"
+        },
+        {
+         "date": "2025-11-26",
+         "opp": "Arsenal",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 11.5,
+         "oppPriceAt": 67.5,
+         "slug": "ucl-ars1-bay1-2025-11-26"
+        }
+       ]
+      }
+     }
+    },
+    "45": {
+     "summary": {
+      "draws": 42,
+      "won": 10,
+      "drew": 7,
+      "lost": 25,
+      "priced": 37,
+      "win_rate": 23.8,
+      "avg_price": 24.8,
+      "pnl100": -694.39,
+      "pnl100_fees": -833.45
+     },
+     "teams": {
+      "Arsenal": {
+       "backtestable": 49,
+       "draws": 8,
+       "won": 1,
+       "drew": 3,
+       "lost": 4,
+       "win_rate": 12.5,
+       "priced": 8,
+       "avg_price": 27.1,
+       "pnl100": -391.84,
+       "pnl100_fees": -420.99,
+       "games": [
+        {
+         "date": "2025-02-22",
+         "opp": "West Ham",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 37.0,
+         "oppPriceAt": 31.0,
+         "slug": "epl-ars-wes-2025-02-22"
+        },
+        {
+         "date": "2025-03-09",
+         "opp": "Manchester United",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 53.0,
+         "oppPriceAt": 14.5,
+         "slug": "epl-mun-ars-2025-03-09"
+        },
+        {
+         "date": "2025-04-29",
+         "opp": "Paris Saint Germain",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 17.5,
+         "oppPriceAt": 56.5,
+         "slug": "ucl-ars-psg-2025-04-29"
+        },
+        {
+         "date": "2025-05-07",
+         "opp": "Paris Saint Germain",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 16.0,
+         "oppPriceAt": 61.0,
+         "slug": "ucl-psg-ars-2025-05-07"
+        },
+        {
+         "date": "2025-09-21",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 18.5,
+         "oppPriceAt": 54.0,
+         "slug": "epl-ars-mac-2025-09-21"
+        },
+        {
+         "date": "2025-09-28",
+         "opp": "Newcastle",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 24.5,
+         "oppPriceAt": 47.0,
+         "slug": "epl-new-ars-2025-09-28"
+        },
+        {
+         "date": "2025-11-08",
+         "opp": "Sunderland",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 31.0,
+         "oppPriceAt": 35.0,
+         "slug": "epl-sun-ars-2025-11-08"
+        },
+        {
+         "date": "2025-12-06",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 19.5,
+         "oppPriceAt": 49.0,
+         "slug": "epl-ast-ars-2025-12-06"
+        }
+       ]
+      },
+      "Man City": {
+       "backtestable": 48,
+       "draws": 4,
+       "won": 2,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 50.0,
+       "priced": 3,
+       "avg_price": 22.7,
+       "pnl100": -1.49,
+       "pnl100_fees": -13.09,
+       "games": [
+        {
+         "date": "2025-02-02",
+         "opp": "Arsenal",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 11.5,
+         "oppPriceAt": 67.5,
+         "slug": "epl-ars-mac-2025-02-02"
+        },
+        {
+         "date": "2025-01-29",
+         "opp": "Club Brugge KV",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 33.5,
+         "oppPriceAt": 33.5,
+         "slug": "ucl-manchester-city-vs-club-brugge"
+        },
+        {
+         "date": "2025-02-08",
+         "opp": "Leyton Orient",
+         "ha": "A",
+         "league": "FA Cup",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fa-cup-leyton-orient-vs-manchester-city-to-advance"
+        },
+        {
+         "date": "2025-10-26",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 23.0,
+         "oppPriceAt": 48.5,
+         "slug": "epl-ast-mac-2025-10-26"
+        }
+       ]
+      },
+      "Roma": {
+       "backtestable": 32,
+       "draws": 6,
+       "won": 0,
+       "drew": 0,
+       "lost": 6,
+       "win_rate": 0.0,
+       "priced": 6,
+       "avg_price": 12.6,
+       "pnl100": -600.0,
+       "pnl100_fees": -626.23,
+       "games": [
+        {
+         "date": "2025-03-13",
+         "opp": "Athletic Club",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 7.0,
+         "oppPriceAt": 68.0,
+         "slug": "uel-ath-rom-2025-03-13"
+        },
+        {
+         "date": "2025-10-18",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 8.5,
+         "oppPriceAt": 68.5,
+         "slug": "sea-rom-int-2025-10-18"
+        },
+        {
+         "date": "2025-11-02",
+         "opp": "AC Milan",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 18.0,
+         "oppPriceAt": 61.0,
+         "slug": "sea-mil-rom-2025-11-02"
+        },
+        {
+         "date": "2025-11-30",
+         "opp": "Napoli",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 10.5,
+         "oppPriceAt": 66.0,
+         "slug": "sea-rom-nap-2025-11-30"
+        },
+        {
+         "date": "2025-12-20",
+         "opp": "Juventus",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 7.5,
+         "oppPriceAt": 68.0,
+         "slug": "sea-juv-rom-2025-12-20"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "Lille",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 24.0,
+         "oppPriceAt": 47.0,
+         "slug": "uel-rom-lil-2025-10-02"
+        }
+       ]
+      },
+      "Inter Milan": {
+       "backtestable": 39,
+       "draws": 6,
+       "won": 1,
+       "drew": 0,
+       "lost": 5,
+       "win_rate": 16.7,
+       "priced": 4,
+       "avg_price": 28.1,
+       "pnl100": -167.44,
+       "pnl100_fees": -181.82,
+       "games": [
+        {
+         "date": "2025-04-23",
+         "opp": "AC Milan",
+         "ha": "H",
+         "league": "Coppa Italia",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "coppa-italia-ac-milan-vs-inter-milan-to-advance"
+        },
+        {
+         "date": "2025-06-21",
+         "opp": "Urawa",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 43.0,
+         "oppPriceAt": 43.0,
+         "slug": "fifa-club-world-cup-inter-milan-vs-urawa"
+        },
+        {
+         "date": "2025-08-31",
+         "opp": "Udinese",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 36.0,
+         "oppPriceAt": 31.5,
+         "slug": "sea-int-udi-2025-08-31"
+        },
+        {
+         "date": "2025-09-13",
+         "opp": "Juventus",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 13.0,
+         "oppPriceAt": 58.5,
+         "slug": "sea-juv-int-2025-09-13"
+        },
+        {
+         "date": "2025-10-25",
+         "opp": "Napoli",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 20.5,
+         "oppPriceAt": 48.0,
+         "slug": "sea-nap-int-2025-10-25"
+        },
+        {
+         "date": "2025-06-30",
+         "opp": "Fluminense",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fifa-club-world-cup-inter-milan-vs-fluminense-to-advance"
+        }
+       ]
+      },
+      "Real Madrid": {
+       "backtestable": 46,
+       "draws": 7,
+       "won": 2,
+       "drew": 3,
+       "lost": 2,
+       "win_rate": 28.6,
+       "priced": 7,
+       "avg_price": 27.0,
+       "pnl100": 322.22,
+       "pnl100_fees": 296.67,
+       "games": [
+        {
+         "date": "2025-02-08",
+         "opp": "Atletico Madrid",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 24.5,
+         "oppPriceAt": 24.5,
+         "slug": "la-liga-real-madrid-vs-atletico-madrid"
+        },
+        {
+         "date": "2025-05-14",
+         "opp": "Mallorca",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 45.0,
+         "oppPriceAt": 45.0,
+         "slug": "la-liga-real-madrid-vs-mallorca"
+        },
+        {
+         "date": "2025-02-11",
+         "opp": "Manchester City",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 12.5,
+         "oppPriceAt": 67.0,
+         "slug": "ucl-mac-rma-2025-02-11"
+        },
+        {
+         "date": "2025-03-12",
+         "opp": "Atletico Madrid",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 13.5,
+         "oppPriceAt": 63.5,
+         "slug": "ucl-mad-rma-2025-03-12"
+        },
+        {
+         "date": "2025-04-26",
+         "opp": "Barcelona",
+         "ha": "A",
+         "league": "Copa del Rey",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 19.5,
+         "oppPriceAt": 80.5,
+         "slug": "copa-del-rey-final-real-madrid-vs-barcelona"
+        },
+        {
+         "date": "2025-11-30",
+         "opp": "Girona",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 63.5,
+         "oppPriceAt": 11.5,
+         "slug": "lal-gir-rea-2025-11-30"
+        },
+        {
+         "date": "2025-12-10",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 10.5,
+         "oppPriceAt": 67.5,
+         "slug": "ucl-rma-mnc-2025-12-10"
+        }
+       ]
+      },
+      "Barcelona": {
+       "backtestable": 41,
+       "draws": 9,
+       "won": 4,
+       "drew": 1,
+       "lost": 4,
+       "win_rate": 44.4,
+       "priced": 9,
+       "avg_price": 28.6,
+       "pnl100": 144.16,
+       "pnl100_fees": 112.01,
+       "games": [
+        {
+         "date": "2025-03-16",
+         "opp": "Atletico Madrid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 41.5,
+         "oppPriceAt": 41.5,
+         "slug": "la-liga-barcelona-vs-atltico-madrid"
+        },
+        {
+         "date": "2025-05-03",
+         "opp": "Valladolid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 22.5,
+         "oppPriceAt": 22.5,
+         "slug": "la-liga-valladolid-vs-barcelona"
+        },
+        {
+         "date": "2025-04-15",
+         "opp": "Borussia Dortmund",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 19.0,
+         "oppPriceAt": 59.5,
+         "slug": "ucl-dor-bar-2025-04-15"
+        },
+        {
+         "date": "2025-09-25",
+         "opp": "Oviedo",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 56.0,
+         "oppPriceAt": 17.5,
+         "slug": "lal-ovi-bar-2025-09-25"
+        },
+        {
+         "date": "2025-10-05",
+         "opp": "Sevilla",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 12.5,
+         "oppPriceAt": 72.0,
+         "slug": "lal-sev-bar-2025-10-05"
+        },
+        {
+         "date": "2025-10-26",
+         "opp": "Real Madrid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 12.0,
+         "oppPriceAt": 71.0,
+         "slug": "lal-rea-bar-2025-10-26"
+        },
+        {
+         "date": "2025-11-05",
+         "opp": "Club Brugge KV",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 31.5,
+         "oppPriceAt": 41.0,
+         "slug": "ucl-bru-fcb-2025-11-05"
+        },
+        {
+         "date": "2025-11-25",
+         "opp": "Chelsea",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.5,
+         "oppPriceAt": 79.0,
+         "slug": "ucl-cfc-fcb1-2025-11-25"
+        },
+        {
+         "date": "2025-12-09",
+         "opp": "Eintracht Frankfurt",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 55.5,
+         "oppPriceAt": 19.5,
+         "slug": "ucl-fcb-fra-2025-12-09"
+        }
+       ]
+      },
+      "Bayern Munich": {
+       "backtestable": 41,
+       "draws": 2,
+       "won": 0,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 0,
+       "avg_price": null,
+       "pnl100": 0.0,
+       "pnl100_fees": 0.0,
+       "games": [
+        {
+         "date": "2025-04-08",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 50.5,
+         "slug": "ucl-bay-int-2025-04-08"
+        },
+        {
+         "date": "2025-06-24",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 52.5,
+         "slug": "fifa-club-world-cup-benfica-vs-bayern-munich"
+        }
+       ]
+      }
+     }
+    },
+    "60": {
+     "summary": {
+      "draws": 44,
+      "won": 6,
+      "drew": 8,
+      "lost": 30,
+      "priced": 39,
+      "win_rate": 13.6,
+      "avg_price": 24.1,
+      "pnl100": -1889.42,
+      "pnl100_fees": -2037.55
+     },
+     "teams": {
+      "Arsenal": {
+       "backtestable": 49,
+       "draws": 7,
+       "won": 1,
+       "drew": 3,
+       "lost": 3,
+       "win_rate": 14.3,
+       "priced": 7,
+       "avg_price": 18.4,
+       "pnl100": -212.2,
+       "pnl100_fees": -240.77,
+       "games": [
+        {
+         "date": "2025-02-22",
+         "opp": "West Ham",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 29.5,
+         "oppPriceAt": 36.0,
+         "slug": "epl-ars-wes-2025-02-22"
+        },
+        {
+         "date": "2025-03-09",
+         "opp": "Manchester United",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 22.5,
+         "oppPriceAt": 47.5,
+         "slug": "epl-mun-ars-2025-03-09"
+        },
+        {
+         "date": "2025-05-11",
+         "opp": "Liverpool",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 10.5,
+         "oppPriceAt": 69.5,
+         "slug": "epl-liv-ars-2025-05-11"
+        },
+        {
+         "date": "2025-04-29",
+         "opp": "Paris Saint Germain",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 15.0,
+         "oppPriceAt": 57.5,
+         "slug": "ucl-ars-psg-2025-04-29"
+        },
+        {
+         "date": "2025-05-07",
+         "opp": "Paris Saint Germain",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 10.5,
+         "oppPriceAt": 68.5,
+         "slug": "ucl-psg-ars-2025-05-07"
+        },
+        {
+         "date": "2025-09-21",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 20.0,
+         "oppPriceAt": 52.5,
+         "slug": "epl-ars-mac-2025-09-21"
+        },
+        {
+         "date": "2025-09-28",
+         "opp": "Newcastle",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 20.5,
+         "oppPriceAt": 49.0,
+         "slug": "epl-new-ars-2025-09-28"
+        }
+       ]
+      },
+      "Man City": {
+       "backtestable": 48,
+       "draws": 2,
+       "won": 0,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 13.5,
+       "pnl100": -200.0,
+       "pnl100_fees": -208.65,
+       "games": [
+        {
+         "date": "2025-02-02",
+         "opp": "Arsenal",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 7.5,
+         "oppPriceAt": 72.5,
+         "slug": "epl-ars-mac-2025-02-02"
+        },
+        {
+         "date": "2025-10-26",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 19.5,
+         "oppPriceAt": 50.0,
+         "slug": "epl-ast-mac-2025-10-26"
+        }
+       ]
+      },
+      "Roma": {
+       "backtestable": 32,
+       "draws": 9,
+       "won": 0,
+       "drew": 0,
+       "lost": 9,
+       "win_rate": 0.0,
+       "priced": 8,
+       "avg_price": 15.5,
+       "pnl100": -800.0,
+       "pnl100_fees": -833.82,
+       "games": [
+        {
+         "date": "2025-02-05",
+         "opp": "AC Milan",
+         "ha": "A",
+         "league": "Coppa Italia",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "copa-italia-ac-milan-vs-roma-to-advance"
+        },
+        {
+         "date": "2025-03-13",
+         "opp": "Athletic Club",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 2.7,
+         "oppPriceAt": 91.0,
+         "slug": "uel-ath-rom-2025-03-13"
+        },
+        {
+         "date": "2025-09-14",
+         "opp": "Torino",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 49.5,
+         "oppPriceAt": 11.0,
+         "slug": "sea-rom-tor-2025-09-14"
+        },
+        {
+         "date": "2025-10-18",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 7.0,
+         "oppPriceAt": 71.5,
+         "slug": "sea-rom-int-2025-10-18"
+        },
+        {
+         "date": "2025-11-02",
+         "opp": "AC Milan",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.5,
+         "oppPriceAt": 70.5,
+         "slug": "sea-mil-rom-2025-11-02"
+        },
+        {
+         "date": "2025-11-30",
+         "opp": "Napoli",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.0,
+         "oppPriceAt": 70.0,
+         "slug": "sea-rom-nap-2025-11-30"
+        },
+        {
+         "date": "2025-12-20",
+         "opp": "Juventus",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 75.5,
+         "slug": "sea-juv-rom-2025-12-20"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "Lille",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 18.0,
+         "oppPriceAt": 51.5,
+         "slug": "uel-rom-lil-2025-10-02"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Plzen",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 29.5,
+         "oppPriceAt": 38.5,
+         "slug": "uel-rom1-plz1-2025-10-23"
+        }
+       ]
+      },
+      "Inter Milan": {
+       "backtestable": 39,
+       "draws": 7,
+       "won": 1,
+       "drew": 1,
+       "lost": 5,
+       "win_rate": 14.3,
+       "priced": 5,
+       "avg_price": 27.5,
+       "pnl100": -187.5,
+       "pnl100_fees": -205.62,
+       "games": [
+        {
+         "date": "2025-04-02",
+         "opp": "AC Milan",
+         "ha": "A",
+         "league": "Coppa Italia",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "coppa-italia-ac-milan-vs-inter-milan-to-advance"
+        },
+        {
+         "date": "2025-06-21",
+         "opp": "Urawa",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 32.0,
+         "oppPriceAt": 32.0,
+         "slug": "fifa-club-world-cup-inter-milan-vs-urawa"
+        },
+        {
+         "date": "2025-08-31",
+         "opp": "Udinese",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 33.5,
+         "oppPriceAt": 34.5,
+         "slug": "sea-int-udi-2025-08-31"
+        },
+        {
+         "date": "2025-09-13",
+         "opp": "Juventus",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 10.5,
+         "oppPriceAt": 63.0,
+         "slug": "sea-juv-int-2025-09-13"
+        },
+        {
+         "date": "2025-10-25",
+         "opp": "Napoli",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 18.5,
+         "oppPriceAt": 50.5,
+         "slug": "sea-nap-int-2025-10-25"
+        },
+        {
+         "date": "2025-11-23",
+         "opp": "AC Milan",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 43.0,
+         "oppPriceAt": 43.0,
+         "slug": "sea-int-mil-2025-11-23"
+        },
+        {
+         "date": "2025-06-30",
+         "opp": "Fluminense",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fifa-club-world-cup-inter-milan-vs-fluminense-to-advance"
+        }
+       ]
+      },
+      "Real Madrid": {
+       "backtestable": 46,
+       "draws": 10,
+       "won": 1,
+       "drew": 3,
+       "lost": 6,
+       "win_rate": 10.0,
+       "priced": 10,
+       "avg_price": 31.6,
+       "pnl100": -750.0,
+       "pnl100_fees": -784.23,
+       "games": [
+        {
+         "date": "2025-03-01",
+         "opp": "Real Betis",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 28.0,
+         "oppPriceAt": 28.0,
+         "slug": "la-liga-real-betis-vs-real-madrid"
+        },
+        {
+         "date": "2025-05-14",
+         "opp": "Mallorca",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 40.0,
+         "oppPriceAt": 40.0,
+         "slug": "la-liga-real-madrid-vs-mallorca"
+        },
+        {
+         "date": "2025-03-12",
+         "opp": "Atletico Madrid",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 10.0,
+         "oppPriceAt": 67.0,
+         "slug": "ucl-mad-rma-2025-03-12"
+        },
+        {
+         "date": "2025-04-08",
+         "opp": "Arsenal",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 45.0,
+         "oppPriceAt": 35.5,
+         "slug": "ucl-ars-rma-2025-04-08"
+        },
+        {
+         "date": "2025-04-26",
+         "opp": "Barcelona",
+         "ha": "A",
+         "league": "Copa del Rey",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 21.5,
+         "oppPriceAt": 78.5,
+         "slug": "copa-del-rey-final-real-madrid-vs-barcelona"
+        },
+        {
+         "date": "2025-09-27",
+         "opp": "Atletico Madrid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "2-3",
+         "result90": "L",
+         "priceAt": 35.5,
+         "oppPriceAt": 29.5,
+         "slug": "lal-mad-rea-2025-09-27"
+        },
+        {
+         "date": "2025-11-23",
+         "opp": "Elche",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 28.0,
+         "oppPriceAt": 37.5,
+         "slug": "lal-elc-rea-2025-11-23"
+        },
+        {
+         "date": "2025-11-30",
+         "opp": "Girona",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 36.0,
+         "oppPriceAt": 32.0,
+         "slug": "lal-gir-rea-2025-11-30"
+        },
+        {
+         "date": "2025-12-07",
+         "opp": "Celta Vigo",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 62.0,
+         "oppPriceAt": 9.5,
+         "slug": "lal-rea-cel-2025-12-07"
+        },
+        {
+         "date": "2025-12-10",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 9.5,
+         "oppPriceAt": 69.0,
+         "slug": "ucl-rma-mnc-2025-12-10"
+        }
+       ]
+      },
+      "Barcelona": {
+       "backtestable": 41,
+       "draws": 6,
+       "won": 2,
+       "drew": 1,
+       "lost": 3,
+       "win_rate": 33.3,
+       "priced": 6,
+       "avg_price": 27.8,
+       "pnl100": 100.54,
+       "pnl100_fees": 78.87,
+       "games": [
+        {
+         "date": "2025-03-16",
+         "opp": "Atletico Madrid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 18.5,
+         "oppPriceAt": 18.5,
+         "slug": "la-liga-barcelona-vs-atltico-madrid"
+        },
+        {
+         "date": "2025-04-19",
+         "opp": "Celta Vigo",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "W",
+         "priceAt": 62.5,
+         "oppPriceAt": 62.5,
+         "slug": "la-liga-barcelona-vs-celta-vigo"
+        },
+        {
+         "date": "2025-04-15",
+         "opp": "Borussia Dortmund",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 12.0,
+         "oppPriceAt": 67.5,
+         "slug": "ucl-dor-bar-2025-04-15"
+        },
+        {
+         "date": "2025-10-05",
+         "opp": "Sevilla",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 32.0,
+         "oppPriceAt": 40.0,
+         "slug": "lal-sev-bar-2025-10-05"
+        },
+        {
+         "date": "2025-10-26",
+         "opp": "Real Madrid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 14.5,
+         "oppPriceAt": 78.5,
+         "slug": "lal-rea-bar-2025-10-26"
+        },
+        {
+         "date": "2025-11-05",
+         "opp": "Club Brugge KV",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 27.0,
+         "oppPriceAt": 44.0,
+         "slug": "ucl-bru-fcb-2025-11-05"
+        }
+       ]
+      },
+      "Bayern Munich": {
+       "backtestable": 41,
+       "draws": 3,
+       "won": 1,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 33.3,
+       "priced": 1,
+       "avg_price": 38.5,
+       "pnl100": 159.74,
+       "pnl100_fees": 156.67,
+       "games": [
+        {
+         "date": "2025-04-08",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 58.5,
+         "slug": "ucl-bay-int-2025-04-08"
+        },
+        {
+         "date": "2025-06-24",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 44.0,
+         "slug": "fifa-club-world-cup-benfica-vs-bayern-munich"
+        },
+        {
+         "date": "2025-12-09",
+         "opp": "Sporting CP",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 38.5,
+         "oppPriceAt": 30.0,
+         "slug": "ucl-bay-spo-2025-12-09"
+        }
+       ]
+      }
+     }
+    },
+    "70": {
+     "summary": {
+      "draws": 36,
+      "won": 2,
+      "drew": 7,
+      "lost": 27,
+      "priced": 30,
+      "win_rate": 5.6,
+      "avg_price": 17.3,
+      "pnl100": -1878.78,
+      "pnl100_fees": -2002.83
+     },
+     "teams": {
+      "Arsenal": {
+       "backtestable": 49,
+       "draws": 6,
+       "won": 1,
+       "drew": 2,
+       "lost": 3,
+       "win_rate": 16.7,
+       "priced": 6,
+       "avg_price": 14.2,
+       "pnl100": 66.67,
+       "pnl100_fees": 40.92,
+       "games": [
+        {
+         "date": "2025-02-22",
+         "opp": "West Ham",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 21.5,
+         "oppPriceAt": 45.5,
+         "slug": "epl-ars-wes-2025-02-22"
+        },
+        {
+         "date": "2025-03-09",
+         "opp": "Manchester United",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 15.5,
+         "oppPriceAt": 52.0,
+         "slug": "epl-mun-ars-2025-03-09"
+        },
+        {
+         "date": "2025-04-29",
+         "opp": "Paris Saint Germain",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 9.0,
+         "oppPriceAt": 62.5,
+         "slug": "ucl-ars-psg-2025-04-29"
+        },
+        {
+         "date": "2025-05-07",
+         "opp": "Paris Saint Germain",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 9.5,
+         "oppPriceAt": 58.5,
+         "slug": "ucl-psg-ars-2025-05-07"
+        },
+        {
+         "date": "2025-09-21",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 14.5,
+         "oppPriceAt": 55.5,
+         "slug": "epl-ars-mac-2025-09-21"
+        },
+        {
+         "date": "2025-09-28",
+         "opp": "Newcastle",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 15.0,
+         "oppPriceAt": 54.0,
+         "slug": "epl-new-ars-2025-09-28"
+        }
+       ]
+      },
+      "Man City": {
+       "backtestable": 48,
+       "draws": 2,
+       "won": 0,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 14.5,
+       "pnl100": -200.0,
+       "pnl100_fees": -208.55,
+       "games": [
+        {
+         "date": "2025-10-26",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 15.5,
+         "oppPriceAt": 53.0,
+         "slug": "epl-ast-mac-2025-10-26"
+        },
+        {
+         "date": "2025-11-22",
+         "opp": "Newcastle",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 13.5,
+         "oppPriceAt": 57.5,
+         "slug": "epl-new-mac-2025-11-22"
+        }
+       ]
+      },
+      "Roma": {
+       "backtestable": 32,
+       "draws": 7,
+       "won": 0,
+       "drew": 0,
+       "lost": 7,
+       "win_rate": 0.0,
+       "priced": 6,
+       "avg_price": 11.8,
+       "pnl100": -600.0,
+       "pnl100_fees": -626.45,
+       "games": [
+        {
+         "date": "2025-02-05",
+         "opp": "AC Milan",
+         "ha": "A",
+         "league": "Coppa Italia",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "copa-italia-ac-milan-vs-roma-to-advance"
+        },
+        {
+         "date": "2025-09-14",
+         "opp": "Torino",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 18.5,
+         "oppPriceAt": 51.0,
+         "slug": "sea-rom-tor-2025-09-14"
+        },
+        {
+         "date": "2025-10-18",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.0,
+         "oppPriceAt": 72.0,
+         "slug": "sea-rom-int-2025-10-18"
+        },
+        {
+         "date": "2025-11-02",
+         "opp": "AC Milan",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 73.0,
+         "slug": "sea-mil-rom-2025-11-02"
+        },
+        {
+         "date": "2025-11-30",
+         "opp": "Napoli",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 74.0,
+         "slug": "sea-rom-nap-2025-11-30"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "Lille",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 14.0,
+         "oppPriceAt": 57.5,
+         "slug": "uel-rom-lil-2025-10-02"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Plzen",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 23.5,
+         "oppPriceAt": 42.0,
+         "slug": "uel-rom1-plz1-2025-10-23"
+        }
+       ]
+      },
+      "Inter Milan": {
+       "backtestable": 39,
+       "draws": 4,
+       "won": 1,
+       "drew": 0,
+       "lost": 3,
+       "win_rate": 25.0,
+       "priced": 3,
+       "avg_price": 20.7,
+       "pnl100": 154.55,
+       "pnl100_fees": 142.65,
+       "games": [
+        {
+         "date": "2025-06-21",
+         "opp": "Urawa",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 22.0,
+         "oppPriceAt": 22.0,
+         "slug": "fifa-club-world-cup-inter-milan-vs-urawa"
+        },
+        {
+         "date": "2025-08-31",
+         "opp": "Udinese",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 27.0,
+         "oppPriceAt": 38.5,
+         "slug": "sea-int-udi-2025-08-31"
+        },
+        {
+         "date": "2025-11-23",
+         "opp": "AC Milan",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 13.0,
+         "oppPriceAt": 13.0,
+         "slug": "sea-int-mil-2025-11-23"
+        },
+        {
+         "date": "2025-06-30",
+         "opp": "Fluminense",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fifa-club-world-cup-inter-milan-vs-fluminense-to-advance"
+        }
+       ]
+      },
+      "Real Madrid": {
+       "backtestable": 46,
+       "draws": 7,
+       "won": 0,
+       "drew": 1,
+       "lost": 6,
+       "win_rate": 0.0,
+       "priced": 7,
+       "avg_price": 16.1,
+       "pnl100": -700.0,
+       "pnl100_fees": -729.35,
+       "games": [
+        {
+         "date": "2025-03-01",
+         "opp": "Real Betis",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 15.5,
+         "oppPriceAt": 15.5,
+         "slug": "la-liga-real-betis-vs-real-madrid"
+        },
+        {
+         "date": "2025-05-11",
+         "opp": "Barcelona",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "3-4",
+         "result90": "L",
+         "priceAt": 29.5,
+         "oppPriceAt": 70.5,
+         "slug": "copa-del-rey-final-real-madrid-vs-barcelona"
+        },
+        {
+         "date": "2025-03-12",
+         "opp": "Atletico Madrid",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.0,
+         "oppPriceAt": 73.0,
+         "slug": "ucl-mad-rma-2025-03-12"
+        },
+        {
+         "date": "2025-11-23",
+         "opp": "Elche",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 19.5,
+         "oppPriceAt": 46.5,
+         "slug": "lal-elc-rea-2025-11-23"
+        },
+        {
+         "date": "2025-12-07",
+         "opp": "Celta Vigo",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 30.5,
+         "oppPriceAt": 35.5,
+         "slug": "lal-rea-cel-2025-12-07"
+        },
+        {
+         "date": "2025-11-04",
+         "opp": "Liverpool",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.5,
+         "oppPriceAt": 69.0,
+         "slug": "ucl-liv-rma-2025-11-04"
+        },
+        {
+         "date": "2025-12-10",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 5.5,
+         "oppPriceAt": 73.5,
+         "slug": "ucl-rma-mnc-2025-12-10"
+        }
+       ]
+      },
+      "Barcelona": {
+       "backtestable": 41,
+       "draws": 4,
+       "won": 0,
+       "drew": 1,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 4,
+       "avg_price": 16.9,
+       "pnl100": -400.0,
+       "pnl100_fees": -416.62,
+       "games": [
+        {
+         "date": "2025-04-15",
+         "opp": "Borussia Dortmund",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 12.0,
+         "oppPriceAt": 63.5,
+         "slug": "ucl-dor-bar-2025-04-15"
+        },
+        {
+         "date": "2025-10-05",
+         "opp": "Sevilla",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 25.0,
+         "oppPriceAt": 44.0,
+         "slug": "lal-sev-bar-2025-10-05"
+        },
+        {
+         "date": "2025-10-26",
+         "opp": "Real Madrid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 10.5,
+         "oppPriceAt": 71.0,
+         "slug": "lal-rea-bar-2025-10-26"
+        },
+        {
+         "date": "2025-11-05",
+         "opp": "Club Brugge KV",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "D",
+         "priceAt": 20.0,
+         "oppPriceAt": 48.0,
+         "slug": "ucl-bru-fcb-2025-11-05"
+        }
+       ]
+      },
+      "Bayern Munich": {
+       "backtestable": 41,
+       "draws": 6,
+       "won": 0,
+       "drew": 3,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 45.8,
+       "pnl100": -200.0,
+       "pnl100_fees": -205.43,
+       "games": [
+        {
+         "date": "2025-02-18",
+         "opp": "Celtic",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": 31.6,
+         "slug": "ucl-bay-cel-2025-02-18"
+        },
+        {
+         "date": "2025-04-08",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 63.0,
+         "slug": "ucl-bay-int-2025-04-08"
+        },
+        {
+         "date": "2025-04-16",
+         "opp": "Inter",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": 68.0,
+         "slug": "ucl-int-bay-2025-04-16"
+        },
+        {
+         "date": "2025-06-24",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 20.5,
+         "slug": "fifa-club-world-cup-benfica-vs-bayern-munich"
+        },
+        {
+         "date": "2025-12-14",
+         "opp": "FSV Mainz 05",
+         "ha": "H",
+         "league": "Bundesliga",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 73.0,
+         "oppPriceAt": 4.5,
+         "slug": "bun-bay-mai-2025-12-14"
+        },
+        {
+         "date": "2025-11-26",
+         "opp": "Arsenal",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 18.5,
+         "oppPriceAt": 35.0,
+         "slug": "ucl-ars1-bay1-2025-11-26"
+        }
+       ]
+      }
+     }
+    },
+    "75": {
+     "summary": {
+      "draws": 37,
+      "won": 3,
+      "drew": 6,
+      "lost": 28,
+      "priced": 32,
+      "win_rate": 8.1,
+      "avg_price": 13.6,
+      "pnl100": -754.67,
+      "pnl100_fees": -892.96
+     },
+     "teams": {
+      "Arsenal": {
+       "backtestable": 49,
+       "draws": 5,
+       "won": 1,
+       "drew": 1,
+       "lost": 3,
+       "win_rate": 20.0,
+       "priced": 5,
+       "avg_price": 19.4,
+       "pnl100": 409.09,
+       "pnl100_fees": 388.94,
+       "games": [
+        {
+         "date": "2025-02-22",
+         "opp": "West Ham",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 34.5,
+         "oppPriceAt": 78.5,
+         "slug": "epl-ars-wes-2025-02-22"
+        },
+        {
+         "date": "2025-05-03",
+         "opp": "Bournemouth",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 32.0,
+         "oppPriceAt": 16.5,
+         "slug": "epl-ars-bou-2025-05-03"
+        },
+        {
+         "date": "2025-04-29",
+         "opp": "Paris Saint Germain",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 5.5,
+         "oppPriceAt": 66.5,
+         "slug": "ucl-ars-psg-2025-04-29"
+        },
+        {
+         "date": "2025-09-21",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 14.0,
+         "oppPriceAt": 59.5,
+         "slug": "epl-ars-mac-2025-09-21"
+        },
+        {
+         "date": "2025-09-28",
+         "opp": "Newcastle",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 11.0,
+         "oppPriceAt": 58.5,
+         "slug": "epl-new-ars-2025-09-28"
+        }
+       ]
+      },
+      "Man City": {
+       "backtestable": 48,
+       "draws": 2,
+       "won": 0,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 12.2,
+       "pnl100": -200.0,
+       "pnl100_fees": -208.78,
+       "games": [
+        {
+         "date": "2025-10-26",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 11.5,
+         "oppPriceAt": 58.5,
+         "slug": "epl-ast-mac-2025-10-26"
+        },
+        {
+         "date": "2025-11-22",
+         "opp": "Newcastle",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 13.0,
+         "oppPriceAt": 55.0,
+         "slug": "epl-new-mac-2025-11-22"
+        }
+       ]
+      },
+      "Roma": {
+       "backtestable": 32,
+       "draws": 7,
+       "won": 0,
+       "drew": 0,
+       "lost": 7,
+       "win_rate": 0.0,
+       "priced": 7,
+       "avg_price": 7.6,
+       "pnl100": -700.0,
+       "pnl100_fees": -732.33,
+       "games": [
+        {
+         "date": "2025-09-14",
+         "opp": "Torino",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 15.0,
+         "oppPriceAt": 55.0,
+         "slug": "sea-rom-tor-2025-09-14"
+        },
+        {
+         "date": "2025-10-18",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 75.0,
+         "slug": "sea-rom-int-2025-10-18"
+        },
+        {
+         "date": "2025-11-02",
+         "opp": "AC Milan",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.0,
+         "oppPriceAt": 74.5,
+         "slug": "sea-mil-rom-2025-11-02"
+        },
+        {
+         "date": "2025-11-30",
+         "opp": "Napoli",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 3.5,
+         "oppPriceAt": 76.0,
+         "slug": "sea-rom-nap-2025-11-30"
+        },
+        {
+         "date": "2025-12-20",
+         "opp": "Juventus",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 0.4,
+         "oppPriceAt": 97.0,
+         "slug": "sea-juv-rom-2025-12-20"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "Lille",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 9.5,
+         "oppPriceAt": 64.0,
+         "slug": "uel-rom-lil-2025-10-02"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Plzen",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 16.5,
+         "oppPriceAt": 50.5,
+         "slug": "uel-rom1-plz1-2025-10-23"
+        }
+       ]
+      },
+      "Inter Milan": {
+       "backtestable": 39,
+       "draws": 5,
+       "won": 1,
+       "drew": 0,
+       "lost": 4,
+       "win_rate": 20.0,
+       "priced": 4,
+       "avg_price": 16.2,
+       "pnl100": 266.67,
+       "pnl100_fees": 249.92,
+       "games": [
+        {
+         "date": "2025-02-16",
+         "opp": "Juventus",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 17.0,
+         "oppPriceAt": 17.0,
+         "slug": "serie-a-juventus-vs-inter-milan-2-16"
+        },
+        {
+         "date": "2025-06-21",
+         "opp": "Urawa",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 15.0,
+         "oppPriceAt": 15.0,
+         "slug": "fifa-club-world-cup-inter-milan-vs-urawa"
+        },
+        {
+         "date": "2025-08-31",
+         "opp": "Udinese",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 22.0,
+         "oppPriceAt": 42.5,
+         "slug": "sea-int-udi-2025-08-31"
+        },
+        {
+         "date": "2025-11-23",
+         "opp": "AC Milan",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 11.0,
+         "oppPriceAt": 11.0,
+         "slug": "sea-int-mil-2025-11-23"
+        },
+        {
+         "date": "2025-06-30",
+         "opp": "Fluminense",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fifa-club-world-cup-inter-milan-vs-fluminense-to-advance"
+        }
+       ]
+      },
+      "Real Madrid": {
+       "backtestable": 46,
+       "draws": 7,
+       "won": 0,
+       "drew": 1,
+       "lost": 6,
+       "win_rate": 0.0,
+       "priced": 7,
+       "avg_price": 12.6,
+       "pnl100": -700.0,
+       "pnl100_fees": -730.6,
+       "games": [
+        {
+         "date": "2025-03-01",
+         "opp": "Real Betis",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 12.5,
+         "oppPriceAt": 12.5,
+         "slug": "la-liga-real-betis-vs-real-madrid"
+        },
+        {
+         "date": "2025-05-11",
+         "opp": "Barcelona",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "3-4",
+         "result90": "L",
+         "priceAt": 31.5,
+         "oppPriceAt": 68.5,
+         "slug": "copa-del-rey-final-real-madrid-vs-barcelona"
+        },
+        {
+         "date": "2025-03-12",
+         "opp": "Atletico Madrid",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 77.5,
+         "slug": "ucl-mad-rma-2025-03-12"
+        },
+        {
+         "date": "2025-11-23",
+         "opp": "Elche",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 17.0,
+         "oppPriceAt": 49.5,
+         "slug": "lal-elc-rea-2025-11-23"
+        },
+        {
+         "date": "2025-12-07",
+         "opp": "Celta Vigo",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 11.5,
+         "oppPriceAt": 63.0,
+         "slug": "lal-rea-cel-2025-12-07"
+        },
+        {
+         "date": "2025-11-04",
+         "opp": "Liverpool",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.0,
+         "oppPriceAt": 72.5,
+         "slug": "ucl-liv-rma-2025-11-04"
+        },
+        {
+         "date": "2025-12-10",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 5.0,
+         "oppPriceAt": 75.5,
+         "slug": "ucl-rma-mnc-2025-12-10"
+        }
+       ]
+      },
+      "Barcelona": {
+       "backtestable": 41,
+       "draws": 5,
+       "won": 1,
+       "drew": 1,
+       "lost": 3,
+       "win_rate": 20.0,
+       "priced": 5,
+       "avg_price": 13.3,
+       "pnl100": 369.57,
+       "pnl100_fees": 347.89,
+       "games": [
+        {
+         "date": "2025-03-16",
+         "opp": "Atletico Madrid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "W",
+         "priceAt": 11.5,
+         "oppPriceAt": 11.5,
+         "slug": "la-liga-barcelona-vs-atltico-madrid"
+        },
+        {
+         "date": "2025-04-15",
+         "opp": "Borussia Dortmund",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 11.5,
+         "oppPriceAt": 63.0,
+         "slug": "ucl-dor-bar-2025-04-15"
+        },
+        {
+         "date": "2025-10-05",
+         "opp": "Sevilla",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 19.5,
+         "oppPriceAt": 53.0,
+         "slug": "lal-sev-bar-2025-10-05"
+        },
+        {
+         "date": "2025-10-26",
+         "opp": "Real Madrid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 8.5,
+         "oppPriceAt": 72.5,
+         "slug": "lal-rea-bar-2025-10-26"
+        },
+        {
+         "date": "2025-11-05",
+         "opp": "Club Brugge KV",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "D",
+         "priceAt": 15.5,
+         "oppPriceAt": 53.0,
+         "slug": "ucl-bru-fcb-2025-11-05"
+        }
+       ]
+      },
+      "Bayern Munich": {
+       "backtestable": 41,
+       "draws": 6,
+       "won": 0,
+       "drew": 3,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 19.9,
+       "pnl100": -200.0,
+       "pnl100_fees": -208.0,
+       "games": [
+        {
+         "date": "2025-02-18",
+         "opp": "Celtic",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": 42.5,
+         "slug": "ucl-bay-cel-2025-02-18"
+        },
+        {
+         "date": "2025-04-08",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 53.0,
+         "slug": "ucl-bay-int-2025-04-08"
+        },
+        {
+         "date": "2025-04-16",
+         "opp": "Inter",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": 69.5,
+         "slug": "ucl-int-bay-2025-04-16"
+        },
+        {
+         "date": "2025-06-24",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 49.0,
+         "slug": "fifa-club-world-cup-benfica-vs-bayern-munich"
+        },
+        {
+         "date": "2025-12-14",
+         "opp": "FSV Mainz 05",
+         "ha": "H",
+         "league": "Bundesliga",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 36.4,
+         "oppPriceAt": 28.4,
+         "slug": "bun-bay-mai-2025-12-14"
+        },
+        {
+         "date": "2025-11-26",
+         "opp": "Arsenal",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 3.5,
+         "oppPriceAt": 79.5,
+         "slug": "ucl-ars1-bay1-2025-11-26"
+        }
+       ]
+      }
+     }
+    },
+    "80": {
+     "summary": {
+      "draws": 38,
+      "won": 3,
+      "drew": 4,
+      "lost": 31,
+      "priced": 31,
+      "win_rate": 7.9,
+      "avg_price": 16.0,
+      "pnl100": -1641.84,
+      "pnl100_fees": -1771.99
+     },
+     "teams": {
+      "Arsenal": {
+       "backtestable": 49,
+       "draws": 6,
+       "won": 1,
+       "drew": 1,
+       "lost": 4,
+       "win_rate": 16.7,
+       "priced": 6,
+       "avg_price": 6.3,
+       "pnl100": 309.09,
+       "pnl100_fees": 280.97,
+       "games": [
+        {
+         "date": "2025-02-22",
+         "opp": "West Ham",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 0.5,
+         "oppPriceAt": 74.0,
+         "slug": "epl-ars-wes-2025-02-22"
+        },
+        {
+         "date": "2025-05-03",
+         "opp": "Bournemouth",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 8.5,
+         "oppPriceAt": 39.0,
+         "slug": "epl-ars-bou-2025-05-03"
+        },
+        {
+         "date": "2025-04-29",
+         "opp": "Paris Saint Germain",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.0,
+         "oppPriceAt": 67.5,
+         "slug": "ucl-ars-psg-2025-04-29"
+        },
+        {
+         "date": "2025-05-07",
+         "opp": "Paris Saint Germain",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 1.6,
+         "oppPriceAt": 82.0,
+         "slug": "ucl-psg-ars-2025-05-07"
+        },
+        {
+         "date": "2025-09-21",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 10.0,
+         "oppPriceAt": 64.5,
+         "slug": "epl-ars-mac-2025-09-21"
+        },
+        {
+         "date": "2025-09-28",
+         "opp": "Newcastle",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 11.0,
+         "oppPriceAt": 63.5,
+         "slug": "epl-new-ars-2025-09-28"
+        }
+       ]
+      },
+      "Man City": {
+       "backtestable": 48,
+       "draws": 3,
+       "won": 0,
+       "drew": 0,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 3,
+       "avg_price": 16.3,
+       "pnl100": -300.0,
+       "pnl100_fees": -312.55,
+       "games": [
+        {
+         "date": "2025-01-22",
+         "opp": "Paris Saint Germain",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "L",
+         "priceAt": 32.5,
+         "oppPriceAt": 32.5,
+         "slug": "ucl-paris-saint-germain-vs-manchester-city"
+        },
+        {
+         "date": "2025-10-26",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 8.5,
+         "oppPriceAt": 64.0,
+         "slug": "epl-ast-mac-2025-10-26"
+        },
+        {
+         "date": "2025-11-22",
+         "opp": "Newcastle",
+         "ha": "A",
+         "league": "Premier League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 8.0,
+         "oppPriceAt": 64.5,
+         "slug": "epl-new-mac-2025-11-22"
+        }
+       ]
+      },
+      "Roma": {
+       "backtestable": 32,
+       "draws": 9,
+       "won": 0,
+       "drew": 0,
+       "lost": 9,
+       "win_rate": 0.0,
+       "priced": 9,
+       "avg_price": 14.2,
+       "pnl100": -900.0,
+       "pnl100_fees": -938.6,
+       "games": [
+        {
+         "date": "2025-05-12",
+         "opp": "Atalanta",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 72.5,
+         "oppPriceAt": 72.5,
+         "slug": "serie-a-atalanta-vs-roma-529"
+        },
+        {
+         "date": "2025-01-23",
+         "opp": "AZ Alkmaar",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 15.5,
+         "oppPriceAt": 15.5,
+         "slug": "uel-az-alkmaar-vs-roma"
+        },
+        {
+         "date": "2025-09-14",
+         "opp": "Torino",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 10.5,
+         "oppPriceAt": 61.0,
+         "slug": "sea-rom-tor-2025-09-14"
+        },
+        {
+         "date": "2025-10-18",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 3.5,
+         "oppPriceAt": 77.5,
+         "slug": "sea-rom-int-2025-10-18"
+        },
+        {
+         "date": "2025-11-02",
+         "opp": "AC Milan",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 3.5,
+         "oppPriceAt": 76.5,
+         "slug": "sea-mil-rom-2025-11-02"
+        },
+        {
+         "date": "2025-11-30",
+         "opp": "Napoli",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 2.5,
+         "oppPriceAt": 78.0,
+         "slug": "sea-rom-nap-2025-11-30"
+        },
+        {
+         "date": "2025-12-20",
+         "opp": "Juventus",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 1.6,
+         "oppPriceAt": 81.5,
+         "slug": "sea-juv-rom-2025-12-20"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "Lille",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 7.0,
+         "oppPriceAt": 66.5,
+         "slug": "uel-rom-lil-2025-10-02"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Plzen",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 11.5,
+         "oppPriceAt": 54.0,
+         "slug": "uel-rom1-plz1-2025-10-23"
+        }
+       ]
+      },
+      "Inter Milan": {
+       "backtestable": 39,
+       "draws": 4,
+       "won": 0,
+       "drew": 0,
+       "lost": 4,
+       "win_rate": 0.0,
+       "priced": 3,
+       "avg_price": 30.2,
+       "pnl100": -300.0,
+       "pnl100_fees": -310.48,
+       "games": [
+        {
+         "date": "2025-02-16",
+         "opp": "Juventus",
+         "ha": "A",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 66.5,
+         "oppPriceAt": 66.5,
+         "slug": "serie-a-juventus-vs-inter-milan-2-16"
+        },
+        {
+         "date": "2025-08-31",
+         "opp": "Udinese",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 16.0,
+         "oppPriceAt": 48.0,
+         "slug": "sea-int-udi-2025-08-31"
+        },
+        {
+         "date": "2025-11-23",
+         "opp": "AC Milan",
+         "ha": "H",
+         "league": "Serie A",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 8.0,
+         "oppPriceAt": 8.0,
+         "slug": "sea-int-mil-2025-11-23"
+        },
+        {
+         "date": "2025-06-30",
+         "opp": "Fluminense",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fifa-club-world-cup-inter-milan-vs-fluminense-to-advance"
+        }
+       ]
+      },
+      "Real Madrid": {
+       "backtestable": 46,
+       "draws": 7,
+       "won": 1,
+       "drew": 0,
+       "lost": 6,
+       "win_rate": 14.3,
+       "priced": 6,
+       "avg_price": 8.6,
+       "pnl100": -165.22,
+       "pnl100_fees": -192.64,
+       "games": [
+        {
+         "date": "2025-03-01",
+         "opp": "Real Betis",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 7.5,
+         "oppPriceAt": 7.5,
+         "slug": "la-liga-real-betis-vs-real-madrid"
+        },
+        {
+         "date": "2025-05-11",
+         "opp": "Barcelona",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "3-4",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "copa-del-rey-final-real-madrid-vs-barcelona"
+        },
+        {
+         "date": "2025-02-11",
+         "opp": "Manchester City",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "W",
+         "priceAt": 23.0,
+         "oppPriceAt": 27.5,
+         "slug": "ucl-mac-rma-2025-02-11"
+        },
+        {
+         "date": "2025-03-12",
+         "opp": "Atletico Madrid",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.0,
+         "oppPriceAt": 79.0,
+         "slug": "ucl-mad-rma-2025-03-12"
+        },
+        {
+         "date": "2025-12-07",
+         "opp": "Celta Vigo",
+         "ha": "H",
+         "league": "La Liga",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 8.5,
+         "oppPriceAt": 66.5,
+         "slug": "lal-rea-cel-2025-12-07"
+        },
+        {
+         "date": "2025-11-04",
+         "opp": "Liverpool",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 75.0,
+         "slug": "ucl-liv-rma-2025-11-04"
+        },
+        {
+         "date": "2025-12-10",
+         "opp": "Manchester City",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 4.0,
+         "oppPriceAt": 74.5,
+         "slug": "ucl-rma-mnc-2025-12-10"
+        }
+       ]
+      },
+      "Barcelona": {
+       "backtestable": 41,
+       "draws": 4,
+       "won": 1,
+       "drew": 1,
+       "lost": 2,
+       "win_rate": 25.0,
+       "priced": 3,
+       "avg_price": 37.2,
+       "pnl100": -185.71,
+       "pnl100_fees": -195.14,
+       "games": [
+        {
+         "date": "2025-01-21",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "3-4",
+         "result90": "W",
+         "priceAt": 87.5,
+         "oppPriceAt": 87.5,
+         "slug": "ucl-benfica-vs-barcelona"
+        },
+        {
+         "date": "2025-04-26",
+         "opp": "Real Madrid",
+         "ha": "H",
+         "league": "Copa del Rey",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "copa-del-rey-final-real-madrid-vs-barcelona"
+        },
+        {
+         "date": "2025-10-05",
+         "opp": "Sevilla",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 17.5,
+         "oppPriceAt": 52.0,
+         "slug": "lal-sev-bar-2025-10-05"
+        },
+        {
+         "date": "2025-10-26",
+         "opp": "Real Madrid",
+         "ha": "A",
+         "league": "La Liga",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 6.5,
+         "oppPriceAt": 75.5,
+         "slug": "lal-rea-bar-2025-10-26"
+        }
+       ]
+      },
+      "Bayern Munich": {
+       "backtestable": 41,
+       "draws": 5,
+       "won": 0,
+       "drew": 2,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 1,
+       "avg_price": 29.1,
+       "pnl100": -100.0,
+       "pnl100_fees": -103.55,
+       "games": [
+        {
+         "date": "2025-02-18",
+         "opp": "Celtic",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": 50.4,
+         "slug": "ucl-bay-cel-2025-02-18"
+        },
+        {
+         "date": "2025-04-08",
+         "opp": "Inter",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 68.0,
+         "slug": "ucl-bay-int-2025-04-08"
+        },
+        {
+         "date": "2025-06-24",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 53.5,
+         "slug": "fifa-club-world-cup-benfica-vs-bayern-munich"
+        },
+        {
+         "date": "2025-12-14",
+         "opp": "FSV Mainz 05",
+         "ha": "H",
+         "league": "Bundesliga",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 29.1,
+         "oppPriceAt": 34.1,
+         "slug": "bun-bay-mai-2025-12-14"
+        },
+        {
+         "date": "2025-07-05",
+         "opp": "Paris Saint Germain",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "psg-vs-bayern-munich-regulation-time"
+        }
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
    "key": "other",
    "meta": {
     "name": "Other Leagues \u2014 2025",
+    "trigger": "level",
     "year": 2025,
     "clubs": 8,
     "fixtures_2025": 486,
@@ -11181,6 +14525,2748 @@
          "priceAt": 19.0,
          "oppPriceAt": 31.5,
          "slug": "uel-crv-clt-2025-09-24"
+        }
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "key": "other_down",
+   "meta": {
+    "name": "Other Leagues Down 1-0 \u2014 2025",
+    "trigger": "down",
+    "year": 2025,
+    "clubs": 8,
+    "fixtures_2025": 486,
+    "available_both_apis": 201,
+    "minutes": [
+     30,
+     45,
+     60,
+     70,
+     75,
+     80
+    ],
+    "default_minute": 60,
+    "computed_at": "2026-09-02",
+    "note": "Regulation result only (90'). Price = the club's win price at the chosen minute of play (wall clock adds the 15' half-time past 45'), CLOB 1-minute history. P&L = $100 flat per priced game; the after-fees column charges Polymarket's sports taker fee on the buy leg."
+   },
+   "byMinute": {
+    "30": {
+     "summary": {
+      "draws": 24,
+      "won": 7,
+      "drew": 6,
+      "lost": 11,
+      "priced": 21,
+      "win_rate": 29.2,
+      "avg_price": 31.9,
+      "pnl100": 1393.79,
+      "pnl100_fees": 1322.25
+     },
+     "teams": {
+      "Galatasaray": {
+       "backtestable": 19,
+       "draws": 2,
+       "won": 0,
+       "drew": 1,
+       "lost": 1,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 49.0,
+       "pnl100": -200.0,
+       "pnl100_fees": -205.1,
+       "games": [
+        {
+         "date": "2025-01-30",
+         "opp": "Ajax",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 61.5,
+         "oppPriceAt": 61.5,
+         "slug": "uel-ajax-vs-galatasaray"
+        },
+        {
+         "date": "2025-10-04",
+         "opp": "Be\u015fikta\u015f",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 36.5,
+         "oppPriceAt": 37.5,
+         "slug": "tur-gal-bes-2025-10-04"
+        }
+       ]
+      },
+      "Fenerbahce": {
+       "backtestable": 28,
+       "draws": 3,
+       "won": 0,
+       "drew": 3,
+       "lost": 0,
+       "win_rate": 0.0,
+       "priced": 3,
+       "avg_price": 46.5,
+       "pnl100": -300.0,
+       "pnl100_fees": -308.02,
+       "games": [
+        {
+         "date": "2025-01-30",
+         "opp": "FC Midtjylland",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 51.5,
+         "oppPriceAt": 51.5,
+         "slug": "uel-fc-midtjylland-vs-fenerbahce"
+        },
+        {
+         "date": "2025-09-17",
+         "opp": "Alanyaspor",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 49.0,
+         "oppPriceAt": 26.0,
+         "slug": "tur-fen-ala-2025-09-17"
+        },
+        {
+         "date": "2025-12-01",
+         "opp": "Galatasaray",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 39.0,
+         "oppPriceAt": 29.0,
+         "slug": "tur-fen-gal-2025-12-01"
+        }
+       ]
+      },
+      "Porto": {
+       "backtestable": 22,
+       "draws": 2,
+       "won": 1,
+       "drew": 0,
+       "lost": 1,
+       "win_rate": 50.0,
+       "priced": 2,
+       "avg_price": 32.8,
+       "pnl100": -5.83,
+       "pnl100_fees": -12.55,
+       "games": [
+        {
+         "date": "2025-10-27",
+         "opp": "Moreirense",
+         "ha": "A",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 51.5,
+         "oppPriceAt": 21.5,
+         "slug": "por-mor-por-2025-10-27"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Nottingham Forest",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 14.0,
+         "oppPriceAt": 64.0,
+         "slug": "uel-not1-por1-2025-10-23"
+        }
+       ]
+      },
+      "Sporting CP": {
+       "backtestable": 23,
+       "draws": 4,
+       "won": 2,
+       "drew": 1,
+       "lost": 1,
+       "win_rate": 50.0,
+       "priced": 4,
+       "avg_price": 45.8,
+       "pnl100": 358.87,
+       "pnl100_fees": 348.02,
+       "games": [
+        {
+         "date": "2025-01-22",
+         "opp": "RB Leipzig",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 61.5,
+         "oppPriceAt": 61.5,
+         "slug": "ucl-rb-leipzig-vs-sporting-cp"
+        },
+        {
+         "date": "2025-01-29",
+         "opp": "Bologna",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 59.5,
+         "oppPriceAt": 59.5,
+         "slug": "ucl-sporting-cp-vs-bologna"
+        },
+        {
+         "date": "2025-11-08",
+         "opp": "Santa Clara",
+         "ha": "A",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 43.0,
+         "oppPriceAt": 26.0,
+         "slug": "por-cds-spo-2025-11-08"
+        },
+        {
+         "date": "2025-10-22",
+         "opp": "Marseille",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 19.0,
+         "oppPriceAt": 57.0,
+         "slug": "ucl-spo-olm-2025-10-22"
+        }
+       ]
+      },
+      "Benfica": {
+       "backtestable": 32,
+       "draws": 3,
+       "won": 0,
+       "drew": 1,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 6.0,
+       "pnl100": -200.0,
+       "pnl100_fees": -209.4,
+       "games": [
+        {
+         "date": "2025-05-10",
+         "opp": "Sporting CP",
+         "ha": "H",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "liga-portugal-benfica-and-sporting"
+        },
+        {
+         "date": "2025-03-11",
+         "opp": "Barcelona",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 5.0,
+         "oppPriceAt": 83.5,
+         "slug": "ucl-bar-ben-2025-03-11"
+        },
+        {
+         "date": "2025-09-30",
+         "opp": "Chelsea",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 7.0,
+         "oppPriceAt": 77.0,
+         "slug": "ucl-cfc-ben-2025-09-30"
+        }
+       ]
+      },
+      "PSG": {
+       "backtestable": 38,
+       "draws": 3,
+       "won": 1,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 33.3,
+       "priced": 3,
+       "avg_price": 18.5,
+       "pnl100": 876.47,
+       "pnl100_fees": 864.25,
+       "games": [
+        {
+         "date": "2025-09-22",
+         "opp": "Marseille",
+         "ha": "A",
+         "league": "Ligue 1",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 30.5,
+         "oppPriceAt": 42.0,
+         "slug": "fl1-olm-psg-2025-09-21"
+        },
+        {
+         "date": "2025-10-01",
+         "opp": "Barcelona",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 8.5,
+         "oppPriceAt": 75.0,
+         "slug": "ucl-bar-psg-2025-10-01"
+        },
+        {
+         "date": "2025-11-04",
+         "opp": "Bayern M\u00fcnchen",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 16.5,
+         "oppPriceAt": 61.5,
+         "slug": "ucl-psg-bay-2025-11-04"
+        }
+       ]
+      },
+      "PSV": {
+       "backtestable": 20,
+       "draws": 2,
+       "won": 1,
+       "drew": 0,
+       "lost": 1,
+       "win_rate": 50.0,
+       "priced": 0,
+       "avg_price": null,
+       "pnl100": 0.0,
+       "pnl100_fees": 0.0,
+       "games": [
+        {
+         "date": "2025-01-29",
+         "opp": "Liverpool",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": null,
+         "oppPriceAt": 16.0,
+         "slug": "ucl-psv-vs-liverpool"
+        },
+        {
+         "date": "2025-09-16",
+         "opp": "Union St. Gilloise",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 49.0,
+         "slug": "ucl-psv-gil-2025-09-16"
+        }
+       ]
+      },
+      "Celtic": {
+       "backtestable": 19,
+       "draws": 5,
+       "won": 2,
+       "drew": 0,
+       "lost": 3,
+       "win_rate": 40.0,
+       "priced": 5,
+       "avg_price": 23.1,
+       "pnl100": 864.28,
+       "pnl100_fees": 845.05,
+       "games": [
+        {
+         "date": "2025-12-30",
+         "opp": "Motherwell",
+         "ha": "A",
+         "league": "Premiership",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 30.0,
+         "oppPriceAt": 41.5,
+         "slug": "scop-mot-cel-2025-12-30"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "SC Braga",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 29.5,
+         "oppPriceAt": 42.5,
+         "slug": "uel-clt-bra-2025-10-02"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Sturm Graz",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 39.5,
+         "oppPriceAt": 31.5,
+         "slug": "uel-cel3-stu4-2025-10-23"
+        },
+        {
+         "date": "2025-11-27",
+         "opp": "Feyenoord",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 9.0,
+         "oppPriceAt": 72.5,
+         "slug": "uel-fey-cel3-2025-11-27"
+        },
+        {
+         "date": "2025-12-11",
+         "opp": "AS Roma",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 7.5,
+         "oppPriceAt": 74.5,
+         "slug": "uel-cel3-rom1-2025-12-11"
+        }
+       ]
+      }
+     }
+    },
+    "45": {
+     "summary": {
+      "draws": 33,
+      "won": 3,
+      "drew": 12,
+      "lost": 18,
+      "priced": 27,
+      "win_rate": 9.1,
+      "avg_price": 31.8,
+      "pnl100": -1682.47,
+      "pnl100_fees": -1774.5
+     },
+     "teams": {
+      "Galatasaray": {
+       "backtestable": 19,
+       "draws": 5,
+       "won": 0,
+       "drew": 2,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 5,
+       "avg_price": 49.3,
+       "pnl100": -500.0,
+       "pnl100_fees": -512.67,
+       "games": [
+        {
+         "date": "2025-01-30",
+         "opp": "Ajax",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 62.5,
+         "oppPriceAt": 62.5,
+         "slug": "uel-ajax-vs-galatasaray"
+        },
+        {
+         "date": "2025-02-13",
+         "opp": "AZ Alkmaar",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 68.0,
+         "oppPriceAt": 68.0,
+         "slug": "uel-az-alkmaar-vs-galatasaray"
+        },
+        {
+         "date": "2025-02-20",
+         "opp": "AZ Alkmaar",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 49.0,
+         "oppPriceAt": 40.0,
+         "slug": "uel-gal-az-2025-02-20"
+        },
+        {
+         "date": "2025-10-04",
+         "opp": "Be\u015fikta\u015f",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 12.5,
+         "oppPriceAt": 69.0,
+         "slug": "tur-gal-bes-2025-10-04"
+        },
+        {
+         "date": "2025-11-09",
+         "opp": "Kocaelispor",
+         "ha": "A",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 54.5,
+         "oppPriceAt": 13.5,
+         "slug": "tur-koc-gal-2025-11-09"
+        }
+       ]
+      },
+      "Fenerbahce": {
+       "backtestable": 28,
+       "draws": 4,
+       "won": 0,
+       "drew": 2,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 4,
+       "avg_price": 23.2,
+       "pnl100": -400.0,
+       "pnl100_fees": -415.35,
+       "games": [
+        {
+         "date": "2025-03-06",
+         "opp": "Rangers",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 29.0,
+         "oppPriceAt": 42.5,
+         "slug": "uel-fen-ran-2025-03-06"
+        },
+        {
+         "date": "2025-09-17",
+         "opp": "Alanyaspor",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 43.0,
+         "oppPriceAt": 25.5,
+         "slug": "tur-fen-ala-2025-09-17"
+        },
+        {
+         "date": "2025-12-01",
+         "opp": "Galatasaray",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 17.5,
+         "oppPriceAt": 54.0,
+         "slug": "tur-fen-gal-2025-12-01"
+        },
+        {
+         "date": "2025-08-27",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 3.5,
+         "oppPriceAt": 82.5,
+         "slug": "ucl-ben-fen-2025-08-27"
+        }
+       ]
+      },
+      "Porto": {
+       "backtestable": 22,
+       "draws": 5,
+       "won": 0,
+       "drew": 3,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 4,
+       "avg_price": 25.2,
+       "pnl100": -400.0,
+       "pnl100_fees": -414.95,
+       "games": [
+        {
+         "date": "2025-02-07",
+         "opp": "Sporting CP",
+         "ha": "H",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "primeira-liga-fc-porto-vs-sporting-cp"
+        },
+        {
+         "date": "2025-02-13",
+         "opp": "AS Roma",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 31.0,
+         "oppPriceAt": 31.0,
+         "slug": "uel-fc-porto-vs-roma"
+        },
+        {
+         "date": "2025-02-20",
+         "opp": "AS Roma",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 3.5,
+         "oppPriceAt": 77.0,
+         "slug": "uel-rom-por-2025-02-20"
+        },
+        {
+         "date": "2025-06-24",
+         "opp": "Al Ahly",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 55.0,
+         "oppPriceAt": 55.0,
+         "slug": "fifa-club-world-cup-fc-porto-vs-al-ahly"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Nottingham Forest",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 11.5,
+         "oppPriceAt": 63.5,
+         "slug": "uel-not1-por1-2025-10-23"
+        }
+       ]
+      },
+      "Sporting CP": {
+       "backtestable": 23,
+       "draws": 4,
+       "won": 1,
+       "drew": 1,
+       "lost": 2,
+       "win_rate": 25.0,
+       "priced": 4,
+       "avg_price": 33.6,
+       "pnl100": 289.66,
+       "pnl100_fees": 276.38,
+       "games": [
+        {
+         "date": "2025-01-22",
+         "opp": "RB Leipzig",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 61.0,
+         "oppPriceAt": 61.0,
+         "slug": "ucl-rb-leipzig-vs-sporting-cp"
+        },
+        {
+         "date": "2025-01-29",
+         "opp": "Bologna",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 53.0,
+         "oppPriceAt": 53.0,
+         "slug": "ucl-sporting-cp-vs-bologna"
+        },
+        {
+         "date": "2025-10-01",
+         "opp": "Napoli",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.0,
+         "oppPriceAt": 76.0,
+         "slug": "ucl-nap-spo-2025-10-01"
+        },
+        {
+         "date": "2025-10-22",
+         "opp": "Marseille",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 14.5,
+         "oppPriceAt": 62.0,
+         "slug": "ucl-spo-olm-2025-10-22"
+        }
+       ]
+      },
+      "Benfica": {
+       "backtestable": 32,
+       "draws": 5,
+       "won": 0,
+       "drew": 3,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 4,
+       "avg_price": 28.4,
+       "pnl100": -400.0,
+       "pnl100_fees": -414.32,
+       "games": [
+        {
+         "date": "2025-05-10",
+         "opp": "Sporting CP",
+         "ha": "H",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "liga-portugal-benfica-and-sporting"
+        },
+        {
+         "date": "2025-06-16",
+         "opp": "Boca Juniors",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 69.5,
+         "oppPriceAt": 69.5,
+         "slug": "fifa-club-world-cup-boca-juniors-vs-benfica"
+        },
+        {
+         "date": "2025-12-28",
+         "opp": "SC Braga",
+         "ha": "A",
+         "league": "Primeira Liga",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 33.0,
+         "oppPriceAt": 27.0,
+         "slug": "por-scb-ben-2025-12-28"
+        },
+        {
+         "date": "2025-09-30",
+         "opp": "Chelsea",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 80.5,
+         "slug": "ucl-cfc-ben-2025-09-30"
+        },
+        {
+         "date": "2025-10-21",
+         "opp": "Newcastle",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.5,
+         "oppPriceAt": 80.5,
+         "slug": "ucl-new-ben-2025-10-21"
+        }
+       ]
+      },
+      "PSG": {
+       "backtestable": 38,
+       "draws": 2,
+       "won": 0,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 1,
+       "avg_price": 22.5,
+       "pnl100": -100.0,
+       "pnl100_fees": -103.88,
+       "games": [
+        {
+         "date": "2025-06-20",
+         "opp": "Botafogo",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 41.5,
+         "slug": "fifa-club-world-cup-psg-vs-botafogo"
+        },
+        {
+         "date": "2025-09-22",
+         "opp": "Marseille",
+         "ha": "A",
+         "league": "Ligue 1",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 22.5,
+         "oppPriceAt": 47.5,
+         "slug": "fl1-olm-psg-2025-09-21"
+        }
+       ]
+      },
+      "PSV": {
+       "backtestable": 20,
+       "draws": 3,
+       "won": 1,
+       "drew": 1,
+       "lost": 1,
+       "win_rate": 33.3,
+       "priced": 0,
+       "avg_price": null,
+       "pnl100": 0.0,
+       "pnl100_fees": 0.0,
+       "games": [
+        {
+         "date": "2025-02-11",
+         "opp": "Juventus",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 73.5,
+         "slug": "ucl-juv-psv-2025-02-11"
+        },
+        {
+         "date": "2025-03-12",
+         "opp": "Arsenal",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": 82.0,
+         "slug": "ucl-ars-psv-2025-03-12"
+        },
+        {
+         "date": "2025-12-21",
+         "opp": "Utrecht",
+         "ha": "A",
+         "league": "Eredivisie",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": null,
+         "oppPriceAt": 47.5,
+         "slug": "ere-utr-psv-2025-12-21"
+        }
+       ]
+      },
+      "Celtic": {
+       "backtestable": 19,
+       "draws": 5,
+       "won": 1,
+       "drew": 0,
+       "lost": 4,
+       "win_rate": 20.0,
+       "priced": 5,
+       "avg_price": 29.7,
+       "pnl100": -172.13,
+       "pnl100_fees": -189.71,
+       "games": [
+        {
+         "date": "2025-02-12",
+         "opp": "Bayern M\u00fcnchen",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 9.5,
+         "oppPriceAt": null,
+         "slug": "ucl-cel-bay-2025-02-12"
+        },
+        {
+         "date": "2025-12-07",
+         "opp": "Heart Of Midlothian",
+         "ha": "H",
+         "league": "Premiership",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 64.0,
+         "oppPriceAt": 53.5,
+         "slug": "scop-cel-hmi-2025-12-07"
+        },
+        {
+         "date": "2025-12-30",
+         "opp": "Motherwell",
+         "ha": "A",
+         "league": "Premiership",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 22.0,
+         "oppPriceAt": 49.5,
+         "slug": "scop-mot-cel-2025-12-30"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "SC Braga",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 22.5,
+         "oppPriceAt": 50.0,
+         "slug": "uel-clt-bra-2025-10-02"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Sturm Graz",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 30.5,
+         "oppPriceAt": 38.5,
+         "slug": "uel-cel3-stu4-2025-10-23"
+        }
+       ]
+      }
+     }
+    },
+    "60": {
+     "summary": {
+      "draws": 36,
+      "won": 3,
+      "drew": 13,
+      "lost": 20,
+      "priced": 31,
+      "win_rate": 8.3,
+      "avg_price": 24.1,
+      "pnl100": -2164.27,
+      "pnl100_fees": -2281.91
+     },
+     "teams": {
+      "Galatasaray": {
+       "backtestable": 19,
+       "draws": 2,
+       "won": 0,
+       "drew": 1,
+       "lost": 1,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 38.5,
+       "pnl100": -200.0,
+       "pnl100_fees": -206.15,
+       "games": [
+        {
+         "date": "2025-02-20",
+         "opp": "AZ Alkmaar",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 50.0,
+         "oppPriceAt": 88.0,
+         "slug": "uel-gal-az-2025-02-20"
+        },
+        {
+         "date": "2025-11-09",
+         "opp": "Kocaelispor",
+         "ha": "A",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 27.0,
+         "oppPriceAt": 39.5,
+         "slug": "tur-koc-gal-2025-11-09"
+        }
+       ]
+      },
+      "Fenerbahce": {
+       "backtestable": 28,
+       "draws": 6,
+       "won": 0,
+       "drew": 3,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 6,
+       "avg_price": 20.0,
+       "pnl100": -600.0,
+       "pnl100_fees": -624.0,
+       "games": [
+        {
+         "date": "2025-02-20",
+         "opp": "Anderlecht",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 24.5,
+         "oppPriceAt": 37.5,
+         "slug": "uel-and-fen-2025-02-20"
+        },
+        {
+         "date": "2025-03-06",
+         "opp": "Rangers",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 6.5,
+         "oppPriceAt": 74.5,
+         "slug": "uel-fen-ran-2025-03-06"
+        },
+        {
+         "date": "2025-09-17",
+         "opp": "Alanyaspor",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 57.5,
+         "oppPriceAt": 17.0,
+         "slug": "tur-fen-ala-2025-09-17"
+        },
+        {
+         "date": "2025-12-01",
+         "opp": "Galatasaray",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 16.5,
+         "oppPriceAt": 55.0,
+         "slug": "tur-fen-gal-2025-12-01"
+        },
+        {
+         "date": "2025-08-27",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.0,
+         "oppPriceAt": 80.5,
+         "slug": "ucl-ben-fen-2025-08-27"
+        },
+        {
+         "date": "2025-09-24",
+         "opp": "Dinamo Zagreb",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 11.0,
+         "oppPriceAt": 63.5,
+         "slug": "uel-din-fen-2025-09-24"
+        }
+       ]
+      },
+      "Porto": {
+       "backtestable": 22,
+       "draws": 7,
+       "won": 0,
+       "drew": 3,
+       "lost": 4,
+       "win_rate": 0.0,
+       "priced": 7,
+       "avg_price": 18.3,
+       "pnl100": -700.0,
+       "pnl100_fees": -728.6,
+       "games": [
+        {
+         "date": "2025-02-07",
+         "opp": "Sporting CP",
+         "ha": "H",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 14.0,
+         "oppPriceAt": 14.0,
+         "slug": "primeira-liga-fc-porto-vs-sporting-cp"
+        },
+        {
+         "date": "2025-01-07",
+         "opp": "Sporting CP",
+         "ha": "A",
+         "league": "Ta\u00e7a da Liga",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 14.0,
+         "oppPriceAt": 14.0,
+         "slug": "primeira-liga-fc-porto-vs-sporting-cp"
+        },
+        {
+         "date": "2025-02-13",
+         "opp": "AS Roma",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 11.5,
+         "oppPriceAt": 11.5,
+         "slug": "uel-fc-porto-vs-roma"
+        },
+        {
+         "date": "2025-02-20",
+         "opp": "AS Roma",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 2.5,
+         "oppPriceAt": 89.5,
+         "slug": "uel-rom-por-2025-02-20"
+        },
+        {
+         "date": "2025-06-19",
+         "opp": "Inter Miami",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 46.0,
+         "oppPriceAt": 46.0,
+         "slug": "fifa-club-world-cup-inter-miami-vs-fc-porto"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Nottingham Forest",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 25.0,
+         "oppPriceAt": 51.0,
+         "slug": "uel-not1-por1-2025-10-23"
+        },
+        {
+         "date": "2025-11-06",
+         "opp": "Utrecht",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 15.0,
+         "oppPriceAt": 52.0,
+         "slug": "uel-utr1-por1-2025-11-06"
+        }
+       ]
+      },
+      "Sporting CP": {
+       "backtestable": 23,
+       "draws": 6,
+       "won": 1,
+       "drew": 2,
+       "lost": 3,
+       "win_rate": 16.7,
+       "priced": 5,
+       "avg_price": 28.7,
+       "pnl100": -136.36,
+       "pnl100_fees": -154.19,
+       "games": [
+        {
+         "date": "2025-01-22",
+         "opp": "RB Leipzig",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 63.5,
+         "oppPriceAt": 63.5,
+         "slug": "ucl-rb-leipzig-vs-sporting-cp"
+        },
+        {
+         "date": "2025-01-29",
+         "opp": "Bologna",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 18.0,
+         "oppPriceAt": 18.0,
+         "slug": "ucl-sporting-cp-vs-bologna"
+        },
+        {
+         "date": "2025-02-11",
+         "opp": "Borussia Dortmund",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 30.0,
+         "oppPriceAt": 30.0,
+         "slug": "ucl-spo-dor-2025-02-11"
+        },
+        {
+         "date": "2025-05-25",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "Ta\u00e7a de Portugal",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "liga-portugal-benfica-and-sporting"
+        },
+        {
+         "date": "2025-10-01",
+         "opp": "Napoli",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 79.0,
+         "slug": "ucl-nap-spo-2025-10-01"
+        },
+        {
+         "date": "2025-10-22",
+         "opp": "Marseille",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 27.5,
+         "oppPriceAt": 42.0,
+         "slug": "ucl-spo-olm-2025-10-22"
+        }
+       ]
+      },
+      "Benfica": {
+       "backtestable": 32,
+       "draws": 6,
+       "won": 1,
+       "drew": 3,
+       "lost": 2,
+       "win_rate": 16.7,
+       "priced": 5,
+       "avg_price": 25.1,
+       "pnl100": -336.07,
+       "pnl100_fees": -354.79,
+       "games": [
+        {
+         "date": "2025-05-10",
+         "opp": "Sporting CP",
+         "ha": "H",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "liga-portugal-benfica-and-sporting"
+        },
+        {
+         "date": "2025-02-18",
+         "opp": "Monaco",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 12.5,
+         "oppPriceAt": 63.5,
+         "slug": "ucl-ben-mon-2025-02-18"
+        },
+        {
+         "date": "2025-06-16",
+         "opp": "Boca Juniors",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 43.0,
+         "oppPriceAt": 43.0,
+         "slug": "fifa-club-world-cup-boca-juniors-vs-benfica"
+        },
+        {
+         "date": "2025-11-29",
+         "opp": "Nacional",
+         "ha": "A",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 61.0,
+         "oppPriceAt": 8.0,
+         "slug": "por-nac-ben-2025-11-29"
+        },
+        {
+         "date": "2025-09-30",
+         "opp": "Chelsea",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 78.0,
+         "slug": "ucl-cfc-ben-2025-09-30"
+        },
+        {
+         "date": "2025-10-21",
+         "opp": "Newcastle",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 78.5,
+         "slug": "ucl-new-ben-2025-10-21"
+        }
+       ]
+      },
+      "PSG": {
+       "backtestable": 38,
+       "draws": 4,
+       "won": 0,
+       "drew": 0,
+       "lost": 4,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 15.2,
+       "pnl100": -200.0,
+       "pnl100_fees": -208.47,
+       "games": [
+        {
+         "date": "2025-04-25",
+         "opp": "Nice",
+         "ha": "H",
+         "league": "Ligue 1",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 29.5,
+         "slug": "ligue-1-psg-vs-nice"
+        },
+        {
+         "date": "2025-04-15",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "L",
+         "priceAt": 12.5,
+         "oppPriceAt": 61.5,
+         "slug": "ucl-ast-psg-2025-04-15"
+        },
+        {
+         "date": "2025-06-20",
+         "opp": "Botafogo",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 38.5,
+         "slug": "fifa-club-world-cup-psg-vs-botafogo"
+        },
+        {
+         "date": "2025-09-22",
+         "opp": "Marseille",
+         "ha": "A",
+         "league": "Ligue 1",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 18.0,
+         "oppPriceAt": 54.0,
+         "slug": "fl1-olm-psg-2025-09-21"
+        }
+       ]
+      },
+      "PSV": {
+       "backtestable": 20,
+       "draws": 1,
+       "won": 0,
+       "drew": 1,
+       "lost": 0,
+       "win_rate": 0.0,
+       "priced": 0,
+       "avg_price": null,
+       "pnl100": 0.0,
+       "pnl100_fees": 0.0,
+       "games": [
+        {
+         "date": "2025-03-12",
+         "opp": "Arsenal",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": 83.0,
+         "slug": "ucl-ars-psv-2025-03-12"
+        }
+       ]
+      },
+      "Celtic": {
+       "backtestable": 19,
+       "draws": 4,
+       "won": 1,
+       "drew": 0,
+       "lost": 3,
+       "win_rate": 25.0,
+       "priced": 4,
+       "avg_price": 30.6,
+       "pnl100": 8.16,
+       "pnl100_fees": -5.71,
+       "games": [
+        {
+         "date": "2025-01-29",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "L",
+         "priceAt": 52.5,
+         "oppPriceAt": 52.5,
+         "slug": "ucl-aston-villa-vs-celtic"
+        },
+        {
+         "date": "2025-12-07",
+         "opp": "Heart Of Midlothian",
+         "ha": "H",
+         "league": "Premiership",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 27.5,
+         "oppPriceAt": 39.0,
+         "slug": "scop-cel-hmi-2025-12-07"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "SC Braga",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 18.0,
+         "oppPriceAt": 51.0,
+         "slug": "uel-clt-bra-2025-10-02"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Sturm Graz",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 24.5,
+         "oppPriceAt": 42.0,
+         "slug": "uel-cel3-stu4-2025-10-23"
+        }
+       ]
+      }
+     }
+    },
+    "70": {
+     "summary": {
+      "draws": 30,
+      "won": 1,
+      "drew": 10,
+      "lost": 19,
+      "priced": 27,
+      "win_rate": 3.3,
+      "avg_price": 25.5,
+      "pnl100": -2265.22,
+      "pnl100_fees": -2365.83
+     },
+     "teams": {
+      "Galatasaray": {
+       "backtestable": 19,
+       "draws": 2,
+       "won": 0,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 12.2,
+       "pnl100": -200.0,
+       "pnl100_fees": -208.78,
+       "games": [
+        {
+         "date": "2025-11-09",
+         "opp": "Kocaelispor",
+         "ha": "A",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 19.5,
+         "oppPriceAt": 46.5,
+         "slug": "tur-koc-gal-2025-11-09"
+        },
+        {
+         "date": "2025-12-09",
+         "opp": "Monaco",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 5.0,
+         "oppPriceAt": 63.0,
+         "slug": "ucl-asm-gal1-2025-12-09"
+        }
+       ]
+      },
+      "Fenerbahce": {
+       "backtestable": 28,
+       "draws": 5,
+       "won": 0,
+       "drew": 2,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 5,
+       "avg_price": 13.9,
+       "pnl100": -500.0,
+       "pnl100_fees": -521.52,
+       "games": [
+        {
+         "date": "2025-03-06",
+         "opp": "Rangers",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 14.5,
+         "oppPriceAt": 49.5,
+         "slug": "uel-fen-ran-2025-03-06"
+        },
+        {
+         "date": "2025-09-17",
+         "opp": "Alanyaspor",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 30.0,
+         "oppPriceAt": 38.5,
+         "slug": "tur-fen-ala-2025-09-17"
+        },
+        {
+         "date": "2025-12-01",
+         "opp": "Galatasaray",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 14.0,
+         "oppPriceAt": 59.5,
+         "slug": "tur-fen-gal-2025-12-01"
+        },
+        {
+         "date": "2025-08-27",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.0,
+         "oppPriceAt": 83.5,
+         "slug": "ucl-ben-fen-2025-08-27"
+        },
+        {
+         "date": "2025-09-24",
+         "opp": "Dinamo Zagreb",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 7.0,
+         "oppPriceAt": 68.0,
+         "slug": "uel-din-fen-2025-09-24"
+        }
+       ]
+      },
+      "Porto": {
+       "backtestable": 22,
+       "draws": 6,
+       "won": 0,
+       "drew": 2,
+       "lost": 4,
+       "win_rate": 0.0,
+       "priced": 6,
+       "avg_price": 28.0,
+       "pnl100": -600.0,
+       "pnl100_fees": -621.6,
+       "games": [
+        {
+         "date": "2025-02-07",
+         "opp": "Sporting CP",
+         "ha": "H",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 23.0,
+         "oppPriceAt": 23.0,
+         "slug": "primeira-liga-fc-porto-vs-sporting-cp"
+        },
+        {
+         "date": "2025-01-07",
+         "opp": "Sporting CP",
+         "ha": "A",
+         "league": "Ta\u00e7a da Liga",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 23.0,
+         "oppPriceAt": 23.0,
+         "slug": "primeira-liga-fc-porto-vs-sporting-cp"
+        },
+        {
+         "date": "2025-02-20",
+         "opp": "AS Roma",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 2.1,
+         "oppPriceAt": 92.5,
+         "slug": "uel-rom-por-2025-02-20"
+        },
+        {
+         "date": "2025-06-19",
+         "opp": "Inter Miami",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 63.5,
+         "oppPriceAt": 63.5,
+         "slug": "fifa-club-world-cup-inter-miami-vs-fc-porto"
+        },
+        {
+         "date": "2025-06-24",
+         "opp": "Al Ahly",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "3-4",
+         "result90": "D",
+         "priceAt": 49.5,
+         "oppPriceAt": 49.5,
+         "slug": "fifa-club-world-cup-fc-porto-vs-al-ahly"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Nottingham Forest",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 7.0,
+         "oppPriceAt": 70.5,
+         "slug": "uel-not1-por1-2025-10-23"
+        }
+       ]
+      },
+      "Sporting CP": {
+       "backtestable": 23,
+       "draws": 4,
+       "won": 0,
+       "drew": 2,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 4,
+       "avg_price": 36.8,
+       "pnl100": -400.0,
+       "pnl100_fees": -412.65,
+       "games": [
+        {
+         "date": "2025-01-22",
+         "opp": "RB Leipzig",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 64.5,
+         "oppPriceAt": 64.5,
+         "slug": "ucl-rb-leipzig-vs-sporting-cp"
+        },
+        {
+         "date": "2025-01-29",
+         "opp": "Bologna",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 12.5,
+         "oppPriceAt": 12.5,
+         "slug": "ucl-sporting-cp-vs-bologna"
+        },
+        {
+         "date": "2025-05-25",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "Ta\u00e7a de Portugal",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 61.5,
+         "oppPriceAt": 61.5,
+         "slug": "liga-portugal-benfica-and-sporting"
+        },
+        {
+         "date": "2025-12-09",
+         "opp": "Bayern M\u00fcnchen",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 8.5,
+         "oppPriceAt": 54.5,
+         "slug": "ucl-bay-spo-2025-12-09"
+        }
+       ]
+      },
+      "Benfica": {
+       "backtestable": 32,
+       "draws": 6,
+       "won": 1,
+       "drew": 3,
+       "lost": 2,
+       "win_rate": 16.7,
+       "priced": 5,
+       "avg_price": 25.3,
+       "pnl100": -65.22,
+       "pnl100_fees": -83.89,
+       "games": [
+        {
+         "date": "2025-02-18",
+         "opp": "Monaco",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 8.5,
+         "oppPriceAt": 66.0,
+         "slug": "ucl-ben-mon-2025-02-18"
+        },
+        {
+         "date": "2025-03-05",
+         "opp": "Barcelona",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 40.5,
+         "oppPriceAt": 17.5,
+         "slug": "ucl-ben-bar-2025-03-05"
+        },
+        {
+         "date": "2025-06-16",
+         "opp": "Boca Juniors",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 50.5,
+         "oppPriceAt": 50.5,
+         "slug": "fifa-club-world-cup-boca-juniors-vs-benfica"
+        },
+        {
+         "date": "2025-06-28",
+         "opp": "Chelsea",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fifa-club-world-cup-benfica-vs-chelsea-to-advance"
+        },
+        {
+         "date": "2025-11-29",
+         "opp": "Nacional",
+         "ha": "A",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 23.0,
+         "oppPriceAt": 38.5,
+         "slug": "por-nac-ben-2025-11-29"
+        },
+        {
+         "date": "2025-09-30",
+         "opp": "Chelsea",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.0,
+         "oppPriceAt": 79.5,
+         "slug": "ucl-cfc-ben-2025-09-30"
+        }
+       ]
+      },
+      "PSG": {
+       "backtestable": 38,
+       "draws": 4,
+       "won": 0,
+       "drew": 0,
+       "lost": 4,
+       "win_rate": 0.0,
+       "priced": 3,
+       "avg_price": 19.5,
+       "pnl100": -300.0,
+       "pnl100_fees": -312.07,
+       "games": [
+        {
+         "date": "2025-04-15",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 68.5,
+         "slug": "ucl-ast-psg-2025-04-15"
+        },
+        {
+         "date": "2025-06-20",
+         "opp": "Botafogo",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 30.0,
+         "slug": "fifa-club-world-cup-psg-vs-botafogo"
+        },
+        {
+         "date": "2025-09-22",
+         "opp": "Marseille",
+         "ha": "A",
+         "league": "Ligue 1",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 17.5,
+         "oppPriceAt": 56.5,
+         "slug": "fl1-olm-psg-2025-09-21"
+        },
+        {
+         "date": "2025-11-29",
+         "opp": "Monaco",
+         "ha": "A",
+         "league": "Ligue 1",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 36.5,
+         "oppPriceAt": 20.0,
+         "slug": "fl1-asm-psg-2025-11-29"
+        }
+       ]
+      },
+      "PSV": {
+       "backtestable": 20,
+       "draws": 1,
+       "won": 0,
+       "drew": 1,
+       "lost": 0,
+       "win_rate": 0.0,
+       "priced": 0,
+       "avg_price": null,
+       "pnl100": 0.0,
+       "pnl100_fees": 0.0,
+       "games": [
+        {
+         "date": "2025-10-01",
+         "opp": "Bayer Leverkusen",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": 76.5,
+         "slug": "ucl-b04-psv-2025-10-01"
+        }
+       ]
+      },
+      "Celtic": {
+       "backtestable": 19,
+       "draws": 2,
+       "won": 0,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 46.8,
+       "pnl100": -200.0,
+       "pnl100_fees": -205.32,
+       "games": [
+        {
+         "date": "2025-01-29",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "L",
+         "priceAt": 80.0,
+         "oppPriceAt": 80.0,
+         "slug": "ucl-aston-villa-vs-celtic"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "SC Braga",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 13.5,
+         "oppPriceAt": 54.5,
+         "slug": "uel-clt-bra-2025-10-02"
+        }
+       ]
+      }
+     }
+    },
+    "75": {
+     "summary": {
+      "draws": 28,
+      "won": 1,
+      "drew": 8,
+      "lost": 19,
+      "priced": 26,
+      "win_rate": 3.6,
+      "avg_price": 17.4,
+      "pnl100": -2123.81,
+      "pnl100_fees": -2231.18
+     },
+     "teams": {
+      "Galatasaray": {
+       "backtestable": 19,
+       "draws": 2,
+       "won": 0,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 8.8,
+       "pnl100": -200.0,
+       "pnl100_fees": -209.12,
+       "games": [
+        {
+         "date": "2025-11-09",
+         "opp": "Kocaelispor",
+         "ha": "A",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 14.5,
+         "oppPriceAt": 53.0,
+         "slug": "tur-koc-gal-2025-11-09"
+        },
+        {
+         "date": "2025-12-09",
+         "opp": "Monaco",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 3.0,
+         "oppPriceAt": 77.0,
+         "slug": "ucl-asm-gal1-2025-12-09"
+        }
+       ]
+      },
+      "Fenerbahce": {
+       "backtestable": 28,
+       "draws": 4,
+       "won": 0,
+       "drew": 1,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 4,
+       "avg_price": 8.5,
+       "pnl100": -400.0,
+       "pnl100_fees": -418.3,
+       "games": [
+        {
+         "date": "2025-03-06",
+         "opp": "Rangers",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 15.0,
+         "oppPriceAt": 54.5,
+         "slug": "uel-fen-ran-2025-03-06"
+        },
+        {
+         "date": "2025-12-01",
+         "opp": "Galatasaray",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 10.5,
+         "oppPriceAt": 64.5,
+         "slug": "tur-fen-gal-2025-12-01"
+        },
+        {
+         "date": "2025-08-27",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.0,
+         "oppPriceAt": 82.5,
+         "slug": "ucl-ben-fen-2025-08-27"
+        },
+        {
+         "date": "2025-09-24",
+         "opp": "Dinamo Zagreb",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 4.5,
+         "oppPriceAt": 71.0,
+         "slug": "uel-din-fen-2025-09-24"
+        }
+       ]
+      },
+      "Porto": {
+       "backtestable": 22,
+       "draws": 6,
+       "won": 0,
+       "drew": 2,
+       "lost": 4,
+       "win_rate": 0.0,
+       "priced": 6,
+       "avg_price": 21.4,
+       "pnl100": -600.0,
+       "pnl100_fees": -623.58,
+       "games": [
+        {
+         "date": "2025-02-07",
+         "opp": "Sporting CP",
+         "ha": "H",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 10.0,
+         "oppPriceAt": 10.0,
+         "slug": "primeira-liga-fc-porto-vs-sporting-cp"
+        },
+        {
+         "date": "2025-01-07",
+         "opp": "Sporting CP",
+         "ha": "A",
+         "league": "Ta\u00e7a da Liga",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 10.0,
+         "oppPriceAt": 10.0,
+         "slug": "primeira-liga-fc-porto-vs-sporting-cp"
+        },
+        {
+         "date": "2025-02-20",
+         "opp": "AS Roma",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 1.9,
+         "oppPriceAt": 92.5,
+         "slug": "uel-rom-por-2025-02-20"
+        },
+        {
+         "date": "2025-06-19",
+         "opp": "Inter Miami",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 65.5,
+         "oppPriceAt": 65.5,
+         "slug": "fifa-club-world-cup-inter-miami-vs-fc-porto"
+        },
+        {
+         "date": "2025-06-24",
+         "opp": "Al Ahly",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "3-4",
+         "result90": "D",
+         "priceAt": 34.5,
+         "oppPriceAt": 34.5,
+         "slug": "fifa-club-world-cup-fc-porto-vs-al-ahly"
+        },
+        {
+         "date": "2025-10-23",
+         "opp": "Nottingham Forest",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 6.5,
+         "oppPriceAt": 69.5,
+         "slug": "uel-not1-por1-2025-10-23"
+        }
+       ]
+      },
+      "Sporting CP": {
+       "backtestable": 23,
+       "draws": 3,
+       "won": 0,
+       "drew": 2,
+       "lost": 1,
+       "win_rate": 0.0,
+       "priced": 3,
+       "avg_price": 15.3,
+       "pnl100": -300.0,
+       "pnl100_fees": -312.7,
+       "games": [
+        {
+         "date": "2025-01-29",
+         "opp": "Bologna",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 9.0,
+         "oppPriceAt": 9.0,
+         "slug": "ucl-sporting-cp-vs-bologna"
+        },
+        {
+         "date": "2025-05-25",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "Ta\u00e7a de Portugal",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 34.5,
+         "oppPriceAt": 34.5,
+         "slug": "liga-portugal-benfica-and-sporting"
+        },
+        {
+         "date": "2025-12-09",
+         "opp": "Bayern M\u00fcnchen",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 2.5,
+         "oppPriceAt": 90.0,
+         "slug": "ucl-bay-spo-2025-12-09"
+        }
+       ]
+      },
+      "Benfica": {
+       "backtestable": 32,
+       "draws": 6,
+       "won": 1,
+       "drew": 3,
+       "lost": 2,
+       "win_rate": 16.7,
+       "priced": 5,
+       "avg_price": 19.1,
+       "pnl100": -23.81,
+       "pnl100_fees": -44.03,
+       "games": [
+        {
+         "date": "2025-02-18",
+         "opp": "Monaco",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 5.5,
+         "oppPriceAt": 70.5,
+         "slug": "ucl-ben-mon-2025-02-18"
+        },
+        {
+         "date": "2025-03-05",
+         "opp": "Barcelona",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 14.0,
+         "oppPriceAt": 56.0,
+         "slug": "ucl-ben-bar-2025-03-05"
+        },
+        {
+         "date": "2025-06-16",
+         "opp": "Boca Juniors",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 52.5,
+         "oppPriceAt": 52.5,
+         "slug": "fifa-club-world-cup-boca-juniors-vs-benfica"
+        },
+        {
+         "date": "2025-06-28",
+         "opp": "Chelsea",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fifa-club-world-cup-benfica-vs-chelsea-to-advance"
+        },
+        {
+         "date": "2025-11-29",
+         "opp": "Nacional",
+         "ha": "A",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 21.0,
+         "oppPriceAt": 41.5,
+         "slug": "por-nac-ben-2025-11-29"
+        },
+        {
+         "date": "2025-09-30",
+         "opp": "Chelsea",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 2.5,
+         "oppPriceAt": 82.0,
+         "slug": "ucl-cfc-ben-2025-09-30"
+        }
+       ]
+      },
+      "PSG": {
+       "backtestable": 38,
+       "draws": 5,
+       "won": 0,
+       "drew": 0,
+       "lost": 5,
+       "win_rate": 0.0,
+       "priced": 4,
+       "avg_price": 9.2,
+       "pnl100": -400.0,
+       "pnl100_fees": -418.15,
+       "games": [
+        {
+         "date": "2025-04-15",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "L",
+         "priceAt": 5.0,
+         "oppPriceAt": 75.4,
+         "slug": "ucl-ast-psg-2025-04-15"
+        },
+        {
+         "date": "2025-06-20",
+         "opp": "Botafogo",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 26.5,
+         "slug": "fifa-club-world-cup-psg-vs-botafogo"
+        },
+        {
+         "date": "2025-09-22",
+         "opp": "Marseille",
+         "ha": "A",
+         "league": "Ligue 1",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 15.5,
+         "oppPriceAt": 61.0,
+         "slug": "fl1-olm-psg-2025-09-21"
+        },
+        {
+         "date": "2025-11-29",
+         "opp": "Monaco",
+         "ha": "A",
+         "league": "Ligue 1",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 11.5,
+         "oppPriceAt": 60.0,
+         "slug": "fl1-asm-psg-2025-11-29"
+        },
+        {
+         "date": "2025-11-04",
+         "opp": "Bayern M\u00fcnchen",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 5.0,
+         "oppPriceAt": 83.5,
+         "slug": "ucl-psg-bay-2025-11-04"
+        }
+       ]
+      },
+      "PSV": {
+       "backtestable": 20,
+       "draws": 0,
+       "won": 0,
+       "drew": 0,
+       "lost": 0,
+       "win_rate": null,
+       "priced": 0,
+       "avg_price": null,
+       "pnl100": 0.0,
+       "pnl100_fees": 0.0,
+       "games": []
+      },
+      "Celtic": {
+       "backtestable": 19,
+       "draws": 2,
+       "won": 0,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 47.0,
+       "pnl100": -200.0,
+       "pnl100_fees": -205.3,
+       "games": [
+        {
+         "date": "2025-01-29",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "L",
+         "priceAt": 82.0,
+         "oppPriceAt": 82.0,
+         "slug": "ucl-aston-villa-vs-celtic"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "SC Braga",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 12.0,
+         "oppPriceAt": 57.0,
+         "slug": "uel-clt-bra-2025-10-02"
+        }
+       ]
+      }
+     }
+    },
+    "80": {
+     "summary": {
+      "draws": 27,
+      "won": 1,
+      "drew": 6,
+      "lost": 20,
+      "priced": 25,
+      "win_rate": 3.7,
+      "avg_price": 19.8,
+      "pnl100": -1893.94,
+      "pnl100_fees": -1994.19
+     },
+     "teams": {
+      "Galatasaray": {
+       "backtestable": 19,
+       "draws": 2,
+       "won": 0,
+       "drew": 0,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 2,
+       "avg_price": 7.8,
+       "pnl100": -200.0,
+       "pnl100_fees": -209.22,
+       "games": [
+        {
+         "date": "2025-11-09",
+         "opp": "Kocaelispor",
+         "ha": "A",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 13.0,
+         "oppPriceAt": 55.5,
+         "slug": "tur-koc-gal-2025-11-09"
+        },
+        {
+         "date": "2025-12-09",
+         "opp": "Monaco",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 2.5,
+         "oppPriceAt": 80.5,
+         "slug": "ucl-asm-gal1-2025-12-09"
+        }
+       ]
+      },
+      "Fenerbahce": {
+       "backtestable": 28,
+       "draws": 4,
+       "won": 0,
+       "drew": 1,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 4,
+       "avg_price": 6.9,
+       "pnl100": -400.0,
+       "pnl100_fees": -418.62,
+       "games": [
+        {
+         "date": "2025-03-06",
+         "opp": "Rangers",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 11.5,
+         "oppPriceAt": 57.5,
+         "slug": "uel-fen-ran-2025-03-06"
+        },
+        {
+         "date": "2025-12-01",
+         "opp": "Galatasaray",
+         "ha": "H",
+         "league": "S\u00fcper Lig",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 8.5,
+         "oppPriceAt": 65.0,
+         "slug": "tur-fen-gal-2025-12-01"
+        },
+        {
+         "date": "2025-08-27",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 4.0,
+         "oppPriceAt": 84.0,
+         "slug": "ucl-ben-fen-2025-08-27"
+        },
+        {
+         "date": "2025-09-24",
+         "opp": "Dinamo Zagreb",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 3.5,
+         "oppPriceAt": 74.5,
+         "slug": "uel-din-fen-2025-09-24"
+        }
+       ]
+      },
+      "Porto": {
+       "backtestable": 22,
+       "draws": 5,
+       "won": 0,
+       "drew": 2,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 5,
+       "avg_price": 24.8,
+       "pnl100": -500.0,
+       "pnl100_fees": -518.8,
+       "games": [
+        {
+         "date": "2025-02-07",
+         "opp": "Sporting CP",
+         "ha": "H",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 19.0,
+         "oppPriceAt": 19.0,
+         "slug": "primeira-liga-fc-porto-vs-sporting-cp"
+        },
+        {
+         "date": "2025-01-07",
+         "opp": "Sporting CP",
+         "ha": "A",
+         "league": "Ta\u00e7a da Liga",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 19.0,
+         "oppPriceAt": 19.0,
+         "slug": "primeira-liga-fc-porto-vs-sporting-cp"
+        },
+        {
+         "date": "2025-02-20",
+         "opp": "AS Roma",
+         "ha": "A",
+         "league": "UEFA Europa League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 1.9,
+         "oppPriceAt": 92.5,
+         "slug": "uel-rom-por-2025-02-20"
+        },
+        {
+         "date": "2025-06-19",
+         "opp": "Inter Miami",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 67.5,
+         "oppPriceAt": 67.5,
+         "slug": "fifa-club-world-cup-inter-miami-vs-fc-porto"
+        },
+        {
+         "date": "2025-06-24",
+         "opp": "Al Ahly",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "3-4",
+         "result90": "D",
+         "priceAt": 16.5,
+         "oppPriceAt": 16.5,
+         "slug": "fifa-club-world-cup-fc-porto-vs-al-ahly"
+        }
+       ]
+      },
+      "Sporting CP": {
+       "backtestable": 23,
+       "draws": 3,
+       "won": 0,
+       "drew": 1,
+       "lost": 2,
+       "win_rate": 0.0,
+       "priced": 3,
+       "avg_price": 41.5,
+       "pnl100": -300.0,
+       "pnl100_fees": -308.77,
+       "games": [
+        {
+         "date": "2025-01-22",
+         "opp": "RB Leipzig",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 46.0,
+         "oppPriceAt": 46.0,
+         "slug": "ucl-rb-leipzig-vs-sporting-cp"
+        },
+        {
+         "date": "2025-05-25",
+         "opp": "Benfica",
+         "ha": "A",
+         "league": "Ta\u00e7a de Portugal",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": 64.0,
+         "oppPriceAt": 64.0,
+         "slug": "liga-portugal-benfica-and-sporting"
+        },
+        {
+         "date": "2025-10-01",
+         "opp": "Napoli",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 14.5,
+         "oppPriceAt": 25.5,
+         "slug": "ucl-nap-spo-2025-10-01"
+        }
+       ]
+      },
+      "Benfica": {
+       "backtestable": 32,
+       "draws": 5,
+       "won": 1,
+       "drew": 2,
+       "lost": 2,
+       "win_rate": 20.0,
+       "priced": 4,
+       "avg_price": 21.1,
+       "pnl100": 206.06,
+       "pnl100_fees": 190.29,
+       "games": [
+        {
+         "date": "2025-03-05",
+         "opp": "Barcelona",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 10.0,
+         "oppPriceAt": 58.5,
+         "slug": "ucl-ben-bar-2025-03-05"
+        },
+        {
+         "date": "2025-06-16",
+         "opp": "Boca Juniors",
+         "ha": "A",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "1-2",
+         "result90": "D",
+         "priceAt": 56.0,
+         "oppPriceAt": 56.0,
+         "slug": "fifa-club-world-cup-boca-juniors-vs-benfica"
+        },
+        {
+         "date": "2025-06-28",
+         "opp": "Chelsea",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "D",
+         "priceAt": null,
+         "oppPriceAt": null,
+         "slug": "fifa-club-world-cup-benfica-vs-chelsea-to-advance"
+        },
+        {
+         "date": "2025-11-29",
+         "opp": "Nacional",
+         "ha": "A",
+         "league": "Primeira Liga",
+         "scoreAt": "0-1",
+         "result90": "W",
+         "priceAt": 16.5,
+         "oppPriceAt": 45.0,
+         "slug": "por-nac-ben-2025-11-29"
+        },
+        {
+         "date": "2025-09-30",
+         "opp": "Chelsea",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 2.1,
+         "oppPriceAt": 84.0,
+         "slug": "ucl-cfc-ben-2025-09-30"
+        }
+       ]
+      },
+      "PSG": {
+       "backtestable": 38,
+       "draws": 5,
+       "won": 0,
+       "drew": 0,
+       "lost": 5,
+       "win_rate": 0.0,
+       "priced": 4,
+       "avg_price": 6.9,
+       "pnl100": -400.0,
+       "pnl100_fees": -418.62,
+       "games": [
+        {
+         "date": "2025-04-15",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "L",
+         "priceAt": 3.0,
+         "oppPriceAt": 76.0,
+         "slug": "ucl-ast-psg-2025-04-15"
+        },
+        {
+         "date": "2025-06-20",
+         "opp": "Botafogo",
+         "ha": "H",
+         "league": "FIFA Club World Cup",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": null,
+         "oppPriceAt": 20.5,
+         "slug": "fifa-club-world-cup-psg-vs-botafogo"
+        },
+        {
+         "date": "2025-09-22",
+         "opp": "Marseille",
+         "ha": "A",
+         "league": "Ligue 1",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 11.5,
+         "oppPriceAt": 63.5,
+         "slug": "fl1-olm-psg-2025-09-21"
+        },
+        {
+         "date": "2025-11-29",
+         "opp": "Monaco",
+         "ha": "A",
+         "league": "Ligue 1",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 10.0,
+         "oppPriceAt": 61.5,
+         "slug": "fl1-asm-psg-2025-11-29"
+        },
+        {
+         "date": "2025-11-04",
+         "opp": "Bayern M\u00fcnchen",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 3.0,
+         "oppPriceAt": 85.5,
+         "slug": "ucl-psg-bay-2025-11-04"
+        }
+       ]
+      },
+      "PSV": {
+       "backtestable": 20,
+       "draws": 0,
+       "won": 0,
+       "drew": 0,
+       "lost": 0,
+       "win_rate": null,
+       "priced": 0,
+       "avg_price": null,
+       "pnl100": 0.0,
+       "pnl100_fees": 0.0,
+       "games": []
+      },
+      "Celtic": {
+       "backtestable": 19,
+       "draws": 3,
+       "won": 0,
+       "drew": 0,
+       "lost": 3,
+       "win_rate": 0.0,
+       "priced": 3,
+       "avg_price": 30.3,
+       "pnl100": -300.0,
+       "pnl100_fees": -310.45,
+       "games": [
+        {
+         "date": "2025-01-29",
+         "opp": "Aston Villa",
+         "ha": "A",
+         "league": "UEFA Champions League",
+         "scoreAt": "2-3",
+         "result90": "L",
+         "priceAt": 82.0,
+         "oppPriceAt": 82.0,
+         "slug": "ucl-aston-villa-vs-celtic"
+        },
+        {
+         "date": "2025-02-12",
+         "opp": "Bayern M\u00fcnchen",
+         "ha": "H",
+         "league": "UEFA Champions League",
+         "scoreAt": "1-2",
+         "result90": "L",
+         "priceAt": 0.4,
+         "oppPriceAt": null,
+         "slug": "ucl-cel-bay-2025-02-12"
+        },
+        {
+         "date": "2025-10-02",
+         "opp": "SC Braga",
+         "ha": "H",
+         "league": "UEFA Europa League",
+         "scoreAt": "0-1",
+         "result90": "L",
+         "priceAt": 8.5,
+         "oppPriceAt": 62.5,
+         "slug": "uel-clt-bra-2025-10-02"
         }
        ]
       }

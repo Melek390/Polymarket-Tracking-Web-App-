@@ -164,9 +164,12 @@ export default function Backtesting() {
               <MenuStat
                 title="Games on both APIs"
                 value={football === null ? "…" : !top ? "—"
-                  : football.strategies.reduce((n, st) => n + st.meta.available_both_apis, 0)}
+                  // the down-trigger studies reuse the level studies' corpus —
+                  // count each club group's games once
+                  : football.strategies.filter((st) => st.meta.trigger !== "down")
+                    .reduce((n, st) => n + st.meta.available_both_apis, 0)}
                 sub={top
-                  ? football.strategies
+                  ? football.strategies.filter((st) => st.meta.trigger !== "down")
                     .map((st) => `${st.meta.name.replace(" — 2025", "")}: ${st.meta.available_both_apis}`)
                     .join(" · ")
                   : "calendar 2025 · api-football × Polymarket"}
