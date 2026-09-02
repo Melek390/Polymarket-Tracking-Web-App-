@@ -132,22 +132,25 @@ def bottom8_status():
 def favbackfill_status():
     return favhistory.status()
 
-_football: dict | None = None
+_football: tuple[float, dict] | None = None   # (file mtime, parsed content)
 
 
 @router.get("/football")
 def football():
-    """The frozen draw-at-60 2025 study (backend/backtest/football.py wrote
-    it once; calendar 2025 is over, so the file ships with the app instead
-    of re-polling two external APIs on every visit)."""
+    """The frozen 2025 football studies (backend/backtest/football.py wrote
+    them once; the file ships with the app instead of re-polling two
+    external APIs on every visit). Cached against the file's mtime, so a
+    redeploy of just the JSON is picked up WITHOUT a service restart — a
+    forever-cache once served a stale shape for hours after a data update."""
     global _football
-    if _football is None:
-        import json
-        import os
-        path = os.path.join(os.path.dirname(__file__), "football_results.json")
+    import json
+    import os
+    path = os.path.join(os.path.dirname(__file__), "football_results.json")
+    mtime = os.path.getmtime(path)
+    if _football is None or _football[0] != mtime:
         with open(path, encoding="utf-8") as f:
-            _football = json.load(f)
-    return _football
+            _football = (mtime, json.load(f))
+    return _football[1]
 
 
 MIN_TICKS = 1000
