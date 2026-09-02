@@ -20,9 +20,9 @@
     "fav_won": 293,
     "win_rate": 51.9,
     "avg_fav_p": 74.2,
-    "priced": 50,
-    "avg_at45": 67.8,
-    "pnl100_fees": -1587.03
+    "priced": 88,
+    "avg_at45": 68.3,
+    "pnl100_fees": -2455.89
    },
    "bySlam": {
     "Australian Open": {
@@ -30,18 +30,18 @@
      "fav_won": 110,
      "win_rate": 55.0,
      "avg_fav_p": 73.2,
-     "priced": 0,
-     "avg_at45": null,
-     "pnl100_fees": 0.0
+     "priced": 26,
+     "avg_at45": 69.4,
+     "pnl100_fees": -598.86
     },
     "French Open": {
      "spots": 191,
      "fav_won": 92,
      "win_rate": 48.2,
      "avg_fav_p": 74.3,
-     "priced": 5,
-     "avg_at45": 78.4,
-     "pnl100_fees": 135.47
+     "priced": 17,
+     "avg_at45": 71.0,
+     "pnl100_fees": -134.53
     },
     "Wimbledon": {
      "spots": 174,
@@ -113,9 +113,9 @@
      "fav_won": 42,
      "win_rate": 49.4,
      "avg_fav_p": 73.2,
-     "priced": 29,
-     "avg_at45": 61.4,
-     "pnl100_fees": -967.78
+     "priced": 67,
+     "avg_at45": 65.7,
+     "pnl100_fees": -1836.64
     }
    },
    "games": [
@@ -6458,7 +6458,11 @@
      "fav_p": 0.674,
      "fav_won": false,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-fery-cobolli-2026-01-18",
+      "pre": 70.5,
+      "at45": 58.0
+     }
     },
     {
      "tour": "ATP",
@@ -6471,7 +6475,11 @@
      "fav_p": 0.839,
      "fav_won": true,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-zverev-diallo-2026-01-18",
+      "pre": 85.5,
+      "at45": 86.0
+     }
     },
     {
      "tour": "ATP",
@@ -6484,7 +6492,11 @@
      "fav_p": 0.726,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-zheng-korda-2026-01-18",
+      "pre": 74.0,
+      "at45": 73.5
+     }
     },
     {
      "tour": "ATP",
@@ -6497,7 +6509,11 @@
      "fav_p": 0.608,
      "fav_won": false,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-blockx-faria-2026-01-18",
+      "pre": 61.0,
+      "at45": 58.5
+     }
     },
     {
      "tour": "ATP",
@@ -6510,7 +6526,11 @@
      "fav_p": 0.654,
      "fav_won": true,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-ymer-shevche-2026-01-18",
+      "pre": 61.5,
+      "at45": 62.0
+     }
     },
     {
      "tour": "ATP",
@@ -6523,7 +6543,11 @@
      "fav_p": 0.663,
      "fav_won": true,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-cerund-thomps-2026-01-18",
+      "pre": 68.0,
+      "at45": 68.0
+     }
     },
     {
      "tour": "ATP",
@@ -6536,7 +6560,11 @@
      "fav_p": 0.66,
      "fav_won": false,
      "score_s1": "5-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-tirante-vukic-2026-01-18",
+      "pre": 70.0,
+      "at45": 69.5
+     }
     },
     {
      "tour": "ATP",
@@ -6549,7 +6577,11 @@
      "fav_p": 0.696,
      "fav_won": false,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-nakashi-zandsch-2026-01-18",
+      "pre": 72.0,
+      "at45": 72.0
+     }
     },
     {
      "tour": "ATP",
@@ -6562,7 +6594,11 @@
      "fav_p": 0.627,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-atmane-maestre-2026-01-18",
+      "pre": 63.5,
+      "at45": 63.5
+     }
     },
     {
      "tour": "ATP",
@@ -6575,7 +6611,11 @@
      "fav_p": 0.764,
      "fav_won": true,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-munar-svrcina-2026-01-18",
+      "pre": 77.5,
+      "at45": 76.5
+     }
     },
     {
      "tour": "ATP",
@@ -6588,7 +6628,11 @@
      "fav_p": 0.712,
      "fav_won": false,
      "score_s1": "5-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-lehecka-gea-2026-01-18",
+      "pre": 73.5,
+      "at45": 73.0
+     }
     },
     {
      "tour": "ATP",
@@ -6601,7 +6645,11 @@
      "fav_p": 0.604,
      "fav_won": true,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-khachan-michels-2026-01-18",
+      "pre": 57.5,
+      "at45": 57.5
+     }
     },
     {
      "tour": "ATP",
@@ -6614,7 +6662,11 @@
      "fav_p": 0.618,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-fonseca-spizzir-2026-01-18",
+      "pre": 63.0,
+      "at45": 63.0
+     }
     },
     {
      "tour": "ATP",
@@ -6627,7 +6679,11 @@
      "fav_p": 0.688,
      "fav_won": true,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-hurkacz-bergs-2026-01-18",
+      "pre": 67.5,
+      "at45": 67.5
+     }
     },
     {
      "tour": "ATP",
@@ -6640,7 +6696,11 @@
      "fav_p": 0.842,
      "fav_won": true,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-mochizu-tsitsip-2026-01-18",
+      "pre": 84.5,
+      "at45": 84.5
+     }
     },
     {
      "tour": "ATP",
@@ -6653,7 +6713,11 @@
      "fav_p": 0.856,
      "fav_won": true,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-medvede-halys-2026-01-21",
+      "pre": 88.5,
+      "at45": 83.0
+     }
     },
     {
      "tour": "ATP",
@@ -6666,7 +6730,11 @@
      "fav_p": 0.611,
      "fav_won": true,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-thomps-borges-2026-01-21",
+      "pre": 64.0,
+      "at45": 64.5
+     }
     },
     {
      "tour": "ATP",
@@ -6679,7 +6747,9 @@
      "fav_p": 0.828,
      "fav_won": true,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-medjedo-minaur-2026-01-21"
+     }
     },
     {
      "tour": "ATP",
@@ -6692,7 +6762,11 @@
      "fav_p": 0.604,
      "fav_won": false,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-baez-darderi-2026-01-21",
+      "pre": 59.5,
+      "at45": 60.0
+     }
     },
     {
      "tour": "ATP",
@@ -6705,7 +6779,11 @@
      "fav_p": 0.759,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-hurkacz-quinn-2026-01-22",
+      "pre": 77.5,
+      "at45": 76.5
+     }
     },
     {
      "tour": "ATP",
@@ -6718,7 +6796,11 @@
      "fav_p": 0.798,
      "fav_won": true,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-medvede-marozsa-2026-01-22",
+      "pre": 81.5,
+      "at45": 80.5
+     }
     },
     {
      "tour": "ATP",
@@ -6731,7 +6813,11 @@
      "fav_p": 0.627,
      "fav_won": true,
      "score_s1": "5-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-musetti-machac-2026-01-24",
+      "pre": 50.5,
+      "at45": 55.5
+     }
     },
     {
      "tour": "ATP",
@@ -6744,7 +6830,11 @@
      "fav_p": 0.779,
      "fav_won": false,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-khachan-darderi-2026-01-23",
+      "pre": 79.0,
+      "at45": 79.0
+     }
     },
     {
      "tour": "ATP",
@@ -6757,7 +6847,11 @@
      "fav_p": 0.97,
      "fav_won": true,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-spizzir-sinner-2026-01-24",
+      "pre": 98.9,
+      "at45": 98.5
+     }
     },
     {
      "tour": "ATP",
@@ -6770,7 +6864,11 @@
      "fav_p": 0.658,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-medvede-tien-2026-01-25",
+      "pre": 63.5,
+      "at45": 64.5
+     }
     },
     {
      "tour": "ATP",
@@ -6783,7 +6881,11 @@
      "fav_p": 0.618,
      "fav_won": true,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-shelton-ruud-2026-01-26",
+      "pre": 58.5,
+      "at45": 59.0
+     }
     },
     {
      "tour": "ATP",
@@ -6796,7 +6898,11 @@
      "fav_p": 0.724,
      "fav_won": true,
      "score_s1": "2-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-alcaraz-djokovi-2026-02-01",
+      "pre": 72.5,
+      "at45": 51.5
+     }
     },
     {
      "tour": "ATP",
@@ -6809,7 +6915,11 @@
      "fav_p": 0.839,
      "fav_won": true,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-fokina-dzumhur-2026-05-24",
+      "pre": 86.0,
+      "at45": 74.5
+     }
     },
     {
      "tour": "ATP",
@@ -6822,7 +6932,11 @@
      "fav_p": 0.646,
      "fav_won": true,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-cina-opelka-2026-05-24",
+      "pre": 66.5,
+      "at45": 46.5
+     }
     },
     {
      "tour": "ATP",
@@ -6835,7 +6949,11 @@
      "fav_p": 0.662,
      "fav_won": false,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-etcheve-borges-2026-05-24",
+      "pre": 69.5,
+      "at45": 51.5
+     }
     },
     {
      "tour": "ATP",
@@ -6848,7 +6966,11 @@
      "fav_p": 0.776,
      "fav_won": false,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-fritz-basavar-2026-05-24",
+      "pre": 81.5,
+      "at45": 80.5
+     }
     },
     {
      "tour": "ATP",
@@ -6861,7 +6983,11 @@
      "fav_p": 0.872,
      "fav_won": true,
      "score_s1": "5-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-perrica-djokovi-2026-05-24",
+      "pre": 89.5,
+      "at45": 74.5
+     }
     },
     {
      "tour": "ATP",
@@ -6874,7 +7000,11 @@
      "fav_p": 0.792,
      "fav_won": false,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-busta-lehecka-2026-05-24",
+      "pre": 85.5,
+      "at45": 55.5
+     }
     },
     {
      "tour": "ATP",
@@ -6887,7 +7017,11 @@
      "fav_p": 0.641,
      "fav_won": true,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-fucsovi-berrett-2026-05-24",
+      "pre": 63.5,
+      "at45": 67.5
+     }
     },
     {
      "tour": "ATP",
@@ -6900,7 +7034,11 @@
      "fav_p": 0.914,
      "fav_won": true,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-hijikat-paul-2026-05-24",
+      "pre": 93.5,
+      "at45": 76.5
+     }
     },
     {
      "tour": "ATP",
@@ -6913,7 +7051,11 @@
      "fav_p": 0.751,
      "fav_won": false,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-cilic-kouame-2026-05-24",
+      "pre": 76.5,
+      "at45": 77.5
+     }
     },
     {
      "tour": "ATP",
@@ -6926,7 +7068,11 @@
      "fav_p": 0.923,
      "fav_won": false,
      "score_s1": "2-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-walton-medvede-2026-05-24",
+      "pre": 93.5,
+      "at45": 83.7
+     }
     },
     {
      "tour": "ATP",
@@ -6939,7 +7085,11 @@
      "fav_p": 0.757,
      "fav_won": false,
      "score_s1": "5-7",
-     "poly": null
+     "poly": {
+      "slug": "atp-bublik-struff-2026-05-24",
+      "pre": 77.5,
+      "at45": 72.5
+     }
     },
     {
      "tour": "ATP",
@@ -6952,7 +7102,11 @@
      "fav_p": 0.724,
      "fav_won": true,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "atp-augeral-altmaie-2026-05-24",
+      "pre": 72.5,
+      "at45": 53.5
+     }
     },
     {
      "tour": "ATP",
@@ -7676,9 +7830,9 @@
     "fav_won": 188,
     "win_rate": 36.2,
     "avg_fav_p": 72.0,
-    "priced": 40,
-    "avg_at45": 58.3,
-    "pnl100_fees": -194.38
+    "priced": 68,
+    "avg_at45": 59.7,
+    "pnl100_fees": -1645.63
    },
    "bySlam": {
     "Australian Open": {
@@ -7686,18 +7840,18 @@
      "fav_won": 62,
      "win_rate": 34.8,
      "avg_fav_p": 72.4,
-     "priced": 2,
-     "avg_at45": 69.0,
-     "pnl100_fees": -203.1
+     "priced": 18,
+     "avg_at45": 70.6,
+     "pnl100_fees": -1172.7
     },
     "French Open": {
      "spots": 187,
      "fav_won": 65,
      "win_rate": 34.8,
      "avg_fav_p": 71.0,
-     "priced": 8,
-     "avg_at45": 57.0,
-     "pnl100_fees": 561.87
+     "priced": 20,
+     "avg_at45": 52.4,
+     "pnl100_fees": 80.22
     },
     "Wimbledon": {
      "spots": 155,
@@ -7769,9 +7923,9 @@
      "fav_won": 25,
      "win_rate": 36.2,
      "avg_fav_p": 71.9,
-     "priced": 20,
-     "avg_at45": 51.2,
-     "pnl100_fees": -406.59
+     "priced": 48,
+     "avg_at45": 57.2,
+     "pnl100_fees": -1857.85
     }
    },
    "games": [
@@ -13742,7 +13896,11 @@
      "fav_p": 0.741,
      "fav_won": false,
      "score_s1": "5-7",
-     "poly": null
+     "poly": {
+      "slug": "wta-alexand-sonmez-2026-01-18",
+      "pre": 72.0,
+      "at45": 72.5
+     }
     },
     {
      "tour": "WTA",
@@ -13755,7 +13913,11 @@
      "fav_p": 0.667,
      "fav_won": true,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-lamens-potapov-2026-01-18",
+      "pre": 69.0,
+      "at45": 69.0
+     }
     },
     {
      "tour": "WTA",
@@ -13768,7 +13930,11 @@
      "fav_p": 0.821,
      "fav_won": true,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "wta-danilov-william-2026-01-18",
+      "pre": 83.5,
+      "at45": 84.5
+     }
     },
     {
      "tour": "WTA",
@@ -13781,7 +13947,9 @@
      "fav_p": 0.657,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-hunter-maneiro-2026-01-18"
+     }
     },
     {
      "tour": "WTA",
@@ -13794,7 +13962,11 @@
      "fav_p": 0.605,
      "fav_won": true,
      "score_s1": "2-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-krejcik-shnaide-2026-01-18",
+      "pre": 62.5,
+      "at45": 62.5
+     }
     },
     {
      "tour": "WTA",
@@ -13807,7 +13979,11 @@
      "fav_p": 0.844,
      "fav_won": true,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-vekic-andreev-2026-01-18",
+      "pre": 83.0,
+      "at45": 82.5
+     }
     },
     {
      "tour": "WTA",
@@ -13820,7 +13996,11 @@
      "fav_p": 0.646,
      "fav_won": false,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-sierra-uchijim-2026-01-18",
+      "pre": 60.0,
+      "at45": 60.0
+     }
     },
     {
      "tour": "WTA",
@@ -13833,7 +14013,11 @@
      "fav_p": 0.708,
      "fav_won": false,
      "score_s1": "2-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-fernand-tjen-2026-01-18",
+      "pre": 71.0,
+      "at45": 71.0
+     }
     },
     {
      "tour": "WTA",
@@ -13847,9 +14031,9 @@
      "fav_won": false,
      "score_s1": "3-6",
      "poly": {
-      "slug": "wta-zhang-preston-2026-01-02",
-      "pre": 70.0,
-      "at45": 86.0
+      "slug": "wta-zhang-preston-2026-01-18",
+      "pre": 67.0,
+      "at45": 65.0
      }
     },
     {
@@ -13863,7 +14047,11 @@
      "fav_p": 0.766,
      "fav_won": false,
      "score_s1": "5-7",
-     "poly": null
+     "poly": {
+      "slug": "wta-grabher-cocciar-2026-01-18",
+      "pre": 76.0,
+      "at45": 76.0
+     }
     },
     {
      "tour": "WTA",
@@ -13889,7 +14077,11 @@
      "fav_p": 0.679,
      "fav_won": false,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "wta-inglis-birrell-2026-01-18",
+      "pre": 68.5,
+      "at45": 67.5
+     }
     },
     {
      "tour": "WTA",
@@ -13902,7 +14094,11 @@
      "fav_p": 0.66,
      "fav_won": false,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "wta-kasatki-bartunk-2026-01-18",
+      "pre": 68.5,
+      "at45": 68.5
+     }
     },
     {
      "tour": "WTA",
@@ -13928,7 +14124,11 @@
      "fav_p": 0.699,
      "fav_won": false,
      "score_s1": "6-7",
-     "poly": null
+     "poly": {
+      "slug": "wta-potapov-raducan-2026-01-21",
+      "pre": 69.5,
+      "at45": 68.5
+     }
     },
     {
      "tour": "WTA",
@@ -13954,7 +14154,11 @@
      "fav_p": 0.753,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-selekhm-badosa-2026-01-22",
+      "pre": 77.5,
+      "at45": 61.0
+     }
     },
     {
      "tour": "WTA",
@@ -13980,7 +14184,11 @@
      "fav_p": 0.89,
      "fav_won": false,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-bartunk-bencic-2026-01-22",
+      "pre": 90.5,
+      "at45": 90.5
+     }
     },
     {
      "tour": "WTA",
@@ -13993,7 +14201,11 @@
      "fav_p": 0.885,
      "fav_won": true,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-gauff-baptist-2026-01-23",
+      "pre": 91.5,
+      "at45": 91.5
+     }
     },
     {
      "tour": "WTA",
@@ -14019,7 +14231,11 @@
      "fav_p": 0.626,
      "fav_won": false,
      "score_s1": "2-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-svitoli-andreev-2026-01-24",
+      "pre": 63.0,
+      "at45": 63.5
+     }
     },
     {
      "tour": "WTA",
@@ -14032,7 +14248,11 @@
      "fav_p": 0.632,
      "fav_won": false,
      "score_s1": "1-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-gauff-svitoli-2026-01-27",
+      "pre": 64.5,
+      "at45": 64.5
+     }
     },
     {
      "tour": "WTA",
@@ -14045,7 +14265,11 @@
      "fav_p": 0.699,
      "fav_won": true,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-tomljan-mcnally-2026-05-24",
+      "pre": 72.5,
+      "at45": 40.5
+     }
     },
     {
      "tour": "WTA",
@@ -14058,7 +14282,11 @@
      "fav_p": 0.737,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-samsono-teichma-2026-05-24",
+      "pre": 70.5,
+      "at45": 34.5
+     }
     },
     {
      "tour": "WTA",
@@ -14071,7 +14299,11 @@
      "fav_p": 0.728,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-chwalin-zhen-2026-05-25",
+      "pre": 76.5,
+      "at45": 69.0
+     }
     },
     {
      "tour": "WTA",
@@ -14084,7 +14316,11 @@
      "fav_p": 0.699,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-bandecc-bucsa-2026-05-25",
+      "pre": 70.5,
+      "at45": 37.5
+     }
     },
     {
      "tour": "WTA",
@@ -14097,7 +14333,11 @@
      "fav_p": 0.63,
      "fav_won": false,
      "score_s1": "2-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-grabher-sramkov-2026-05-25",
+      "pre": 59.5,
+      "at45": 13.5
+     }
     },
     {
      "tour": "WTA",
@@ -14110,7 +14350,11 @@
      "fav_p": 0.827,
      "fav_won": true,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-svitoli-bondar-2026-05-24",
+      "pre": 85.5,
+      "at45": 56.5
+     }
     },
     {
      "tour": "WTA",
@@ -14123,7 +14367,11 @@
      "fav_p": 0.699,
      "fav_won": true,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-gibson-putints-2026-05-24",
+      "pre": 72.5,
+      "at45": 76.5
+     }
     },
     {
      "tour": "WTA",
@@ -14136,7 +14384,11 @@
      "fav_p": 0.734,
      "fav_won": false,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-rakhimo-cristia-2026-05-24",
+      "pre": 78.5,
+      "at45": 48.5
+     }
     },
     {
      "tour": "WTA",
@@ -14149,7 +14401,11 @@
      "fav_p": 0.686,
      "fav_won": true,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-guo-kessler-2026-05-25",
+      "pre": 70.5,
+      "at45": 51.5
+     }
     },
     {
      "tour": "WTA",
@@ -14162,7 +14418,11 @@
      "fav_p": 0.747,
      "fav_won": false,
      "score_s1": "4-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-parks-fernand-2026-05-24",
+      "pre": 76.5,
+      "at45": 68.5
+     }
     },
     {
      "tour": "WTA",
@@ -14175,7 +14435,11 @@
      "fav_p": 0.681,
      "fav_won": false,
      "score_s1": "5-7",
-     "poly": null
+     "poly": {
+      "slug": "wta-noskova-sakkari-2026-05-24",
+      "pre": 70.5,
+      "at45": 44.5
+     }
     },
     {
      "tour": "WTA",
@@ -14188,7 +14452,11 @@
      "fav_p": 0.65,
      "fav_won": false,
      "score_s1": "3-6",
-     "poly": null
+     "poly": {
+      "slug": "wta-korneev-cocciar-2026-05-25",
+      "pre": 66.5,
+      "at45": 39.5
+     }
     },
     {
      "tour": "WTA",
@@ -14267,9 +14535,9 @@
      "fav_won": false,
      "score_s1": "3-6",
      "poly": {
-      "slug": "wta-parry-kalinsk-2026-07-01",
-      "pre": 62.5,
-      "at45": 69.0
+      "slug": "wta-kalinin-parry-2026-05-24",
+      "pre": 81.5,
+      "at45": 79.5
      }
     },
     {

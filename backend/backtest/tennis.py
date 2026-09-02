@@ -163,22 +163,39 @@ def qualify(rows: list[dict]) -> list[dict]:
 
 
 # ---------------------------------------------------------- polymarket side
+# per-slam listing windows: the 2025-26 naming migration left many match
+# events carrying ONLY the generic "tennis" tag (e.g. wta-sabalen-rybakin-
+# 2026-01-31), so a blind crawl of that firehose missed the 2026 Australian
+# Open entirely. Sweeping the tag per slam fortnight is small AND complete.
+SLAM_WINDOWS = [("01-01", "02-05"),   # Australian Open
+                ("05-10", "06-12"),   # Roland Garros
+                ("06-18", "07-18")]   # Wimbledon
+
+
 def fetch_slam_events(cache: dict) -> list[dict]:
-    ck = "events"
+    ck = "events:v2"
     if ck in cache:
         return cache[ck]
     g = httpx.Client(base_url="https://gamma-api.polymarket.com", timeout=30)
     events, seen = [], set()
-    tags = sorted({t for lst in SLAMS.values() for t in lst} | {"tennis"})
-    for slug in tags:
+    jobs = []                    # (tag_id, start_min, start_max)
+    for slug in sorted({t for lst in SLAMS.values() for t in lst}):
         r = g.get("/tags/slug/" + slug)
-        if r.status_code != 200 or not r.json().get("id"):
-            continue
-        tid, off = int(r.json()["id"]), 0
+        if r.status_code == 200 and r.json().get("id"):
+            jobs.append((int(r.json()["id"]), "2024-01-01", "2027-01-01"))
+    r = g.get("/tags/slug/tennis")
+    if r.status_code == 200 and r.json().get("id"):
+        tid = int(r.json()["id"])
+        for year in (2024, 2025, 2026):
+            for lo, hi in SLAM_WINDOWS:
+                jobs.append((tid, "%d-%s" % (year, lo), "%d-%s" % (year, hi)))
+    for tid, lo, hi in jobs:
+        off = 0
         while True:
             r2 = g.get("/events", params={
                 "tag_id": tid, "closed": "true", "limit": 100, "offset": off,
-                "start_date_min": "2024-01-01T00:00:00Z"})
+                "start_date_min": lo + "T00:00:00Z",
+                "start_date_max": hi + "T23:59:59Z"})
             if r2.status_code != 200 or not r2.json():
                 break
             for e in r2.json():
@@ -201,7 +218,7 @@ def fetch_slam_events(cache: dict) -> list[dict]:
                                "start": e.get("startDate"), "tag": slug,
                                "markets": markets})
             off += 100
-            if off > 6000:
+            if off > 4000:
                 break
             time.sleep(0.15)
     print("  polymarket closed tennis vs-events since 2024:", len(events))
