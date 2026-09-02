@@ -25,12 +25,20 @@ const money = (v) => (
 // mode "yes": buy the club's win — pays only on a W.
 // mode "no":  buy NO on the opponent's win (entry = 100 - opponent price) —
 //             pays on a W or a D, at a much higher entry price.
-export function entryPrice(g, mode) {
-  if (mode === "no") return g.oppPriceAt != null ? 100 - g.oppPriceAt : null;
-  return g.priceAt;
+// spread: the client's delayed-data safety margin, in CENTS (Polymarket
+// prices are cents-on-the-dollar, so ±5¢ — never a percentage). Every entry
+// pays the full margin on top of the recorded price; an entry pushed to
+// 100¢ or beyond is untradeable and drops out of the priced set.
+export function entryPrice(g, mode, spread = 0) {
+  const base = mode === "no"
+    ? (g.oppPriceAt != null ? 100 - g.oppPriceAt : null)
+    : g.priceAt;
+  if (base == null) return null;
+  const e = base + spread;
+  return e > 0 && e < 100 ? e : null;
 }
 
-function aggregate(teams, side, mode) {
+function aggregate(teams, side, mode, spread) {
   const out = {};
   let draws = 0, won = 0, drew = 0, lost = 0, priced = 0, pxSum = 0, pnl = 0, pnlFees = 0;
   let hits = 0;
@@ -41,8 +49,8 @@ function aggregate(teams, side, mode) {
       if (g.result90 === "W") w++; else if (g.result90 === "D") dr++; else l++;
       const hit = mode === "no" ? g.result90 !== "L" : g.result90 === "W";
       if (hit) h++;
-      const entry = entryPrice(g, mode);
-      if (entry != null && entry > 0 && entry < 100) {
+      const entry = entryPrice(g, mode, spread);
+      if (entry != null) {
         p++; px += entry;
         const shares = 100 / (entry / 100);
         fee += shares * 0.05 * (entry / 100) * (1 - entry / 100);
@@ -69,14 +77,14 @@ function aggregate(teams, side, mode) {
   };
 }
 
-function TeamGames({ games, mode }) {
+function TeamGames({ games, mode, spread }) {
   return (
     <tr>
       <td colSpan={9} style={{ padding: "2px 10px 10px 26px" }}>
         <table style={{ borderCollapse: "collapse" }}>
           <tbody>
             {games.map((g, i) => {
-              const entry = entryPrice(g, mode);
+              const entry = entryPrice(g, mode, spread);
               return (
                 <tr key={i} style={{ color: T.sub, fontSize: 12 }}>
                   <td style={{ ...monoText, padding: "1px 10px 1px 0", fontSize: 12 }}>{g.date}</td>
@@ -108,12 +116,14 @@ export default function FootballDraw60({ data }) {
   const [minute, setMinute] = useState(meta.default_minute);
   const [side, setSide] = useState("both");
   const [mode, setMode] = useState("yes");
+  const [spread, setSpread] = useState(0);
   const raw = byMinute[String(minute)];
   if (!raw) return null;
-  const view = aggregate(raw.teams, side, mode);
+  const view = aggregate(raw.teams, side, mode, spread);
   const s = view.summary;
   const sideLabel = (side === "H" ? " · home only" : side === "A" ? " · away only" : "")
-    + (mode === "no" ? " · NO on the opponent" : "");
+    + (mode === "no" ? " · NO on the opponent" : "")
+    + (spread ? ` · ±${spread}¢ spread` : "");
 
   return (
     <div style={{ ...card, overflow: "hidden" }}>
@@ -199,6 +209,25 @@ export default function FootballDraw60({ data }) {
               NO pays when the club wins OR draws — pricier entry, draws count as hits
             </span>
           </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: T.sub }}>Fake spread (delayed-data safety):</span>
+            {[[0, "none"], [5, "±5¢"], [10, "±10¢"]].map(([v, lbl]) => (
+              <button
+                key={v}
+                onClick={() => { setSpread(v); setOpen(true); }}
+                style={{
+                  ...(v === spread ? btn.green : btn.outline),
+                  fontSize: 13, padding: "4px 12px",
+                }}
+              >
+                {lbl}
+              </button>
+            ))}
+            <span style={{ fontSize: 11, color: T.faint }}>
+              every entry pays the full margin on top of the recorded price — cents, not
+              percent, because Polymarket prices are cents on the dollar
+            </span>
+          </div>
         </div>
       )}
 
@@ -243,7 +272,7 @@ export default function FootballDraw60({ data }) {
                     <td style={td}>{money(d.pnl100)}</td>
                     <td style={td}>{money(d.pnl100_fees)}</td>
                   </tr>,
-                  teamOpen[name] && <TeamGames key={name + ":games"} games={d.games} mode={mode} />,
+                  teamOpen[name] && <TeamGames key={name + ":games"} games={d.games} mode={mode} spread={spread} />,
                 ])}
                 <tr style={{ borderTop: `2px solid ${T.line}` }}>
                   <td style={{ ...td, textAlign: "left", fontWeight: 700 }}>Total</td>

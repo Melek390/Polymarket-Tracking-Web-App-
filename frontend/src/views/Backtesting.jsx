@@ -150,30 +150,39 @@ export default function Backtesting() {
       <SportHeader title="Football" sub="historical studies over api-football × Polymarket" />
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <MenuStat
-          title="Games on both APIs"
-          value={football === null ? "…" : football === false ? "—"
-            : football.meta.available_both_apis}
-          sub={football && football.meta
-            ? `of ${football.meta.fixtures_2025} finished 2025 games · ${football.meta.clubs} clubs`
-            : "7 clubs · calendar 2025"}
-        />
-        <MenuStat
-          title="Draws at 60'"
-          value={football === null ? "…" : football === false ? "—"
-            : football.byMinute?.["60"]?.summary.draws ?? "—"}
-          sub={football && football.byMinute?.["60"]
-            ? `won ${football.byMinute["60"].summary.won} · drew ${football.byMinute["60"].summary.drew} · lost ${football.byMinute["60"].summary.lost}`
-            : "level games at the hour"}
-        />
-        <MenuStat
-          title="Avg win price @60'"
-          value={football === null ? "…" : football === false ? "—"
-            : `${football.byMinute?.["60"]?.summary.avg_price ?? "—"}¢`}
-          sub={football && football.byMinute?.["60"]
-            ? `${football.byMinute["60"].summary.priced} games with usable price history`
-            : "Polymarket, 1-minute history"}
-        />
+        {(() => {
+          // headline tiles read the FIRST study (the big-clubs one)
+          const top = football && football.strategies ? football.strategies[0] : null;
+          const s60 = top ? top.byMinute?.["60"]?.summary : null;
+          return (
+            <>
+              <MenuStat
+                title="Games on both APIs"
+                value={football === null ? "…" : !top ? "—"
+                  : football.strategies.reduce((n, st) => n + st.meta.available_both_apis, 0)}
+                sub={top
+                  ? football.strategies
+                    .map((st) => `${st.meta.name.replace(" — 2025", "")}: ${st.meta.available_both_apis}`)
+                    .join(" · ")
+                  : "calendar 2025 · api-football × Polymarket"}
+              />
+              <MenuStat
+                title="Draws at 60'"
+                value={football === null ? "…" : s60 ? s60.draws : "—"}
+                sub={s60
+                  ? `big clubs: won ${s60.won} · drew ${s60.drew} · lost ${s60.lost}`
+                  : "level games at the hour"}
+              />
+              <MenuStat
+                title="Avg win price @60'"
+                value={football === null ? "…" : s60 ? `${s60.avg_price}¢` : "—"}
+                sub={s60
+                  ? `${s60.priced} games with usable price history`
+                  : "Polymarket, 1-minute history"}
+              />
+            </>
+          );
+        })()}
       </div>
 
       {football === false && (
@@ -181,7 +190,9 @@ export default function Backtesting() {
           Could not load the football study — is the backend up to date?
         </div>
       )}
-      {football && football.byMinute && <FootballDraw60 data={football} />}
+      {football && football.strategies && football.strategies.map((st) => (
+        <FootballDraw60 key={st.key} data={st} />
+      ))}
     </main>
   );
 }

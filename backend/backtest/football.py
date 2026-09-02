@@ -36,15 +36,25 @@ from backend.config.settings import settings
 CACHE = "/tmp/football_backtest_cache.json"
 RESULTS = "/tmp/football_backtest_results.json"
 
-# api-football team ids, in the client's own wording
-TEAMS = {
-    42: "Arsenal", 50: "Man City", 497: "Roma", 505: "Inter Milan",
-    541: "Real Madrid", 529: "Barcelona", 157: "Bayern Munich",
-}
-# tag slugs that carry the seven clubs' games, both generations
+# api-football team ids, in the client's own wording — two strategy cards
+GROUPS = [
+    {"key": "top", "name": "Draw at 60' — 2025", "teams": {
+        42: "Arsenal", 50: "Man City", 497: "Roma", 505: "Inter Milan",
+        541: "Real Madrid", 529: "Barcelona", 157: "Bayern Munich"}},
+    {"key": "other", "name": "Other Leagues — 2025", "teams": {
+        645: "Galatasaray", 611: "Fenerbahce",           # Turkey Super Lig
+        212: "Porto", 228: "Sporting CP", 211: "Benfica",  # Liga Portugal
+        85: "PSG",                                        # Ligue 1
+        197: "PSV",                                       # Eredivisie
+        247: "Celtic"}},                                  # Scotland
+]
+# tag slugs that carry the clubs' games, both generations (misses are skipped)
 GAMMA_TAGS = ["epl", "la-liga", "serie-a", "bundesliga", "champions-league",
               "ucl", "uel", "europa-league", "fifa-club-world-cup", "fa-cup",
-              "copa-del-rey", "dfb-pokal", "sea", "clf", "itc"]
+              "copa-del-rey", "dfb-pokal", "sea", "clf", "itc",
+              "fl1", "ere", "spl", "tur", "por",           # new-style prefixes
+              "ligue-1", "eredivisie", "primeira-liga", "liga-portugal",
+              "super-lig", "turkish-super-lig", "scottish-premiership"]
 
 ALIASES = {
     "man city": "manchester city", "inter milan": "inter", "inter": "inter",
@@ -53,6 +63,8 @@ ALIASES = {
     "psg": "paris saint germain", "man united": "manchester united",
     "man utd": "manchester united", "spurs": "tottenham",
     "atletico": "atletico madrid", "leverkusen": "bayer leverkusen",
+    "psv eindhoven": "psv", "sporting lisbon": "sporting",
+    "sporting clube de portugal": "sporting",
 }
 _NOISE = re.compile(r"\b(fc|cf|afc|ac|as|ss|ssc|sc|sv|vfb|vfl|tsg|rc|rcd|cd|cp|calcio|club)\b")
 _FULL_DATE = re.compile(r"(\d{4}-\d{2}-\d{2})$")
@@ -87,15 +99,15 @@ def _save_cache(c: dict):
 
 
 # ---------------------------------------------------------------- fixtures
-def fetch_fixtures(cache: dict) -> dict:
+def fetch_fixtures(cache: dict, teams: dict, cache_key: str) -> dict:
     """Finished calendar-2025 fixtures per club, all competitions."""
-    if "fixtures" in cache:
-        return cache["fixtures"]
+    if cache_key in cache:
+        return cache[cache_key]
     fb = httpx.Client(base_url="https://v3.football.api-sports.io",
                       headers={"x-apisports-key": settings.football_api_key},
                       timeout=30)
     out = {}
-    for tid, tname in TEAMS.items():
+    for tid, tname in teams.items():
         rows = []
         for season in (2024, 2025):
             r = fb.get("/fixtures", params={"team": tid, "season": season})
@@ -118,16 +130,18 @@ def fetch_fixtures(cache: dict) -> dict:
             time.sleep(1.2)
         out[tname] = rows
         print("  fixtures %-14s %d" % (tname, len(rows)))
-    cache["fixtures"] = out
+    cache[cache_key] = out
     _save_cache(cache)
     return out
 
 
 # ------------------------------------------------------------ poly events
 def fetch_poly_events(cache: dict) -> list:
-    """Every closed 2025 event under the soccer tags, both slug styles."""
-    if "events" in cache:
-        return cache["events"]
+    """Every closed 2025 event under the soccer tags, both slug styles.
+    Cache key bumps when GAMMA_TAGS grows so new leagues actually load."""
+    ck = "events:%d" % len(GAMMA_TAGS)
+    if ck in cache:
+        return cache[ck]
     g = httpx.Client(base_url="https://gamma-api.polymarket.com", timeout=30)
     events = {}
     for slug in GAMMA_TAGS:
@@ -152,7 +166,7 @@ def fetch_poly_events(cache: dict) -> list:
             time.sleep(0.15)
     out = list(events.values())
     print("  polymarket closed soccer events:", len(out))
-    cache["events"] = out
+    cache[ck] = out
     _save_cache(cache)
     return out
 
@@ -312,11 +326,12 @@ def price_at_minute(cache: dict, slug: str, team_title: str, kickoff_iso: str,
 MINUTES = [30, 45, 60, 70, 75, 80]   # the Adjust-settings choices in the UI
 
 
-def run_minute(minute: int, matched: dict, cache: dict, fb, g, clob) -> dict:
+def run_minute(minute: int, matched: dict, cache: dict, fb, g, clob,
+               teams: dict) -> dict:
     """One pass: every matched game LEVEL at `minute`, its regulation result,
     the club's win price at that moment, and P&L with and without fees
     ($100 flat, taker fee on the buy leg — settlement pays none)."""
-    team_ids = {v: k for k, v in TEAMS.items()}
+    team_ids = {v: k for k, v in teams.items()}
     teams = {}
     for tname, rows in matched.items():
         tid = team_ids[tname]
@@ -388,14 +403,17 @@ def run_minute(minute: int, matched: dict, cache: dict, fb, g, clob) -> dict:
     return {"summary": summary, "teams": teams}
 
 
+NOTE = ("Regulation result only (90'). Price = the club's win price at the "
+        "chosen minute of play (wall clock adds the 15' half-time past 45'), "
+        "CLOB 1-minute history. P&L = $100 flat per priced game; the "
+        "after-fees column charges Polymarket's sports taker fee on the buy "
+        "leg.")
+
+
 def run():
     cache = _load_cache()
-    print("[1/4] fixtures (api-football)")
-    fixtures = fetch_fixtures(cache)
-    print("[2/4] polymarket events")
+    print("[1/3] polymarket events")
     events = fetch_poly_events(cache)
-    print("[3/4] matching")
-    matched = match_events(fixtures, events)
 
     fb = httpx.Client(base_url="https://v3.football.api-sports.io",
                       headers={"x-apisports-key": settings.football_api_key},
@@ -403,25 +421,29 @@ def run():
     g = httpx.Client(base_url="https://gamma-api.polymarket.com", timeout=30)
     clob = httpx.Client(base_url="https://clob.polymarket.com", timeout=30)
 
-    print("[4/4] level-at-minute scans")
-    by_minute = {str(m): run_minute(m, matched, cache, fb, g, clob)
-                 for m in MINUTES}
-    out = {
-        "meta": {
-            "name": "Draw at 60' — 2025",
-            "year": 2025, "clubs": len(TEAMS),
-            "fixtures_2025": sum(len(r) for r in fixtures.values()),
-            "available_both_apis": sum(len(r) for r in matched.values()),
-            "minutes": MINUTES, "default_minute": 60,
-            "computed_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-            "note": ("Regulation result only (90'). Price = the club's win "
-                     "price at the chosen minute of play (wall clock adds the "
-                     "15' half-time past 45'), CLOB 1-minute history. P&L = "
-                     "$100 flat per priced game; the after-fees column charges "
-                     "Polymarket's sports taker fee on the buy leg."),
-        },
-        "byMinute": by_minute,
-    }
+    strategies = []
+    for grp in GROUPS:
+        print("[2/3] fixtures + matching: %s" % grp["name"])
+        fixtures = fetch_fixtures(cache, grp["teams"], "fixtures:" + grp["key"])
+        matched = match_events(fixtures, events)
+        print("[3/3] level-at-minute scans: %s" % grp["name"])
+        by_minute = {str(m): run_minute(m, matched, cache, fb, g, clob,
+                                        grp["teams"])
+                     for m in MINUTES}
+        strategies.append({
+            "key": grp["key"],
+            "meta": {
+                "name": grp["name"],
+                "year": 2025, "clubs": len(grp["teams"]),
+                "fixtures_2025": sum(len(r) for r in fixtures.values()),
+                "available_both_apis": sum(len(r) for r in matched.values()),
+                "minutes": MINUTES, "default_minute": 60,
+                "computed_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "note": NOTE,
+            },
+            "byMinute": by_minute,
+        })
+    out = {"strategies": strategies}
     json.dump(out, open(RESULTS, "w"), indent=1)
     print("\nresults ->", RESULTS)
     return out
