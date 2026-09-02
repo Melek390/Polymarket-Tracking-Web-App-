@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { T, card, page, btn, label, monoText } from "../theme.js";
 import StrategyCard from "../components/backtesting/StrategyCard.jsx";
 import FootballDraw60 from "../components/backtesting/FootballDraw60.jsx";
+import TennisSetOne from "../components/backtesting/TennisSetOne.jsx";
 import {
   fetchBacktestCorpus, fetchBacktestStrategies, fetchBackfillStatus,
-  fetchFootballBacktest,
+  fetchFootballBacktest, fetchTennisBacktest,
 } from "../api/client.js";
 
 // Backtesting — wired. Strategies and their params live server-side; a run is
@@ -28,7 +29,7 @@ function MenuStat({ title, value, sub }) {
 // page and coming back used to refetch everything from zero — a blank
 // "Loading…" on every visit. The cached copy paints immediately and the
 // fresh fetch replaces it underneath (same pattern as Screener/Accounts).
-const memo = { corpus: null, strategies: null, defaults: null, backfill: null, football: null };
+const memo = { corpus: null, strategies: null, defaults: null, backfill: null, football: null, tennis: null };
 
 // Section divider — the page now holds two sports, so each gets a banner.
 function SportHeader({ title, sub }) {
@@ -46,6 +47,7 @@ export default function Backtesting() {
   const [defaults, setDefaults] = useState(() => memo.defaults);
   const [backfill, setBackfill] = useState(() => memo.backfill);
   const [football, setFootball] = useState(() => memo.football);
+  const [tennis, setTennis] = useState(() => memo.tennis);
 
   useEffect(() => {
     fetchBacktestCorpus()
@@ -65,6 +67,9 @@ export default function Backtesting() {
     fetchFootballBacktest()
       .then((r) => { memo.football = r; setFootball(r); })
       .catch(() => setFootball((f) => f ?? false));
+    fetchTennisBacktest()
+      .then((r) => { memo.tennis = r; setTennis(r); })
+      .catch(() => setTennis((t) => t ?? false));
   }, []);
 
   return (
@@ -193,6 +198,41 @@ export default function Backtesting() {
       {football && football.strategies && football.strategies.map((st) => (
         <FootballDraw60 key={st.key} data={st} />
       ))}
+
+      <SportHeader title="Tennis" sub="slam studies over tennis-data.co.uk × Polymarket" />
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        {(() => {
+          const atp = tennis && tennis.byTour ? tennis.byTour.ATP.overall : null;
+          const wta = tennis && tennis.byTour ? tennis.byTour.WTA.overall : null;
+          return (
+            <>
+              <MenuStat
+                title="Qualifying spots"
+                value={tennis === null ? "…" : !atp ? "—" : atp.spots + wta.spots}
+                sub="60¢+ favorites who lost set one · 3 slams · 2020–2026"
+              />
+              <MenuStat
+                title="ATP recovery"
+                value={tennis === null ? "…" : atp ? `${atp.win_rate}%` : "—"}
+                sub={atp ? `${atp.spots} spots · best-of-5` : "favorite still won the match"}
+              />
+              <MenuStat
+                title="WTA recovery"
+                value={tennis === null ? "…" : wta ? `${wta.win_rate}%` : "—"}
+                sub={wta ? `${wta.spots} spots · best-of-3` : "favorite still won the match"}
+              />
+            </>
+          );
+        })()}
+      </div>
+
+      {tennis === false && (
+        <div style={{ fontSize: 13, color: T.red }}>
+          Could not load the tennis study — is the backend up to date?
+        </div>
+      )}
+      {tennis && tennis.byTour && <TennisSetOne data={tennis} />}
     </main>
   );
 }

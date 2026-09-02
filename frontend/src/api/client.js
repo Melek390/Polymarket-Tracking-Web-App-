@@ -162,6 +162,11 @@ export async function fetchFootballBacktest() {
   return request("/api/backtest/football");
 }
 
+// GET /api/backtest/tennis — slam favorites who lost set one, 2020-2026
+export async function fetchTennisBacktest() {
+  return request("/api/backtest/tennis");
+}
+
 // strategies + their saved params live server-side; defaults ride along so
 // "Restore defaults" has one source of truth
 export async function fetchBacktestStrategies() {

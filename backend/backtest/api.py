@@ -132,25 +132,37 @@ def bottom8_status():
 def favbackfill_status():
     return favhistory.status()
 
-_football: tuple[float, dict] | None = None   # (file mtime, parsed content)
+_frozen: dict[str, tuple[float, dict]] = {}   # filename -> (mtime, content)
+
+
+def _frozen_json(filename: str) -> dict:
+    """A bundled study file, cached against its mtime so a redeploy of just
+    the JSON is picked up WITHOUT a service restart — a forever-cache once
+    served a stale shape for hours after a data update."""
+    import json
+    import os
+    path = os.path.join(os.path.dirname(__file__), filename)
+    mtime = os.path.getmtime(path)
+    hit = _frozen.get(filename)
+    if hit is None or hit[0] != mtime:
+        with open(path, encoding="utf-8") as f:
+            _frozen[filename] = (mtime, json.load(f))
+    return _frozen[filename][1]
 
 
 @router.get("/football")
 def football():
     """The frozen 2025 football studies (backend/backtest/football.py wrote
     them once; the file ships with the app instead of re-polling two
-    external APIs on every visit). Cached against the file's mtime, so a
-    redeploy of just the JSON is picked up WITHOUT a service restart — a
-    forever-cache once served a stale shape for hours after a data update."""
-    global _football
-    import json
-    import os
-    path = os.path.join(os.path.dirname(__file__), "football_results.json")
-    mtime = os.path.getmtime(path)
-    if _football is None or _football[0] != mtime:
-        with open(path, encoding="utf-8") as f:
-            _football = (mtime, json.load(f))
-    return _football[1]
+    external APIs on every visit)."""
+    return _frozen_json("football_results.json")
+
+
+@router.get("/tennis")
+def tennis():
+    """The frozen slam tennis study 2020-2026 (backend/backtest/tennis.py):
+    60c+ favorites who lost the first set, ATP/WTA."""
+    return _frozen_json("tennis_results.json")
 
 
 MIN_TICKS = 1000
