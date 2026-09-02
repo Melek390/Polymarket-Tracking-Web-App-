@@ -290,6 +290,19 @@ export default function FootballDraw60({ data }) {
               </tbody>
             </table>
           </div>
+          <div style={{ ...monoText, fontSize: 13, marginTop: 10, fontWeight: 600 }}>
+            Invested {"$" + (s.priced * 100).toLocaleString("en-US")}
+            <span style={{ color: T.sub, fontWeight: 400 }}> ($100 × {s.priced} priced) · </span>
+            return {money(s.pnl100)}
+            <span style={{ color: s.pnl100 >= 0 ? T.green : T.red }}>
+              {" "}({s.priced ? (s.pnl100 >= 0 ? "+" : "−") + Math.abs((100 * s.pnl100) / (s.priced * 100)).toFixed(1) + "%" : "—"})
+            </span>
+            <span style={{ color: T.sub, fontWeight: 400 }}> · after fees </span>
+            {money(s.pnl100_fees)}
+            <span style={{ color: s.pnl100_fees >= 0 ? T.green : T.red }}>
+              {" "}({s.priced ? (s.pnl100_fees >= 0 ? "+" : "−") + Math.abs((100 * s.pnl100_fees) / (s.priced * 100)).toFixed(1) + "%" : "—"})
+            </span>
+          </div>
           <div style={{ fontSize: 11, color: T.faint, marginTop: 8 }}>
             {meta.note} {s.priced} of {s.draws} spots had usable price history; the
             rest count in the stats but not the P&amp;L. Polymarket listed

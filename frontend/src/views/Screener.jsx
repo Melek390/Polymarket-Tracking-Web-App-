@@ -76,8 +76,21 @@ const th = {
 
 const td = { ...monoText, fontSize: 13, padding: "9px 14px" };
 
-// soccer runs ~2 hours; give a match a 2.5h live window after kickoff
-const LIVE_WINDOW_MS = 2.5 * 60 * 60 * 1000;
+// How long after the LISTED start a match can still be running. Soccer is
+// ~2h, but slam tennis is best-of-5 AND often starts hours after its
+// scheduled court slot (earlier matches run long) — the Sep 1 US Open bug:
+// live matches tagged OVER, and their live price feed cut, 2.5h after a
+// slot they hadn't even started on time. A generous window only costs some
+// extra polling; a false OVER freezes prices and lies about the match.
+const LIVE_WINDOW_BY_SPORT = {
+  soccer: 2.5 * 3600 * 1000,
+  tennis: 7 * 3600 * 1000,       // delayed start + 5-setter headroom
+  esports: 5 * 3600 * 1000,      // a Bo5 series plus schedule slip
+  basketball: 3.5 * 3600 * 1000,
+  football: 4 * 3600 * 1000,     // NFL with overtime + TV stoppages
+  cricket: 9 * 3600 * 1000,      // an ODI runs most of a day
+};
+const liveWindowMs = (sport) => LIVE_WINDOW_BY_SPORT[sport] ?? 3 * 3600 * 1000;
 const STATUS_FILTERS = ["all", "soon", "live", "over"];
 const EMPTY_SET = new Set();
 const STATUS_META = {
@@ -92,11 +105,11 @@ const FB_LIVE = new Set(["1H", "HT", "2H", "ET", "P", "BT", "LIVE", "INT", "SUSP
 
 // Where a match sits in time, from its kickoff. Purely client-side so it
 // stays accurate between the 5-minute cache refreshes.
-function matchStatus(kickoff) {
+function matchStatus(kickoff, sport) {
   if (kickoff == null) return "soon";
   const now = Date.now();
   if (now < kickoff) return "soon";
-  if (now < kickoff + LIVE_WINDOW_MS) return "live";
+  if (now < kickoff + liveWindowMs(sport)) return "live";
   return "over";
 }
 
@@ -188,7 +201,7 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
       if (FB_OVER.has(st)) return "over";
       if (FB_LIVE.has(st)) return "live";
     }
-    return matchStatus(m.kickoff);
+    return matchStatus(m.kickoff, sport);
   };
   const statusOk = (m) =>
     statuses.length === 0 || statuses.includes(rowStatus(m));
@@ -348,7 +361,7 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
     let stop = false;
     async function tick() {
       const live = (data?.rows ?? []).filter(
-        (m) => m.kickoff && matchStatus(m.kickoff) === "live",
+        (m) => m.kickoff && matchStatus(m.kickoff, sport) === "live",
       );
       const res = await Promise.allSettled(live.map((m) => fetchLivePrice(m.slug)));
       if (stop) return;
@@ -442,7 +455,7 @@ export default function Screener({ sport, onSport, onTracked, onOpenHistory, mar
       // a finished match's prices are pinned, so it must never alert — and a
       // match that hasn't kicked off must not either (pre-game odds sit under
       // price thresholds for hours; client caught it on MLB, Aug 7)
-      const status = matchStatus(m.kickoff);
+      const status = matchStatus(m.kickoff, sport);
       const hit = rowAlerts.find((a) => matches(a, {
         prices, live: null, over: status === "over", notStarted: status === "soon",
       }));
